@@ -415,9 +415,9 @@ const ship = new THREE.Group();
 }
 scene.add(ship);
 
-// Ship starting position - 100km from planet
+// Ship starting position - 100km from planet, looking at planet
 const startDistance = toRender(SCALE.PLANET_RADIUS + 100);
-ship.position.set(startDistance, 0, 0);
+ship.position.set(0, 0, startDistance);
 ship.lookAt(0, 0, 0);
 
 // ==================== CAMERA SETUP ====================
