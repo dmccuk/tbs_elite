@@ -232,7 +232,7 @@ planet.add(clouds);
 // ==================== STATION ====================
 const station = new THREE.Group();
 {
-  const stationScale = toRender(SCALE.STATION_SIZE);
+  const stationScale = toRender(SCALE.STATION_SIZE * 20);
   
   // Main ring (bigger and more detailed)
   const ring = new THREE.Mesh(
@@ -263,7 +263,47 @@ const station = new THREE.Group();
   hub.rotation.z = Math.PI / 2;
   hub.castShadow = true;
   hub.receiveShadow = true;
+  // Industrial modules (cargo containers)
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2;
+    const module = new THREE.Mesh(
+      new THREE.BoxGeometry(stationScale * 0.4, stationScale * 0.3, stationScale * 0.6),
+      new THREE.MeshStandardMaterial({
+        color: 0x4a5a6a,
+        roughness: 0.8,
+        metalness: 0.5,
+        emissive: 0x1a2a3a,
+        emissiveIntensity: 0.1
+      })
+    );
+    module.position.set(
+      Math.cos(angle) * stationScale * 0.9,
+      0,
+      Math.sin(angle) * stationScale * 0.9
+    );
+    module.lookAt(0, 0, 0);
+    station.add(module);
+  }
 
+  // Communication arrays
+  for (let i = 0; i < 4; i++) {
+    const angle = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    const dish = new THREE.Mesh(
+      new THREE.CylinderGeometry(stationScale * 0.15, stationScale * 0.05, stationScale * 0.02, 16),
+      new THREE.MeshStandardMaterial({
+        color: 0x6a7a8a,
+        roughness: 0.3,
+        metalness: 0.9
+      })
+    );
+    dish.position.set(
+      Math.cos(angle) * stationScale * 0.85,
+      stationScale * 0.2,
+      Math.sin(angle) * stationScale * 0.85
+    );
+    dish.rotation.z = Math.PI / 2;
+    station.add(dish);
+  }
   // Solar panels
   for (let i = 0; i < 4; i++) {
     const angle = (i / 4) * Math.PI * 2;
@@ -560,14 +600,15 @@ function animate() {
   }
   
   // Station orbits planet
-  const st = elapsed * 0.05;
+  constant distance)
+  const st = elapsed * 0.0001; // SAME as planet orbit speed!
   const stationOrbitDist = toRender(SCALE.STATION_ORBIT);
   station.position.set(
     planet.position.x + Math.cos(st) * stationOrbitDist,
     planet.position.y + toRender(10),
     planet.position.z + Math.sin(st) * stationOrbitDist
   );
-  station.rotation.y += dt * 0.2;
+  station.rotation.y += dt * 0.05; // Slower rotation too
 
   // ==================== NEWTONIAN FLIGHT CONTROLS ====================
   // Throttle control
@@ -668,6 +709,8 @@ function animate() {
   // Update radar
   updateRadar();
 
+  drawStationMarker();
+
   renderer.render(scene, camera);
 }
 
@@ -756,6 +799,75 @@ function updateRadar() {
   );
   radarCtx.stroke();
 }
+
+function drawStationMarker() {
+  const canvas = renderer.domElement;
+  const distToStation = ship.position.distanceTo(station.position);
+  
+  // Get station position in screen space
+  const stationPos = station.position.clone();
+  stationPos.project(camera);
+  
+  // Check if station is in front of camera
+  if (stationPos.z > 1) return; // Behind camera
+  
+  // Convert to screen coordinates
+  const x = (stationPos.x * 0.5 + 0.5) * canvas.width;
+  const y = (-stationPos.y * 0.5 + 0.5) * canvas.height;
+  
+  // Only draw if on screen
+  if (x < 0 || x > canvas.width || y < 0 || y > canvas.height) return;
+  
+  // Create overlay canvas if it doesn't exist
+  let overlay = document.getElementById('station-marker-canvas') as HTMLCanvasElement;
+  if (!overlay) {
+    overlay = document.createElement('canvas');
+    overlay.id = 'station-marker-canvas';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.pointerEvents = 'none';
+    overlay.style.zIndex = '5';
+    document.body.appendChild(overlay);
+  }
+  
+  overlay.width = canvas.width;
+  overlay.height = canvas.height;
+  
+  const ctx = overlay.getContext('2d');
+  if (!ctx) return;
+  
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // Draw orange circle around station
+  ctx.strokeStyle = '#ff6600';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(x, y, 40, 0, Math.PI * 2);
+  ctx.stroke();
+  
+  // Draw corners
+  for (let i = 0; i < 4; i++) {
+    const angle = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    const cx = x + Math.cos(angle) * 50;
+    const cy = y + Math.sin(angle) * 50;
+    ctx.beginPath();
+    ctx.moveTo(cx - 10 * Math.cos(angle + Math.PI / 2), cy - 10 * Math.sin(angle + Math.PI / 2));
+    ctx.lineTo(cx + 10 * Math.cos(angle + Math.PI / 2), cy + 10 * Math.sin(angle + Math.PI / 2));
+    ctx.stroke();
+  }
+  
+  // Draw label
+  ctx.fillStyle = '#ff6600';
+  ctx.font = '14px Orbitron, monospace';
+  ctx.fillText('VIGILANT RELAY', x + 50, y - 10);
+  
+  // Draw distance
+  const distKm = toKm(distToStation);
+  ctx.font = '12px Share Tech Mono, monospace';
+  ctx.fillText(`${distKm.toFixed(1)}km`, x + 50, y + 5);
+}
+
 animate();
 
 // ==================== WINDOW RESIZE ====================
