@@ -492,6 +492,14 @@ function setKey(code: string, down: boolean) {
         console.log("Supercruise:", supercruiseActive ? "ENGAGED" : "DISENGAGED");
       }
       break;
+    case "KeyH":
+      if (down) {
+        const helpMenu = document.getElementById("help-menu");
+        if (helpMenu) {
+          helpMenu.classList.toggle("visible");
+        }
+      }
+      break;
   }
 }
 
