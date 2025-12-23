@@ -700,7 +700,7 @@ function animate() {
 const radarCanvas = document.getElementById("radar-canvas") as HTMLCanvasElement | null;
 const radarCtx = radarCanvas?.getContext("2d") || null;
 const radarRadius = 85;
-const radarRange = 5000; // km
+const radarRange = 50000; // km
 
 const radarObjects = [
   { name: "Vigilia Prime", ref: planet, type: "planet", color: "#3388ff" },
@@ -737,11 +737,11 @@ function updateRadar() {
     
     // DEBUG: Log distances (only once per second to avoid spam)
     if (Math.floor(clock.elapsedTime) !== Math.floor(clock.elapsedTime - 0.016)) {
-      console.log(`${obj.name}: ${distKm.toFixed(1)}km`);
+      //console.log(`${obj.name}: ${distKm.toFixed(1)}km`);
     }
     
     if (distKm > radarRange) {
-      console.log(`${obj.name} too far: ${distKm.toFixed(1)}km > ${radarRange}km`);
+      //console.log(`${obj.name} too far: ${distKm.toFixed(1)}km > ${radarRange}km`);
       return;
     }
     
@@ -749,7 +749,7 @@ function updateRadar() {
     const x = 90 + (relPos.x * radarScale * 100);
     const y = 90 - (relPos.z * radarScale * 100);
     
-    console.log(`Drawing ${obj.name} at radar pos (${x.toFixed(1)}, ${y.toFixed(1)})`);
+    //console.log(`Drawing ${obj.name} at radar pos (${x.toFixed(1)}, ${y.toFixed(1)})`);
     
     radarCtx.fillStyle = obj.color;
     radarCtx.beginPath();
