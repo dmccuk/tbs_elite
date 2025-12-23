@@ -359,6 +359,82 @@
       #start-message.hidden {
         display: none;
       }
+      /* Help Menu */
+      #help-menu {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 500px;
+        max-height: 600px;
+        background: rgba(0, 20, 15, 0.98);
+        border: 3px solid #00ff88;
+        padding: 20px;
+        box-shadow: 0 0 30px rgba(0, 255, 136, 0.5);
+        display: none;
+        pointer-events: auto;
+        overflow-y: auto;
+        z-index: 1000;
+      }
+      
+      #help-menu.visible {
+        display: block;
+      }
+      
+      #help-menu h2 {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 18px;
+        margin-bottom: 15px;
+        color: #ffaa00;
+        text-align: center;
+        text-shadow: 0 0 10px rgba(255, 170, 0, 0.8);
+      }
+      
+      .help-section {
+        margin-bottom: 20px;
+      }
+      
+      .help-section h3 {
+        font-size: 14px;
+        color: #00ff88;
+        margin-bottom: 8px;
+        border-bottom: 1px solid rgba(0, 255, 136, 0.3);
+        padding-bottom: 4px;
+      }
+      
+      .help-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 0;
+        font-size: 12px;
+      }
+      
+      .help-key {
+        color: #ffaa00;
+        font-weight: 700;
+      }
+      
+      .help-desc {
+        color: #88ffcc;
+      }
+      
+      .help-close {
+        margin-top: 15px;
+        padding: 8px 20px;
+        background: rgba(0, 255, 136, 0.2);
+        border: 1px solid #00ff88;
+        color: #00ff88;
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 12px;
+        cursor: pointer;
+        width: 100%;
+        transition: all 0.2s;
+      }
+      
+      .help-close:hover {
+        background: rgba(0, 255, 136, 0.4);
+        box-shadow: 0 0 10px rgba(0, 255, 136, 0.6);
+      }
     </style>
   </head>
   <body>
@@ -386,6 +462,27 @@
           </div>
         </div>
       </div>
+
+      <!-- Help Menu -->
+      <div id="help-menu">
+        <h2>═══ CONTROLS & FUNCTIONS ═══</h2>
+        <div class="help-section">
+          <h3>Flight Controls</h3>
+          <div class="help-row"><span class="help-key">W / S</span><span class="help-desc">Throttle Up / Down</span></div>
+          <div class="help-row"><span class="help-key">← / →</span><span class="help-desc">Yaw Left / Right</span></div>
+          <div class="help-row"><span class="help-key">↑ / ↓</span><span class="help-desc">Pitch Up / Down</span></div>
+          <div class="help-row"><span class="help-key">Q / E</span><span class="help-desc">Roll Left / Right</span></div>
+          <div class="help-row"><span class="help-key">Space</span><span class="help-desc">Brake (Full Stop)</span></div>
+          <div class="help-row"><span class="help-key">Shift</span><span class="help-desc">Boost (Temporary)</span></div>
+        </div>
+        <div class="help-section">
+          <h3>Advanced Systems</h3>
+          <div class="help-row"><span class="help-key">F</span><span class="help-desc">Toggle Flight Assist</span></div>
+          <div class="help-row"><span class="help-key">J</span><span class="help-desc">Toggle Supercruise</span></div>
+          <div class="help-row"><span class="help-key">H</span><span class="help-desc">Toggle Help Menu</span></div>
+        </div>
+        <button class="help-close" id="help-close">CLOSE [H]</button>
+      </div>
       
       <!-- Top right instruments -->
       <div id="instruments">
@@ -399,6 +496,11 @@
           <div class="instrument-value" id="throttle-value">20</div>
           <div class="instrument-unit">%</div>
         </div>
+      </div>
+      
+      <!-- Help hint -->
+      <div style="position: absolute; top: 20px; right: 20px; font-size: 11px; opacity: 0.6; margin-top: 100px;">
+        Press <span style="color: #ffaa00; font-weight: 700;">[H]</span> for Controls
       </div>
       
       <!-- Center crosshair -->
