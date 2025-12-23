@@ -415,9 +415,9 @@ const ship = new THREE.Group();
 }
 scene.add(ship);
 
-// Ship starting position - 100km from planet, looking at planet
+// Ship starting position - 100km from planet
 const startDistance = toRender(SCALE.PLANET_RADIUS + 100);
-ship.position.set(0, 0, startDistance);
+ship.position.set(startDistance, 0, 0);
 ship.lookAt(0, 0, 0);
 
 // ==================== CAMERA SETUP ====================
@@ -474,8 +474,8 @@ function setKey(code: string, down: boolean) {
     case "Space": inputs.brake = down; break;
     case "ShiftLeft":
     case "ShiftRight": inputs.boost = down; break;
-    case "ArrowLeft": inputs.yawR = down; break;
-    case "ArrowRight": inputs.yawL = down; break;
+    case "ArrowLeft": inputs.yawL = down; break;
+    case "ArrowRight": inputs.yawR = down; break;
     case "ArrowUp": inputs.pitchU = down; break;
     case "ArrowDown": inputs.pitchD = down; break;
     case "KeyQ": inputs.rollL = down; break;
@@ -680,7 +680,6 @@ function animate() {
     throttleBar.classList.remove("boost");
   }
 
-  // Update radar and altitude
   updateRadar();
   if (altitudeValue) {
     const distToPlanet = toKm(ship.position.distanceTo(planet.position)) - SCALE.PLANET_RADIUS;
@@ -690,6 +689,7 @@ function animate() {
 
   renderer.render(scene, camera);
 }
+
 
 // ==================== RADAR & TARGET SYSTEM ====================
 const radarCanvas = document.getElementById("radar-canvas") as HTMLCanvasElement | null;
@@ -707,15 +707,12 @@ let selectedTarget: any = null;
 
 function updateRadar() {
   if (!radarCtx || !radarCanvas) return;
-  
   radarCtx.fillStyle = "rgba(0, 20, 15, 0.5)";
   radarCtx.fillRect(0, 0, 180, 180);
-  
   radarCtx.fillStyle = "#00ff88";
   radarCtx.beginPath();
   radarCtx.arc(90, 90, 3, 0, Math.PI * 2);
   radarCtx.fill();
-  
   radarCtx.strokeStyle = "rgba(0, 255, 136, 0.2)";
   radarCtx.lineWidth = 1;
   for (let i = 1; i <= 3; i++) {
@@ -723,21 +720,17 @@ function updateRadar() {
     radarCtx.arc(90, 90, (radarRadius / 3) * i, 0, Math.PI * 2);
     radarCtx.stroke();
   }
-  
   radarObjects.forEach(obj => {
     const relPos = obj.ref.position.clone().sub(ship.position);
     const distKm = toKm(relPos.length());
     if (distKm > radarRange) return;
-    
     const radarScale = radarRadius / radarRange;
     const x = 90 + (relPos.x * radarScale * 100);
     const y = 90 - (relPos.z * radarScale * 100);
-    
     radarCtx!.fillStyle = obj.color;
     radarCtx!.beginPath();
     radarCtx!.arc(x, y, obj === selectedTarget ? 5 : 3, 0, Math.PI * 2);
     radarCtx!.fill();
-    
     if (obj === selectedTarget) {
       radarCtx!.strokeStyle = "#ffaa00";
       radarCtx!.lineWidth = 2;
@@ -746,7 +739,6 @@ function updateRadar() {
       radarCtx!.stroke();
     }
   });
-  
   const sweepAngle = (clock.elapsedTime * 2) % (Math.PI * 2);
   radarCtx.strokeStyle = "rgba(0, 255, 136, 0.3)";
   radarCtx.lineWidth = 1;
@@ -760,9 +752,7 @@ function updateTargetInfo() {
   const targetName = document.getElementById("target-name");
   const targetData = document.getElementById("target-data");
   const gotoButton = document.getElementById("goto-button");
-  
   if (!targetName || !targetData || !gotoButton) return;
-  
   if (selectedTarget) {
     const distKm = toKm(ship.position.distanceTo(selectedTarget.ref.position));
     targetName.textContent = selectedTarget.name;
@@ -780,26 +770,21 @@ radarCanvas?.addEventListener("click", (e) => {
   const rect = radarCanvas.getBoundingClientRect();
   const clickX = ((e.clientX - rect.left) / rect.width) * 180;
   const clickY = ((e.clientY - rect.top) / rect.height) * 180;
-  
   let closestObj: any = null;
   let closestDist = 15;
-  
   radarObjects.forEach(obj => {
     const relPos = obj.ref.position.clone().sub(ship.position);
     const distKm = toKm(relPos.length());
     if (distKm > radarRange) return;
-    
     const radarScale = radarRadius / radarRange;
     const x = 90 + (relPos.x * radarScale * 100);
     const y = 90 - (relPos.z * radarScale * 100);
-    
     const dist = Math.sqrt((x - clickX) ** 2 + (y - clickY) ** 2);
     if (dist < closestDist) {
       closestDist = dist;
       closestObj = obj;
     }
   });
-  
   if (closestObj) {
     selectedTarget = closestObj;
     updateTargetInfo();
