@@ -557,9 +557,9 @@ const maxDecel = 0.001;  // km/s² (1 m/s²)
 const rotationDamping = 0.92; // How quickly rotation slows
 const velocityDamping = 0.9995; // Slight space friction for gameplay
 
-const yawRate = 0.8;
-const pitchRate = 0.7;
-const rollRate = 1.5;
+const yawRate = 0.3;
+const pitchRate = 0.3;
+const rollRate = 0.65;
 
 // ==================== HUD ELEMENTS ====================
 const speedValue = document.getElementById("speed-value")!;
@@ -807,12 +807,15 @@ function drawStationMarker() {
   const stationPos = station.position.clone();
   stationPos.project(camera);
   
-  // Check if station is in front of camera
+  // Check if station is in front of camera (z should be between -1 and 1 after projection)
   if (stationPos.z > 1) return; // Behind camera
   
-  // Convert to screen coordinates
-  const x = (stationPos.x * 0.5 + 0.5) * canvas.width;
-  const y = (-stationPos.y * 0.5 + 0.5) * canvas.height;
+  // Convert to screen coordinates using clientWidth/clientHeight for accuracy
+  const x = (stationPos.x * 0.5 + 0.5) * canvas.clientWidth;
+  const y = (-stationPos.y * 0.5 + 0.5) * canvas.clientHeight;
+  
+  // Check if on screen
+  if (x < 0 || x > canvas.clientWidth || y < 0 || y > canvas.clientHeight) return;
   
   // Only draw if on screen
   if (x < 0 || x > canvas.width || y < 0 || y > canvas.height) return;
@@ -827,11 +830,14 @@ function drawStationMarker() {
     overlay.style.left = '0';
     overlay.style.pointerEvents = 'none';
     overlay.style.zIndex = '5';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
     document.body.appendChild(overlay);
   }
   
-  overlay.width = canvas.width;
-  overlay.height = canvas.height;
+  // Match canvas size to window
+  overlay.width = canvas.clientWidth;
+  overlay.height = canvas.clientHeight;
   
   const ctx = overlay.getContext('2d');
   if (!ctx) return;
