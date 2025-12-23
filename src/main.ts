@@ -416,7 +416,7 @@ const ship = new THREE.Group();
 scene.add(ship);
 
 // Ship starting position - start at planet's orbit position + altitude
-const startDistance = toRender(SCALE.PLANET_RADIUS + 400); // 400km altitude
+const startDistance = toRender(SCALE.PLANET_RADIUS + 4000); // 400km altitude
 // Planet starts at (PLANET_ORBIT, 0, 0) when t=0, so position ship there
 ship.position.set(toRender(SCALE.PLANET_ORBIT) + startDistance, 0, 0);
 ship.lookAt(toRender(SCALE.PLANET_ORBIT), 0, 0);
@@ -734,11 +734,22 @@ function updateRadar() {
   radarObjects.forEach(obj => {
     const relPos = obj.ref.position.clone().sub(ship.position);
     const distKm = toKm(relPos.length());
-    if (distKm > radarRange) return;
+    
+    // DEBUG: Log distances (only once per second to avoid spam)
+    if (Math.floor(clock.elapsedTime) !== Math.floor(clock.elapsedTime - 0.016)) {
+      console.log(`${obj.name}: ${distKm.toFixed(1)}km`);
+    }
+    
+    if (distKm > radarRange) {
+      console.log(`${obj.name} too far: ${distKm.toFixed(1)}km > ${radarRange}km`);
+      return;
+    }
     
     const radarScale = radarRadius / radarRange;
     const x = 90 + (relPos.x * radarScale * 100);
     const y = 90 - (relPos.z * radarScale * 100);
+    
+    console.log(`Drawing ${obj.name} at radar pos (${x.toFixed(1)}, ${y.toFixed(1)})`);
     
     radarCtx.fillStyle = obj.color;
     radarCtx.beginPath();
