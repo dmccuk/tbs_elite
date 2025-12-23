@@ -232,7 +232,7 @@ planet.add(clouds);
 // ==================== STATION ====================
 const station = new THREE.Group();
 {
-  const stationScale = toRender(SCALE.STATION_SIZE * 20);
+  const stationScale = toRender(SCALE.STATION_SIZE * 100);
   
   // Main ring (bigger and more detailed)
   const ring = new THREE.Mesh(
