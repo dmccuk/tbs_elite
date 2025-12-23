@@ -557,9 +557,9 @@
     <!-- Bottom Control Panel -->
     <div id="bottom-panel">
       <!-- Radar (left side) -->
-      <div class="panel-section" style="width: 200px; height: 140px; padding: 8px;">
-        <div class="panel-label">Proximity Radar</div>
-        <canvas id="radar-canvas" width="180" height="110" style="width: 100%; height: 100%;"></canvas>
+      <div class="panel-section" style="width: 190px; height: 140px; padding: 6px;">
+        <div class="panel-label" style="margin-bottom: 2px;">Proximity Radar</div>
+        <canvas id="radar-canvas" width="170" height="100" style="width: 100%; height: calc(100% - 15px); display: block;"></canvas>
       </div>
       
       <!-- Velocity -->
@@ -585,7 +585,8 @@
       
       <!-- Target Info (right side) -->
       <div class="panel-section panel-target">
-        <div class="target-name-large" id="target-name">NO TARGET</div>
+        <div class="target-name-large" id="target-name">VIGILANT RELAY</div>
+
         <div class="target-data-row">
           <span style="opacity: 0.6;">Distance:</span> <span id="target-dist">—</span>
         </div>
