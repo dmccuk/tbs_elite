@@ -233,107 +233,79 @@
         border-top: none;
       }
       
-      /* Bottom HUD bar */
-      #bottom-bar {
-        position: absolute;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
+      /* New Bottom Control Panel */
+      #bottom-panel {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 180px;
+        background: linear-gradient(to top, rgba(10, 15, 20, 0.98), transparent);
+        pointer-events: none;
         display: flex;
-        gap: 30px;
         align-items: flex-end;
+        justify-content: space-between;
+        padding: 20px 40px;
+        gap: 20px;
+        z-index: 11;
       }
       
-      .bar-section {
-        text-align: center;
-      }
-      
-      .bar-label {
-        font-size: 10px;
-        opacity: 0.7;
-        margin-bottom: 4px;
-        letter-spacing: 1px;
-      }
-      
-      .bar-container {
-        width: 140px;
-        height: 20px;
+      .panel-section {
         border: 2px solid #00ff88;
-        background: rgba(0, 0, 0, 0.8);
-        position: relative;
-        overflow: hidden;
+        background: rgba(0, 20, 15, 0.95);
+        padding: 12px 16px;
+        box-shadow: 
+          0 0 20px rgba(0, 255, 136, 0.3),
+          inset 0 0 20px rgba(0, 255, 136, 0.05);
+        min-width: 140px;
       }
       
-      .bar-fill {
-        height: 100%;
-        background: linear-gradient(90deg, #00ff88, #00cc66);
-        box-shadow: 0 0 10px rgba(0, 255, 136, 0.6);
-        transition: width 0.2s ease-out;
+      .panel-label {
+        font-size: 9px;
+        opacity: 0.7;
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+        text-transform: uppercase;
       }
       
-      .bar-fill.boost {
-        background: linear-gradient(90deg, #ffaa00, #ff6600);
-        box-shadow: 0 0 10px rgba(255, 170, 0, 0.6);
-        animation: pulse 0.3s infinite;
+      .panel-value {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 32px;
+        font-weight: 700;
+        line-height: 1;
+        color: #00ff88;
+      }
+      
+      .panel-unit {
+        font-size: 12px;
+        opacity: 0.8;
+        margin-top: 2px;
+      }
+      
+      .panel-target {
+        flex: 1;
+        max-width: 400px;
+      }
+      
+      .target-name-large {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 16px;
+        font-weight: 700;
+        color: #ffaa00;
+        margin-bottom: 6px;
+      }
+      
+      .target-data-row {
+        font-size: 11px;
+        color: #88ffcc;
+        line-height: 1.6;
       }
       
       @keyframes pulse {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.7; }
       }
-      
-      /* Controls hint */
-      #controls {
-        position: absolute;
-        bottom: 20px;
-        left: 20px;
-        font-size: 11px;
-        opacity: 0.6;
-        line-height: 1.8;
-        max-width: 300px;
-        background: rgba(0, 0, 0, 0.6);
-        padding: 10px;
-        border: 1px solid rgba(0, 255, 136, 0.3);
-      }
-      
-      #controls .key {
-        display: inline-block;
-        background: rgba(0, 255, 136, 0.2);
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-weight: 700;
-        margin: 0 2px;
-      }
-      
-      /* Target info */
-      #target-info {
-        position: absolute;
-        right: 20px;
-        bottom: 20px;
-        border: 2px solid #00ff88;
-        background: rgba(0, 0, 0, 0.8);
-        padding: 12px;
-        min-width: 200px;
-        box-shadow: 
-          0 0 20px rgba(0, 255, 136, 0.3),
-          inset 0 0 20px rgba(0, 255, 136, 0.05);
-      }
-      
-      #target-info .target-name {
-        font-family: 'Orbitron', sans-serif;
-        font-size: 14px;
-        font-weight: 700;
-        margin-bottom: 6px;
-        color: #ffaa00;
-        text-shadow: 0 0 8px rgba(255, 170, 0, 0.7);
-      }
-      
-      #target-info .target-data {
-        font-size: 12px;
-        line-height: 1.6;
-        color: #88ffcc;
-      }
-      
+            
       /* Click to start message */
       #start-message {
         position: absolute;
@@ -434,20 +406,6 @@
       .help-close:hover {
         background: rgba(0, 255, 136, 0.4);
         box-shadow: 0 0 10px rgba(0, 255, 136, 0.6);
-      }
-      /* Radar Display */
-      #radar-container {
-        position: absolute;
-        left: 20px;
-        bottom: 280px;
-        width: 180px;
-        height: 180px;
-        border: 2px solid #00ff88;
-        background: rgba(0, 20, 15, 0.9);
-        box-shadow: 
-          0 0 20px rgba(0, 255, 136, 0.4),
-          inset 0 0 30px rgba(0, 255, 136, 0.1);
-        pointer-events: auto;
       }
       
       #radar-canvas {
@@ -559,11 +517,6 @@
           </div>
         </div>
       </div>
-      <!-- Radar -->
-      <div id="radar-container">
-        <div id="radar-label">PROXIMITY RADAR</div>
-        <canvas id="radar-canvas" width="180" height="180"></canvas>
-      </div>
       
       <!-- Help Menu -->
       <div id="help-menu">
@@ -586,25 +539,12 @@
         <button class="help-close" id="help-close">CLOSE [H]</button>
       </div>
       
-      <!-- Top right instruments -->
-      <div id="instruments">
-        <div class="instrument">
-          <div class="instrument-label">SPEED</div>
-          <div class="instrument-value" id="speed-value">0</div>
-          <div class="instrument-unit">m/s</div>
-        </div>
-        <div class="instrument">
-          <div class="instrument-label">THROTTLE</div>
-          <div class="instrument-value" id="throttle-value">20</div>
-          <div class="instrument-unit">%</div>
-        </div>
-      </div>
-      
       <!-- Help hint -->
       <div style="position: absolute; top: 20px; right: 20px; font-size: 11px; opacity: 0.6; margin-top: 100px;">
         Press <span style="color: #ffaa00; font-weight: 700;">[H]</span> for Controls
       </div>
       
+      <!-- Center crosshair -->
       <!-- Center crosshair -->
       <div id="crosshair">
         <div class="crosshair-corner"></div>
@@ -612,108 +552,51 @@
         <div class="crosshair-corner"></div>
         <div class="crosshair-corner"></div>
       </div>
-      
-      <!-- Bottom bar with speed/throttle -->
-      <div id="bottom-bar">
-        <div class="bar-section">
-          <div class="bar-label">VELOCITY</div>
-          <div class="bar-container">
-            <div class="bar-fill" id="speed-bar"></div>
-          </div>
-        </div>
-        <div class="bar-section">
-          <div class="bar-label">POWER</div>
-          <div class="bar-container">
-            <div class="bar-fill" id="throttle-bar"></div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Controls -->
-      <div id="controls">
-        <span class="key">W</span>/<span class="key">S</span> Throttle
-        <span class="key">↑</span>/<span class="key">↓</span> Pitch
-        <span class="key">←</span>/<span class="key">→</span> Yaw<br>
-        <span class="key">Q</span>/<span class="key">E</span> Roll
-        <span class="key">Space</span> Brake
-        <span class="key">Shift</span> Boost<br>
-        <span class="key">F</span> Flight Assist
-        <span class="key">J</span> Supercruise
-      </div>
-      
-      <!-- Target info -->
-      <div id="target-info">
-        <div class="target-name" id="target-name">VIGILANT RELAY</div>
-        <div class="target-data">
-          <div>Distance: <span id="target-dist">0</span></div>
-          <div>Type: Orbital Station</div>
-          <div>Orbit: 400km from planet</div>
-          <div style="margin-top: 4px; color: #00ff88;">⬤ Docking Available</div>
-        </div>
-      </div>
     </div>
     
-    <!-- Cockpit Frame Overlay -->
-    <div id="cockpit-frame">
-      <!-- Top edge -->
-      <div class="cockpit-edge cockpit-top">
-        <div class="cockpit-panel-line" style="top: 30px; left: 100px; right: 100px;"></div>
-        <div class="cockpit-rivet" style="top: 28px; left: 90px;"></div>
-        <div class="cockpit-rivet" style="top: 28px; right: 90px;"></div>
+    <!-- Bottom Control Panel -->
+    <div id="bottom-panel">
+      <!-- Radar (left side) -->
+      <div class="panel-section" style="width: 200px; height: 140px; padding: 8px;">
+        <div class="panel-label">Proximity Radar</div>
+        <canvas id="radar-canvas" width="180" height="110" style="width: 100%; height: 100%;"></canvas>
       </div>
       
-      <!-- Bottom edge -->
-      <div class="cockpit-edge cockpit-bottom">
-        <div class="cockpit-panel-line" style="bottom: 100px; left: 150px; right: 150px;"></div>
-        <div class="cockpit-rivet" style="bottom: 98px; left: 140px;"></div>
-        <div class="cockpit-rivet" style="bottom: 98px; right: 140px;"></div>
+      <!-- Velocity -->
+      <div class="panel-section">
+        <div class="panel-label">Velocity</div>
+        <div class="panel-value" id="speed-value">0</div>
+        <div class="panel-unit">m/s</div>
       </div>
       
-      <!-- Left edge -->
-      <div class="cockpit-edge cockpit-left">
-        <div class="cockpit-panel-line" style="top: 100px; left: 20px; right: 0; width: 30px;"></div>
-        <div class="cockpit-rivet" style="top: 98px; left: 18px;"></div>
-        <div class="cockpit-rivet" style="top: 200px; left: 18px;"></div>
-        <div class="cockpit-rivet" style="top: 300px; left: 18px;"></div>
+      <!-- Throttle -->
+      <div class="panel-section">
+        <div class="panel-label">Throttle</div>
+        <div class="panel-value" id="throttle-value">0</div>
+        <div class="panel-unit">%</div>
       </div>
       
-      <!-- Right edge -->
-      <div class="cockpit-edge cockpit-right">
-        <div class="cockpit-panel-line" style="top: 100px; right: 20px; left: 0; width: 30px;"></div>
-        <div class="cockpit-rivet" style="top: 98px; right: 18px;"></div>
-        <div class="cockpit-rivet" style="top: 200px; right: 18px;"></div>
-        <div class="cockpit-rivet" style="top: 300px; right: 18px;"></div>
+      <!-- Altitude -->
+      <div class="panel-section">
+        <div class="panel-label">Altitude</div>
+        <div class="panel-value" id="altitude-value">0</div>
+        <div class="panel-unit">km</div>
       </div>
       
-      <!-- Corner braces (top left) -->
-      <svg style="position: absolute; top: 60px; left: 40px; width: 60px; height: 60px;">
-        <line x1="0" y1="60" x2="0" y2="20" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-        <line x1="0" y1="20" x2="20" y2="0" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-        <line x1="20" y1="0" x2="60" y2="0" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-      </svg>
-      
-      <!-- Corner braces (top right) -->
-      <svg style="position: absolute; top: 60px; right: 40px; width: 60px; height: 60px;">
-        <line x1="60" y1="60" x2="60" y2="20" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-        <line x1="60" y1="20" x2="40" y2="0" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-        <line x1="40" y1="0" x2="0" y2="0" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-      </svg>
-      
-      <!-- Corner braces (bottom left) -->
-      <svg style="position: absolute; bottom: 130px; left: 40px; width: 60px; height: 60px;">
-        <line x1="0" y1="0" x2="0" y2="40" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-        <line x1="0" y1="40" x2="20" y2="60" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-        <line x1="20" y1="60" x2="60" y2="60" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-      </svg>
-      
-      <!-- Corner braces (bottom right) -->
-      <svg style="position: absolute; bottom: 130px; right: 40px; width: 60px; height: 60px;">
-        <line x1="60" y1="0" x2="60" y2="40" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-        <line x1="60" y1="40" x2="40" y2="60" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-        <line x1="40" y1="60" x2="0" y2="60" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-      </svg>
-    </div>
-    
+      <!-- Target Info (right side) -->
+      <div class="panel-section panel-target">
+        <div class="target-name-large" id="target-name">NO TARGET</div>
+        <div class="target-data-row">
+          <span style="opacity: 0.6;">Distance:</span> <span id="target-dist">—</span>
+        </div>
+        <div class="target-data-row">
+          <span style="opacity: 0.6;">Type:</span> <span id="target-type">—</span>
+        </div>
+        <div class="target-data-row">
+          <span style="opacity: 0.6;">Status:</span> <span style="color: #00ff88;">⬤ Available</span>
+        </div>
+      </div>
+    </div>    
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
