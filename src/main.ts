@@ -500,9 +500,6 @@ function setKey(code: string, down: boolean) {
         }
       }
       break;
-      if (down) {
-        supercruiseActive = !supercruiseActive;
-        console.log("Supercruise:", supercruiseActive ? "ENGAGED" : "DISENGAGED");
       }
       break;
   }
@@ -696,15 +693,6 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-animate();
-
-// ==================== WINDOW RESIZE ====================
-window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
 // ==================== RADAR & TARGET SYSTEM ====================
 const radarCanvas = document.getElementById("radar-canvas") as HTMLCanvasElement | null;
 const radarCtx = radarCanvas?.getContext("2d") || null;
@@ -837,3 +825,12 @@ document.getElementById("help-close")?.addEventListener("click", () => {
 });
 
 const altitudeValue = document.getElementById("altitude-value");
+
+animate();
+
+// ==================== WINDOW RESIZE ====================
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
