@@ -569,8 +569,6 @@ const rollRate = 0.65;
 // ==================== HUD ELEMENTS ====================
 const speedValue = document.getElementById("speed-value")!;
 const throttleValue = document.getElementById("throttle-value")!;
-const speedBar = document.getElementById("speed-bar")!;
-const throttleBar = document.getElementById("throttle-bar")!;
 const targetDist = document.getElementById("target-dist")!;
 
 // ==================== ANIMATION LOOP ====================
@@ -712,12 +710,6 @@ function animate() {
     targetType.textContent = "Orbital Station";
   }
   
-  if (inputs.boost || supercruiseActive) {
-    throttleBar.classList.add("boost");
-  } else {
-    throttleBar.classList.remove("boost");
-  }
-
   // Update radar
   updateRadar();
 
