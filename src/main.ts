@@ -695,9 +695,17 @@ function animate() {
     `${(distToStation * 1000).toFixed(0)}m` : 
     `${distToStation.toFixed(1)}km`;
   
-  // Update bars
-  speedBar.style.width = `${(speed / currentMaxSpeed) * 100}%`;
-  throttleBar.style.width = `${throttle * 100}%`;
+  // Update altitude display
+  const altitudeValue = document.getElementById("altitude-value");
+  if (altitudeValue) {
+    altitudeValue.textContent = Math.round(distToPlanet).toString();
+  }
+  
+  // Update target info
+  const targetType = document.getElementById("target-type");
+  if (targetType) {
+    targetType.textContent = "Orbital Station";
+  }
   
   if (inputs.boost || supercruiseActive) {
     throttleBar.classList.add("boost");
