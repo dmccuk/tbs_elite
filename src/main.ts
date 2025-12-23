@@ -680,7 +680,73 @@ function animate() {
     throttleBar.classList.remove("boost");
   }
 
+  // Update radar
+  updateRadar();
+
   renderer.render(scene, camera);
+}
+
+// ==================== RADAR SYSTEM ====================
+const radarCanvas = document.getElementById("radar-canvas") as HTMLCanvasElement | null;
+const radarCtx = radarCanvas?.getContext("2d") || null;
+const radarRadius = 85;
+const radarRange = 500; // km
+
+const radarObjects = [
+  { name: "Vigilia Prime", ref: planet, type: "planet", color: "#3388ff" },
+  { name: "Vigilant Relay", ref: station, type: "station", color: "#00ff88" },
+  { name: "Sun", ref: sun, type: "star", color: "#ffdd88" }
+];
+
+function updateRadar() {
+  if (!radarCtx || !radarCanvas) return;
+  
+  // Clear and fill background
+  radarCtx.fillStyle = "rgba(0, 20, 15, 0.5)";
+  radarCtx.fillRect(0, 0, 180, 180);
+  
+  // Draw ship center dot
+  radarCtx.fillStyle = "#00ff88";
+  radarCtx.beginPath();
+  radarCtx.arc(90, 90, 3, 0, Math.PI * 2);
+  radarCtx.fill();
+  
+  // Draw range rings
+  radarCtx.strokeStyle = "rgba(0, 255, 136, 0.2)";
+  radarCtx.lineWidth = 1;
+  for (let i = 1; i <= 3; i++) {
+    radarCtx.beginPath();
+    radarCtx.arc(90, 90, (radarRadius / 3) * i, 0, Math.PI * 2);
+    radarCtx.stroke();
+  }
+  
+  // Draw objects
+  radarObjects.forEach(obj => {
+    const relPos = obj.ref.position.clone().sub(ship.position);
+    const distKm = toKm(relPos.length());
+    if (distKm > radarRange) return;
+    
+    const radarScale = radarRadius / radarRange;
+    const x = 90 + (relPos.x * radarScale * 100);
+    const y = 90 - (relPos.z * radarScale * 100);
+    
+    radarCtx.fillStyle = obj.color;
+    radarCtx.beginPath();
+    radarCtx.arc(x, y, 3, 0, Math.PI * 2);
+    radarCtx.fill();
+  });
+  
+  // Sweeping radar line
+  const sweepAngle = (clock.elapsedTime * 2) % (Math.PI * 2);
+  radarCtx.strokeStyle = "rgba(0, 255, 136, 0.3)";
+  radarCtx.lineWidth = 1;
+  radarCtx.beginPath();
+  radarCtx.moveTo(90, 90);
+  radarCtx.lineTo(
+    90 + Math.cos(sweepAngle) * radarRadius,
+    90 + Math.sin(sweepAngle) * radarRadius
+  );
+  radarCtx.stroke();
 }
 
 animate();
