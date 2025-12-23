@@ -748,7 +748,7 @@ function updateRadar() {
     90 + Math.sin(sweepAngle) * radarRadius
   );
   radarCtx.stroke();
-
+}
 animate();
 
 // ==================== WINDOW RESIZE ====================
