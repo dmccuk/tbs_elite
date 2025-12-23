@@ -22,7 +22,7 @@ const SCALE = {
   PLANET_RADIUS: 6400,      // km (Earth-sized)
   PLANET_ORBIT: 150000,     // km from sun (1 AU = 150 million km, scaled down)
   STATION_SIZE: 0.5,        // km (500m station)
-  STATION_ORBIT: 400,       // km from planet
+  STATION_ORBIT: 50000,       // km from planet
   SUN_RADIUS: 50,           // km (visual, not realistic)
   
   // Speed constants
@@ -417,7 +417,7 @@ const ship = new THREE.Group();
 scene.add(ship);
 
 // Ship starting position - start at planet's orbit position + altitude
-const startDistance = toRender(SCALE.PLANET_RADIUS + 4000); // 400km altitude
+const startDistance = toRender(SCALE.PLANET_RADIUS + 25000); // 400km altitude
 // Planet starts at (PLANET_ORBIT, 0, 0) when t=0, so position ship there
 ship.position.set(toRender(SCALE.PLANET_ORBIT) + startDistance, 0, 0);
 ship.lookAt(toRender(SCALE.PLANET_ORBIT), 0, 0);
@@ -675,11 +675,11 @@ function animate() {
 const radarCanvas = document.getElementById("radar-canvas") as HTMLCanvasElement | null;
 const radarCtx = radarCanvas?.getContext("2d") || null;
 const radarRadius = 85;
-const radarRange = 50000; // km
+const radarRange = 75000; // km
 
 const radarObjects = [
   { name: "Vigilia Prime", ref: planet, type: "planet", color: "#3388ff" },
-  { name: "Vigilant Relay", ref: station, type: "station", color: "#00ff88" },
+  { name: "Vigilant Relay", ref: station, type: "station", color: "#ff6600" },  // Bright orange!
   { name: "Sun", ref: sun, type: "star", color: "#ffdd88" }
 ];
 
@@ -711,7 +711,7 @@ function updateRadar() {
     const distKm = toKm(relPos.length());
     
     // DEBUG: Check if station is in range
-    console.log(`${obj.name}: ${distKm.toFixed(1)}km (range: ${radarRange}km)`);
+    //console.log(`${obj.name}: ${distKm.toFixed(1)}km (range: ${radarRange}km)`);
     
     if (distKm > radarRange) {
       return;
@@ -731,10 +731,17 @@ function updateRadar() {
     const x = 90 + (rightDist * radarScale * 100);
     const y = 90 - (forwardDist * radarScale * 100); // Y is inverted (up = forward)
     
+    // Draw dot (bigger!)
     radarCtx.fillStyle = obj.color;
     radarCtx.beginPath();
-    radarCtx.arc(x, y, 4, 0, Math.PI * 2); // Made dot bigger (4 instead of 3)
+    radarCtx.arc(x, y, 5, 0, Math.PI * 2);
     radarCtx.fill();
+    
+    // Draw label
+    radarCtx.fillStyle = obj.color;
+    radarCtx.font = "8px monospace";
+    const label = obj.type === "planet" ? "PLT" : obj.type === "station" ? "STA" : "SUN";
+    radarCtx.fillText(label, x + 7, y + 3);
   });
   
   // Sweeping radar line
