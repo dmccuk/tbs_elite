@@ -415,16 +415,11 @@ const ship = new THREE.Group();
 }
 scene.add(ship);
 
-// Ship starting position - 100km from planet surface
-// NOTE: We need to position AFTER planet updates in animate loop!
-// For now, start at planet's initial position
-const startDistance = toRender(SCALE.PLANET_RADIUS + 400);
-// Position relative to planet's orbit (at t=0, planet is at PLANET_ORBIT on X axis)
-ship.position.set(
-  toRender(SCALE.PLANET_ORBIT) + startDistance,
-  0,
-  0
-);
+// Ship starting position - start at planet's orbit position + altitude
+const startDistance = toRender(SCALE.PLANET_RADIUS + 400); // 400km altitude
+// Planet starts at (PLANET_ORBIT, 0, 0) when t=0, so position ship there
+ship.position.set(toRender(SCALE.PLANET_ORBIT) + startDistance, 0, 0);
+ship.lookAt(toRender(SCALE.PLANET_ORBIT), 0, 0);
 ship.lookAt(toRender(SCALE.PLANET_ORBIT), 0, 0);
 
 // ==================== CAMERA SETUP ====================
@@ -535,6 +530,7 @@ const targetDist = document.getElementById("target-dist")!;
 // ==================== ANIMATION LOOP ====================
 const clock = new THREE.Clock();
 let angularVelocity = new THREE.Euler(0, 0, 0); // Ship rotation velocity
+let initialized = false;
 
 function animate() {
   requestAnimationFrame(animate);
@@ -546,7 +542,7 @@ function animate() {
   (atmosphereMat.uniforms.time as any).value = elapsed;
 
   // Orbit planet around sun (slow)
-  const t = elapsed * 0.01;
+  const t = elapsed * 0.0001;
   planet.position.set(
     Math.cos(t) * toRender(SCALE.PLANET_ORBIT),
     Math.sin(t * 0.1) * toRender(SCALE.PLANET_ORBIT * 0.05),
@@ -554,7 +550,14 @@ function animate() {
   );
   planet.rotation.y += dt * 0.1;
   clouds.rotation.y += dt * 0.15;
-
+  // Initialize ship position relative to planet on first frame
+  if (!initialized) {
+    ship.position.copy(planet.position);
+    ship.position.x += startDistance;
+    ship.lookAt(planet.position);
+    initialized = true;
+  }
+  
   // Station orbits planet
   const st = elapsed * 0.05;
   const stationOrbitDist = toRender(SCALE.STATION_ORBIT);
@@ -697,7 +700,7 @@ function animate() {
 const radarCanvas = document.getElementById("radar-canvas") as HTMLCanvasElement | null;
 const radarCtx = radarCanvas?.getContext("2d") || null;
 const radarRadius = 85;
-const radarRange = 500; // km
+const radarRange = 5000; // km
 
 const radarObjects = [
   { name: "Vigilia Prime", ref: planet, type: "planet", color: "#3388ff" },
