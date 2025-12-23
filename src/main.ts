@@ -415,10 +415,17 @@ const ship = new THREE.Group();
 }
 scene.add(ship);
 
-// Ship starting position - 100km from planet
-const startDistance = toRender(SCALE.PLANET_RADIUS + 100);
-ship.position.set(startDistance, 0, 0);
-ship.lookAt(0, 0, 0);
+// Ship starting position - 100km from planet surface
+// NOTE: We need to position AFTER planet updates in animate loop!
+// For now, start at planet's initial position
+const startDistance = toRender(SCALE.PLANET_RADIUS + 400);
+// Position relative to planet's orbit (at t=0, planet is at PLANET_ORBIT on X axis)
+ship.position.set(
+  toRender(SCALE.PLANET_ORBIT) + startDistance,
+  0,
+  0
+);
+ship.lookAt(toRender(SCALE.PLANET_ORBIT), 0, 0);
 
 // ==================== CAMERA SETUP ====================
 camera.position.set(0, 0.3, 0.8);
