@@ -8,35 +8,9 @@ type Inputs = {
   yawL: boolean; yawR: boolean;
   pitchU: boolean; pitchD: boolean;
   rollL: boolean; rollR: boolean;
-  flightAssist: boolean;
-  supercruise: boolean;
-  freeLook: boolean;
 };
 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-
-// ==================== SCALE CONSTANTS ====================
-// Real-world inspired scales
-const SCALE = {
-  PLANET_RADIUS: 6400,      // km (Earth-sized)
-  PLANET_ORBIT: 150000,     // km from sun (1 AU = 150 million km, scaled down)
-  STATION_SIZE: 0.5,        // km (500m station)
-  STATION_ORBIT: 400,       // km from planet
-  SUN_RADIUS: 50,           // km (visual, not realistic)
-  
-  // Speed constants
-  MAX_SPEED_NORMAL: 0.5,    // km/s (500 m/s)
-  MAX_SPEED_SUPERCRUISE: 100, // km/s (100 km/s)
-  
-  // Display scale factor (for rendering)
-  RENDER_SCALE: 0.01,       // Scale everything down 100x for rendering
-};
-
-// Convert km to render units
-const toRender = (km: number) => km * SCALE.RENDER_SCALE;
-// Convert render units to km
-const toKm = (units: number) => units / SCALE.RENDER_SCALE;
 
 // Setup renderer
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -69,19 +43,19 @@ window.addEventListener('keydown', () => {
 }, { once: true });
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x000510, 0.000008);
+scene.fog = new THREE.FogExp2(0x000510, 0.00015);
 
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 50000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 20000);
 
 // ==================== BACKGROUND STARS ====================
 {
   const starGeo = new THREE.BufferGeometry();
-  const count = 5000;
+  const count = 3000;
   const positions = new Float32Array(count * 3);
   const colors = new Float32Array(count * 3);
   
   for (let i = 0; i < count; i++) {
-    const r = 20000 + Math.random() * 20000;
+    const r = 8000 + Math.random() * 8000;
     const theta = Math.random() * Math.PI * 2;
     const phi = Math.acos(2 * Math.random() - 1);
     positions[i * 3 + 0] = r * Math.sin(phi) * Math.cos(theta);
@@ -91,14 +65,17 @@ const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerH
     // Varied star colors
     const colorType = Math.random();
     if (colorType < 0.7) {
+      // White/blue stars
       colors[i * 3 + 0] = 0.8 + Math.random() * 0.2;
       colors[i * 3 + 1] = 0.8 + Math.random() * 0.2;
       colors[i * 3 + 2] = 1.0;
     } else if (colorType < 0.9) {
+      // Yellow stars
       colors[i * 3 + 0] = 1.0;
       colors[i * 3 + 1] = 0.9 + Math.random() * 0.1;
       colors[i * 3 + 2] = 0.6 + Math.random() * 0.2;
     } else {
+      // Red stars
       colors[i * 3 + 0] = 1.0;
       colors[i * 3 + 1] = 0.3 + Math.random() * 0.2;
       colors[i * 3 + 2] = 0.2;
@@ -109,7 +86,7 @@ const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerH
   starGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
   
   const starMat = new THREE.PointsMaterial({ 
-    size: 2, 
+    size: 3, 
     sizeAttenuation: false, 
     vertexColors: true,
     transparent: true,
@@ -119,23 +96,24 @@ const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerH
 }
 
 // ==================== LIGHTING ====================
-const ambient = new THREE.AmbientLight(0x1a2233, 0.3);
+const ambient = new THREE.AmbientLight(0x1a2233, 0.4);
 scene.add(ambient);
 
-const sunLight = new THREE.PointLight(0xffffee, 4.0, 0, 2);
+const sunLight = new THREE.PointLight(0xffffee, 3.5, 0, 2);
 sunLight.position.set(0, 0, 0);
 sunLight.castShadow = true;
-sunLight.shadow.mapSize.width = 2048;
-sunLight.shadow.mapSize.height = 2048;
+sunLight.shadow.mapSize.width = 1024;
+sunLight.shadow.mapSize.height = 1024;
 scene.add(sunLight);
 
-const rimLight = new THREE.DirectionalLight(0x4488ff, 0.6);
+// Rim light for dramatic effect
+const rimLight = new THREE.DirectionalLight(0x4488ff, 0.8);
 rimLight.position.set(500, 200, -500);
 scene.add(rimLight);
 
 // ==================== THE SUN ====================
 const sun = new THREE.Mesh(
-  new THREE.SphereGeometry(toRender(SCALE.SUN_RADIUS), 32, 32),
+  new THREE.SphereGeometry(80, 32, 32),
   new THREE.MeshBasicMaterial({ 
     color: 0xffdd88,
     fog: false 
@@ -144,7 +122,7 @@ const sun = new THREE.Mesh(
 scene.add(sun);
 
 // Sun corona glow
-const coronaGeo = new THREE.SphereGeometry(toRender(SCALE.SUN_RADIUS * 1.2), 32, 32);
+const coronaGeo = new THREE.SphereGeometry(95, 32, 32);
 const coronaMat = new THREE.ShaderMaterial({
   uniforms: {
     time: { value: 0 }
@@ -174,8 +152,9 @@ const corona = new THREE.Mesh(coronaGeo, coronaMat);
 sun.add(corona);
 
 // ==================== PLANET ====================
+const planetOrbitRadius = 1200;
 const planet = new THREE.Mesh(
-  new THREE.SphereGeometry(toRender(SCALE.PLANET_RADIUS), 64, 64),
+  new THREE.SphereGeometry(85, 48, 48),
   new THREE.MeshStandardMaterial({ 
     color: 0x2288ff,
     roughness: 0.8,
@@ -189,7 +168,7 @@ planet.castShadow = true;
 scene.add(planet);
 
 // Atmosphere shader
-const atmosphereGeo = new THREE.SphereGeometry(toRender(SCALE.PLANET_RADIUS * 1.02), 64, 64);
+const atmosphereGeo = new THREE.SphereGeometry(88, 48, 48);
 const atmosphereMat = new THREE.ShaderMaterial({
   uniforms: {
     time: { value: 0 }
@@ -216,26 +195,12 @@ const atmosphereMat = new THREE.ShaderMaterial({
 const atmosphere = new THREE.Mesh(atmosphereGeo, atmosphereMat);
 planet.add(atmosphere);
 
-// Add some cloud detail
-const cloudGeo = new THREE.SphereGeometry(toRender(SCALE.PLANET_RADIUS * 1.005), 64, 64);
-const cloudMat = new THREE.MeshStandardMaterial({
-  color: 0xffffff,
-  transparent: true,
-  opacity: 0.2,
-  roughness: 1.0,
-  metalness: 0.0
-});
-const clouds = new THREE.Mesh(cloudGeo, cloudMat);
-planet.add(clouds);
-
 // ==================== STATION ====================
 const station = new THREE.Group();
 {
-  const stationScale = toRender(SCALE.STATION_SIZE);
-  
-  // Main ring (bigger and more detailed)
+  // Main ring
   const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(stationScale * 0.7, stationScale * 0.15, 32, 80),
+    new THREE.TorusGeometry(35, 8, 24, 64),
     new THREE.MeshStandardMaterial({ 
       color: 0x99aadd,
       roughness: 0.3,
@@ -250,7 +215,7 @@ const station = new THREE.Group();
 
   // Hub cylinder
   const hub = new THREE.Mesh(
-    new THREE.CylinderGeometry(stationScale * 0.15, stationScale * 0.15, stationScale * 0.7, 32),
+    new THREE.CylinderGeometry(8, 8, 35, 24),
     new THREE.MeshStandardMaterial({ 
       color: 0x7788aa,
       roughness: 0.4,
@@ -263,49 +228,28 @@ const station = new THREE.Group();
   hub.castShadow = true;
   hub.receiveShadow = true;
 
-  // Solar panels
-  for (let i = 0; i < 4; i++) {
-    const angle = (i / 4) * Math.PI * 2;
-    const panel = new THREE.Mesh(
-      new THREE.BoxGeometry(stationScale * 0.3, stationScale * 0.02, stationScale * 0.5),
-      new THREE.MeshStandardMaterial({ 
-        color: 0x1a2a4a,
-        roughness: 0.2,
-        metalness: 0.9,
-        emissive: 0x0a1a3a,
-        emissiveIntensity: 0.2
-      })
-    );
-    panel.position.set(
-      Math.cos(angle) * stationScale * 1.2,
-      0,
-      Math.sin(angle) * stationScale * 1.2
-    );
-    panel.lookAt(0, 0, 0);
-    station.add(panel);
-  }
-
   // Docking lights
-  for (let i = 0; i < 12; i++) {
-    const angle = (i / 12) * Math.PI * 2;
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2;
     const light = new THREE.Mesh(
-      new THREE.SphereGeometry(stationScale * 0.03, 12, 12),
+      new THREE.SphereGeometry(1.5, 12, 12),
       new THREE.MeshBasicMaterial({ 
         color: i % 2 === 0 ? 0x00ff88 : 0x0088ff,
         fog: false
       })
     );
     light.position.set(
-      Math.cos(angle) * stationScale * 0.7,
+      Math.cos(angle) * 35,
       0,
-      Math.sin(angle) * stationScale * 0.7
+      Math.sin(angle) * 35
     );
     station.add(light);
     
+    // Point light for each docking light
     const pointLight = new THREE.PointLight(
       i % 2 === 0 ? 0x00ff88 : 0x0088ff,
-      0.3,
-      stationScale * 5
+      0.5,
+      50
     );
     pointLight.position.copy(light.position);
     station.add(pointLight);
@@ -313,16 +257,16 @@ const station = new THREE.Group();
 
   // Navigation beacon
   const beacon = new THREE.Mesh(
-    new THREE.SphereGeometry(stationScale * 0.05, 16, 16),
+    new THREE.SphereGeometry(2.5, 16, 16),
     new THREE.MeshBasicMaterial({ 
       color: 0xffaa00,
       fog: false
     })
   );
-  beacon.position.set(0, 0, stationScale * 1.5);
+  beacon.position.set(0, 0, 45);
   station.add(beacon);
 
-  const beaconLight = new THREE.PointLight(0xffaa00, 1.0, stationScale * 10);
+  const beaconLight = new THREE.PointLight(0xffaa00, 1.5, 80);
   beaconLight.position.copy(beacon.position);
   station.add(beaconLight);
 
@@ -333,10 +277,8 @@ scene.add(station);
 // ==================== SHIP ====================
 const ship = new THREE.Group();
 {
-  const shipScale = 0.03; // 30 meter ship
-  
-  // Main body
-  const bodyGeo = new THREE.ConeGeometry(shipScale * 0.4, shipScale * 2.5, 16);
+  // Main body - sleeker needle design
+  const bodyGeo = new THREE.ConeGeometry(3.5, 22, 16);
   const bodyMat = new THREE.MeshStandardMaterial({ 
     color: 0x1a1a2e,
     roughness: 0.4,
@@ -349,9 +291,9 @@ const ship = new THREE.Group();
   body.castShadow = true;
   body.receiveShadow = true;
 
-  // Cockpit
+  // Cockpit window
   const cockpit = new THREE.Mesh(
-    new THREE.SphereGeometry(shipScale * 0.25, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.SphereGeometry(2, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2),
     new THREE.MeshStandardMaterial({ 
       color: 0x2244aa,
       transparent: true,
@@ -362,11 +304,11 @@ const ship = new THREE.Group();
       emissiveIntensity: 0.3
     })
   );
-  cockpit.position.set(0, 0, shipScale * 1.0);
+  cockpit.position.set(0, 0, 8);
   cockpit.rotation.x = -Math.PI / 2;
 
   // Wings
-  const wingGeo = new THREE.BoxGeometry(shipScale * 1.5, shipScale * 0.08, shipScale * 0.5);
+  const wingGeo = new THREE.BoxGeometry(12, 1, 4);
   const wingMat = new THREE.MeshStandardMaterial({ 
     color: 0x2a3a5a,
     roughness: 0.5,
@@ -376,29 +318,29 @@ const ship = new THREE.Group();
   });
   
   const wingL = new THREE.Mesh(wingGeo, wingMat);
-  wingL.position.set(-shipScale * 0.85, 0, 0);
+  wingL.position.set(-7, 0, 0);
   wingL.castShadow = true;
 
   const wingR = new THREE.Mesh(wingGeo, wingMat);
-  wingR.position.set(shipScale * 0.85, 0, 0);
+  wingR.position.set(7, 0, 0);
   wingR.castShadow = true;
 
   // Wing lights
   const wingLightL = new THREE.Mesh(
-    new THREE.SphereGeometry(shipScale * 0.05, 8, 8),
+    new THREE.SphereGeometry(0.5, 8, 8),
     new THREE.MeshBasicMaterial({ color: 0xff0000, fog: false })
   );
-  wingLightL.position.set(-shipScale * 1.5, 0, 0);
+  wingLightL.position.set(-12, 0, 0);
 
   const wingLightR = new THREE.Mesh(
-    new THREE.SphereGeometry(shipScale * 0.05, 8, 8),
+    new THREE.SphereGeometry(0.5, 8, 8),
     new THREE.MeshBasicMaterial({ color: 0x00ff00, fog: false })
   );
-  wingLightR.position.set(shipScale * 1.5, 0, 0);
+  wingLightR.position.set(12, 0, 0);
 
   // Engine glow
   const engineGlow = new THREE.Mesh(
-    new THREE.SphereGeometry(shipScale * 0.25, 16, 16),
+    new THREE.SphereGeometry(2, 16, 16),
     new THREE.MeshBasicMaterial({ 
       color: 0x3388ff,
       transparent: true,
@@ -406,44 +348,49 @@ const ship = new THREE.Group();
       fog: false
     })
   );
-  engineGlow.position.set(0, 0, -shipScale * 1.4);
+  engineGlow.position.set(0, 0, -12);
 
-  const engineLight = new THREE.PointLight(0x3388ff, 1.0, shipScale * 10);
-  engineLight.position.set(0, 0, -shipScale * 1.4);
+  // Engine light
+  const engineLight = new THREE.PointLight(0x3388ff, 1.5, 30);
+  engineLight.position.set(0, 0, -12);
 
   ship.add(body, cockpit, wingL, wingR, wingLightL, wingLightR, engineGlow, engineLight);
 }
 scene.add(ship);
 
-// Ship starting position - 100km from planet
-const startDistance = toRender(SCALE.PLANET_RADIUS + 100);
-ship.position.set(startDistance, 0, 0);
+// Ship starting position
+ship.position.set(planetOrbitRadius + 250, 60, 0);
 ship.lookAt(0, 0, 0);
 
 // ==================== CAMERA SETUP ====================
-camera.position.set(0, 0.3, 0.8);
+camera.position.set(0, 18, 50);
 ship.add(camera);
 
 // ==================== ENGINE PARTICLES ====================
 let engineParticles: THREE.Points;
 {
-  const particleCount = 80;
+  const particleCount = 50;
   const particleGeo = new THREE.BufferGeometry();
   const positions = new Float32Array(particleCount * 3);
+  const velocities = new Float32Array(particleCount * 3);
   const ages = new Float32Array(particleCount);
   
   for (let i = 0; i < particleCount; i++) {
     positions[i * 3 + 0] = 0;
     positions[i * 3 + 1] = 0;
-    positions[i * 3 + 2] = -0.04;
+    positions[i * 3 + 2] = -12;
+    velocities[i * 3 + 0] = 0;
+    velocities[i * 3 + 1] = 0;
+    velocities[i * 3 + 2] = 0;
     ages[i] = Math.random();
   }
   
   particleGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  particleGeo.setAttribute("velocity", new THREE.BufferAttribute(velocities, 3));
   particleGeo.setAttribute("age", new THREE.BufferAttribute(ages, 1));
   
   const particleMat = new THREE.PointsMaterial({
-    size: 0.015,
+    size: 1.5,
     color: 0x3388ff,
     transparent: true,
     opacity: 0.7,
@@ -459,10 +406,7 @@ let engineParticles: THREE.Points;
 const inputs: Inputs = {
   throttleUp: false, throttleDown: false, brake: false, boost: false,
   yawL: false, yawR: false, pitchU: false, pitchD: false, rollL: false, rollR: false,
-  flightAssist: false, supercruise: false, freeLook: false
 };
-
-let flightAssistOn = true; // Flight assist on by default
 
 window.addEventListener("keydown", (e) => setKey(e.code, true));
 window.addEventListener("keyup", (e) => setKey(e.code, false));
@@ -480,43 +424,18 @@ function setKey(code: string, down: boolean) {
     case "ArrowDown": inputs.pitchD = down; break;
     case "KeyQ": inputs.rollL = down; break;
     case "KeyE": inputs.rollR = down; break;
-    case "KeyF": 
-      if (down) {
-        flightAssistOn = !flightAssistOn;
-        console.log("Flight Assist:", flightAssistOn ? "ON" : "OFF");
-      }
-      break;
-    case "KeyJ":
-      if (down) {
-        supercruiseActive = !supercruiseActive;
-        console.log("Supercruise:", supercruiseActive ? "ENGAGED" : "DISENGAGED");
-      }
-      break;
-    case "KeyH":
-      if (down) {
-        const helpMenu = document.getElementById("help-menu");
-        if (helpMenu) {
-          helpMenu.classList.toggle("visible");
-        }
-      }
-      break;
   }
 }
 
-// ==================== FLIGHT MODEL - NEWTONIAN PHYSICS ====================
+// ==================== FLIGHT MODEL ====================
 let throttle = 0.2;
-let velocity = new THREE.Vector3(0, 0, 0); // Actual velocity vector (km/s)
-let speed = 0; // Speed magnitude (km/s)
-let supercruiseActive = false;
-
-const maxAccel = 0.0005; // km/s² (0.5 m/s²)
-const maxDecel = 0.001;  // km/s² (1 m/s²)
-const rotationDamping = 0.92; // How quickly rotation slows
-const velocityDamping = 0.9995; // Slight space friction for gameplay
-
-const yawRate = 0.8;
-const pitchRate = 0.7;
-const rollRate = 1.5;
+let speed = 0;
+const maxSpeed = 280;
+const accel = 100;
+const brakeDecel = 200;
+const yawRate = 1.2;
+const pitchRate = 1.0;
+const rollRate = 2.4;
 
 // ==================== HUD ELEMENTS ====================
 const speedValue = document.getElementById("speed-value")!;
@@ -527,7 +446,6 @@ const targetDist = document.getElementById("target-dist")!;
 
 // ==================== ANIMATION LOOP ====================
 const clock = new THREE.Clock();
-let angularVelocity = new THREE.Euler(0, 0, 0); // Ship rotation velocity
 
 function animate() {
   requestAnimationFrame(animate);
@@ -538,115 +456,71 @@ function animate() {
   (coronaMat.uniforms.time as any).value = elapsed;
   (atmosphereMat.uniforms.time as any).value = elapsed;
 
-  // Orbit planet around sun (slow)
-  const t = elapsed * 0.01;
+  // Orbit planet around sun
+  const t = elapsed * 0.04;
   planet.position.set(
-    Math.cos(t) * toRender(SCALE.PLANET_ORBIT),
-    Math.sin(t * 0.1) * toRender(SCALE.PLANET_ORBIT * 0.05),
-    Math.sin(t) * toRender(SCALE.PLANET_ORBIT)
+    Math.cos(t) * planetOrbitRadius,
+    Math.sin(t * 0.3) * 80,
+    Math.sin(t) * planetOrbitRadius
   );
-  planet.rotation.y += dt * 0.1;
-  clouds.rotation.y += dt * 0.15;
+  planet.rotation.y += dt * 0.2;
 
   // Station orbits planet
-  const st = elapsed * 0.05;
-  const stationOrbitDist = toRender(SCALE.STATION_ORBIT);
+  const st = elapsed * 0.15;
   station.position.set(
-    planet.position.x + Math.cos(st) * stationOrbitDist,
-    planet.position.y + toRender(10),
-    planet.position.z + Math.sin(st) * stationOrbitDist
+    planet.position.x + Math.cos(st) * 200,
+    planet.position.y + 20,
+    planet.position.z + Math.sin(st) * 200
   );
-  station.rotation.y += dt * 0.2;
+  station.rotation.y += dt * 0.3;
 
-  // ==================== NEWTONIAN FLIGHT CONTROLS ====================
-  // Throttle control
+  // ==================== FLIGHT CONTROLS ====================
+  // Throttle
   if (inputs.throttleUp) throttle += dt * 0.4;
   if (inputs.throttleDown) throttle -= dt * 0.4;
   throttle = clamp(throttle, 0, 1);
 
-  // Current max speed based on mode
-  const currentMaxSpeed = supercruiseActive ? SCALE.MAX_SPEED_SUPERCRUISE : SCALE.MAX_SPEED_NORMAL;
-  const targetSpeed = currentMaxSpeed * throttle * (inputs.boost ? 1.5 : 1.0);
+  // Target speed
+  const boostMul = inputs.boost ? 1.8 : 1.0;
+  const targetSpeed = maxSpeed * throttle * boostMul;
 
-  // Get ship's forward direction
-  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
-  
-  // Apply thrust in forward direction
-  if (flightAssistOn) {
-    // Flight assist: auto-brake when below target speed
-    const currentForwardSpeed = velocity.dot(forward);
-    const speedDiff = targetSpeed - currentForwardSpeed;
-    
-    if (speedDiff > 0) {
-      velocity.addScaledVector(forward, maxAccel * dt * 60);
-    } else if (speedDiff < 0) {
-      velocity.addScaledVector(forward, -maxDecel * dt * 60);
-    }
-  } else {
-    // No flight assist: pure thrust
-    if (throttle > 0.01) {
-      velocity.addScaledVector(forward, maxAccel * throttle * dt * 60);
-    }
-  }
+  // Acceleration
+  const a = accel * (inputs.boost ? 1.5 : 1.0);
+  if (speed < targetSpeed) speed = Math.min(targetSpeed, speed + a * dt);
+  else speed = Math.max(targetSpeed, speed - a * dt);
 
   // Braking
-  if (inputs.brake) {
-    if (flightAssistOn) {
-      // Full stop brake
-      velocity.multiplyScalar(1 - (maxDecel * 2 * dt * 60) / (velocity.length() + 0.001));
-    } else {
-      // Reverse thrust
-      velocity.addScaledVector(forward, -maxDecel * dt * 60);
-    }
-  }
+  if (inputs.brake) speed = Math.max(0, speed - brakeDecel * dt);
 
-  // Speed limiting
-  speed = velocity.length();
-  if (speed > currentMaxSpeed && flightAssistOn) {
-    velocity.normalize().multiplyScalar(currentMaxSpeed);
-    speed = currentMaxSpeed;
-  }
-
-  // Apply velocity to position (converting km/s to render units)
-  ship.position.addScaledVector(velocity, dt * 60 * SCALE.RENDER_SCALE);
-
-  // Slight velocity damping for gameplay
-  velocity.multiplyScalar(velocityDamping);
-
-  // ==================== ROTATION WITH ANGULAR VELOCITY ====================
+  // Rotation
   const yaw = (inputs.yawR ? 1 : 0) - (inputs.yawL ? 1 : 0);
   const pitch = (inputs.pitchD ? 1 : 0) - (inputs.pitchU ? 1 : 0);
   const roll = (inputs.rollR ? 1 : 0) - (inputs.rollL ? 1 : 0);
 
-  // Apply rotation inputs to angular velocity
-  angularVelocity.y += yaw * yawRate * dt;
-  angularVelocity.x += pitch * pitchRate * dt;
-  angularVelocity.z -= roll * rollRate * dt;
+  ship.rotateY(yaw * yawRate * dt);
+  ship.rotateX(pitch * pitchRate * dt);
+  ship.rotateZ(-roll * rollRate * dt);
 
-  // Apply damping to angular velocity
-  angularVelocity.x *= rotationDamping;
-  angularVelocity.y *= rotationDamping;
-  angularVelocity.z *= rotationDamping;
-
-  // Apply angular velocity to ship rotation
-  ship.rotateY(angularVelocity.y * dt * 60);
-  ship.rotateX(angularVelocity.x * dt * 60);
-  ship.rotateZ(angularVelocity.z * dt * 60);
+  // Forward movement
+  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
+  ship.position.addScaledVector(forward, speed * dt);
 
   // ==================== ENGINE PARTICLES ====================
   const particlePositions = engineParticles.geometry.attributes.position.array as Float32Array;
   const particleAges = engineParticles.geometry.attributes.age.array as Float32Array;
   
   for (let i = 0; i < particleAges.length; i++) {
-    particleAges[i] += dt * (3 + speed * 2);
+    particleAges[i] += dt * (2 + speed / 100);
     
     if (particleAges[i] > 1) {
+      // Reset particle
       particleAges[i] = 0;
-      particlePositions[i * 3 + 0] = (Math.random() - 0.5) * 0.02;
-      particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 0.02;
-      particlePositions[i * 3 + 2] = -0.04;
+      particlePositions[i * 3 + 0] = (Math.random() - 0.5) * 2;
+      particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 2;
+      particlePositions[i * 3 + 2] = -12;
     } else {
-      particlePositions[i * 3 + 2] -= dt * (0.5 + speed * 0.1);
+      // Move particle backward
+      particlePositions[i * 3 + 2] -= dt * (20 + speed / 5);
     }
   }
   
@@ -654,160 +528,23 @@ function animate() {
   engineParticles.geometry.attributes.age.needsUpdate = true;
 
   // ==================== HUD UPDATES ====================
-  const distToStation = toKm(ship.position.distanceTo(station.position));
-  const distToPlanet = toKm(ship.position.distanceTo(planet.position)) - SCALE.PLANET_RADIUS;
+  const distToStation = ship.position.distanceTo(station.position);
   
-  // Display speed in m/s and km/s
-  const speedMS = Math.round(speed * 1000);
-  speedValue.textContent = speedMS < 1000 ? 
-    `${speedMS}` : 
-    `${(speed).toFixed(1)}k`;
-  
+  speedValue.textContent = Math.round(speed).toString();
   throttleValue.textContent = Math.round(throttle * 100).toString();
+  targetDist.textContent = Math.round(distToStation).toString();
   
-  // Distance in km
-  targetDist.textContent = distToStation < 10 ? 
-    `${(distToStation * 1000).toFixed(0)}m` : 
-    `${distToStation.toFixed(1)}km`;
-  
-  // Update bars
-  speedBar.style.width = `${(speed / currentMaxSpeed) * 100}%`;
+  speedBar.style.width = `${(speed / maxSpeed) * 100}%`;
   throttleBar.style.width = `${throttle * 100}%`;
   
-  if (inputs.boost || supercruiseActive) {
+  if (inputs.boost) {
     throttleBar.classList.add("boost");
   } else {
     throttleBar.classList.remove("boost");
   }
 
-  updateRadar();
-  if (altitudeValue) {
-    const distToPlanet = toKm(ship.position.distanceTo(planet.position)) - SCALE.PLANET_RADIUS;
-    altitudeValue.textContent = Math.max(0, distToPlanet).toFixed(1);
-  }
-  if (selectedTarget) updateTargetInfo();
-
   renderer.render(scene, camera);
 }
-
-
-// ==================== RADAR & TARGET SYSTEM ====================
-const radarCanvas = document.getElementById("radar-canvas") as HTMLCanvasElement | null;
-const radarCtx = radarCanvas?.getContext("2d") || null;
-const radarRadius = 85;
-const radarRange = 500;
-
-const radarObjects = [
-  { name: "Vigilia Prime", ref: planet, type: "planet", color: "#3388ff" },
-  { name: "Vigilant Relay", ref: station, type: "station", color: "#00ff88" },
-  { name: "Sun", ref: sun, type: "star", color: "#ffdd88" }
-];
-
-let selectedTarget: any = null;
-
-function updateRadar() {
-  if (!radarCtx || !radarCanvas) return;
-  radarCtx.fillStyle = "rgba(0, 20, 15, 0.5)";
-  radarCtx.fillRect(0, 0, 180, 180);
-  radarCtx.fillStyle = "#00ff88";
-  radarCtx.beginPath();
-  radarCtx.arc(90, 90, 3, 0, Math.PI * 2);
-  radarCtx.fill();
-  radarCtx.strokeStyle = "rgba(0, 255, 136, 0.2)";
-  radarCtx.lineWidth = 1;
-  for (let i = 1; i <= 3; i++) {
-    radarCtx.beginPath();
-    radarCtx.arc(90, 90, (radarRadius / 3) * i, 0, Math.PI * 2);
-    radarCtx.stroke();
-  }
-  radarObjects.forEach(obj => {
-    const relPos = obj.ref.position.clone().sub(ship.position);
-    const distKm = toKm(relPos.length());
-    if (distKm > radarRange) return;
-    const radarScale = radarRadius / radarRange;
-    const x = 90 + (relPos.x * radarScale * 100);
-    const y = 90 - (relPos.z * radarScale * 100);
-    radarCtx!.fillStyle = obj.color;
-    radarCtx!.beginPath();
-    radarCtx!.arc(x, y, obj === selectedTarget ? 5 : 3, 0, Math.PI * 2);
-    radarCtx!.fill();
-    if (obj === selectedTarget) {
-      radarCtx!.strokeStyle = "#ffaa00";
-      radarCtx!.lineWidth = 2;
-      radarCtx!.beginPath();
-      radarCtx!.arc(x, y, 8, 0, Math.PI * 2);
-      radarCtx!.stroke();
-    }
-  });
-  const sweepAngle = (clock.elapsedTime * 2) % (Math.PI * 2);
-  radarCtx.strokeStyle = "rgba(0, 255, 136, 0.3)";
-  radarCtx.lineWidth = 1;
-  radarCtx.beginPath();
-  radarCtx.moveTo(90, 90);
-  radarCtx.lineTo(90 + Math.cos(sweepAngle) * radarRadius, 90 + Math.sin(sweepAngle) * radarRadius);
-  radarCtx.stroke();
-}
-
-function updateTargetInfo() {
-  const targetName = document.getElementById("target-name");
-  const targetData = document.getElementById("target-data");
-  const gotoButton = document.getElementById("goto-button");
-  if (!targetName || !targetData || !gotoButton) return;
-  if (selectedTarget) {
-    const distKm = toKm(ship.position.distanceTo(selectedTarget.ref.position));
-    targetName.textContent = selectedTarget.name;
-    targetData.innerHTML = `<div>Type: ${selectedTarget.type.toUpperCase()}</div><div>Distance: ${distKm < 10 ? (distKm * 1000).toFixed(0) + "m" : distKm.toFixed(1) + "km"}</div><div style="margin-top:4px;color:#00ff88">⬤ Target Locked</div>`;
-    gotoButton.style.display = "block";
-  } else {
-    targetName.textContent = "NO TARGET";
-    targetData.innerHTML = '<div>Select object on radar</div><div style="margin-top:4px;opacity:0.6">Click radar contacts</div>';
-    gotoButton.style.display = "none";
-  }
-}
-
-radarCanvas?.addEventListener("click", (e) => {
-  if (!radarCanvas) return;
-  const rect = radarCanvas.getBoundingClientRect();
-  const clickX = ((e.clientX - rect.left) / rect.width) * 180;
-  const clickY = ((e.clientY - rect.top) / rect.height) * 180;
-  let closestObj: any = null;
-  let closestDist = 15;
-  radarObjects.forEach(obj => {
-    const relPos = obj.ref.position.clone().sub(ship.position);
-    const distKm = toKm(relPos.length());
-    if (distKm > radarRange) return;
-    const radarScale = radarRadius / radarRange;
-    const x = 90 + (relPos.x * radarScale * 100);
-    const y = 90 - (relPos.z * radarScale * 100);
-    const dist = Math.sqrt((x - clickX) ** 2 + (y - clickY) ** 2);
-    if (dist < closestDist) {
-      closestDist = dist;
-      closestObj = obj;
-    }
-  });
-  if (closestObj) {
-    selectedTarget = closestObj;
-    updateTargetInfo();
-  }
-});
-
-document.getElementById("goto-button")?.addEventListener("click", () => {
-  if (selectedTarget) {
-    const targetDir = selectedTarget.ref.position.clone().sub(ship.position).normalize();
-    const targetQuaternion = new THREE.Quaternion();
-    const up = new THREE.Vector3(0, 1, 0);
-    const matrix = new THREE.Matrix4();
-    matrix.lookAt(new THREE.Vector3(0, 0, 0), targetDir, up);
-    targetQuaternion.setFromRotationMatrix(matrix);
-    ship.quaternion.slerp(targetQuaternion, 0.1);
-  }
-});
-
-document.getElementById("help-close")?.addEventListener("click", () => {
-  document.getElementById("help-menu")?.classList.remove("visible");
-});
-
-const altitudeValue = document.getElementById("altitude-value");
 
 animate();
 
