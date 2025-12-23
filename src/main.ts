@@ -8,9 +8,35 @@ type Inputs = {
   yawL: boolean; yawR: boolean;
   pitchU: boolean; pitchD: boolean;
   rollL: boolean; rollR: boolean;
+  flightAssist: boolean;
+  supercruise: boolean;
+  freeLook: boolean;
 };
 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+// ==================== SCALE CONSTANTS ====================
+// Real-world inspired scales
+const SCALE = {
+  PLANET_RADIUS: 6400,      // km (Earth-sized)
+  PLANET_ORBIT: 150000,     // km from sun (1 AU = 150 million km, scaled down)
+  STATION_SIZE: 0.5,        // km (500m station)
+  STATION_ORBIT: 400,       // km from planet
+  SUN_RADIUS: 50,           // km (visual, not realistic)
+  
+  // Speed constants
+  MAX_SPEED_NORMAL: 0.5,    // km/s (500 m/s)
+  MAX_SPEED_SUPERCRUISE: 100, // km/s (100 km/s)
+  
+  // Display scale factor (for rendering)
+  RENDER_SCALE: 0.01,       // Scale everything down 100x for rendering
+};
+
+// Convert km to render units
+const toRender = (km: number) => km * SCALE.RENDER_SCALE;
+// Convert render units to km
+const toKm = (units: number) => units / SCALE.RENDER_SCALE;
 
 // Setup renderer
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -43,19 +69,19 @@ window.addEventListener('keydown', () => {
 }, { once: true });
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x000510, 0.00015);
+scene.fog = new THREE.FogExp2(0x000510, 0.000008);
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 20000);
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 50000);
 
 // ==================== BACKGROUND STARS ====================
 {
   const starGeo = new THREE.BufferGeometry();
-  const count = 3000;
+  const count = 5000;
   const positions = new Float32Array(count * 3);
   const colors = new Float32Array(count * 3);
   
   for (let i = 0; i < count; i++) {
-    const r = 8000 + Math.random() * 8000;
+    const r = 20000 + Math.random() * 20000;
     const theta = Math.random() * Math.PI * 2;
     const phi = Math.acos(2 * Math.random() - 1);
     positions[i * 3 + 0] = r * Math.sin(phi) * Math.cos(theta);
@@ -65,17 +91,14 @@ const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerH
     // Varied star colors
     const colorType = Math.random();
     if (colorType < 0.7) {
-      // White/blue stars
       colors[i * 3 + 0] = 0.8 + Math.random() * 0.2;
       colors[i * 3 + 1] = 0.8 + Math.random() * 0.2;
       colors[i * 3 + 2] = 1.0;
     } else if (colorType < 0.9) {
-      // Yellow stars
       colors[i * 3 + 0] = 1.0;
       colors[i * 3 + 1] = 0.9 + Math.random() * 0.1;
       colors[i * 3 + 2] = 0.6 + Math.random() * 0.2;
     } else {
-      // Red stars
       colors[i * 3 + 0] = 1.0;
       colors[i * 3 + 1] = 0.3 + Math.random() * 0.2;
       colors[i * 3 + 2] = 0.2;
@@ -86,7 +109,7 @@ const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerH
   starGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
   
   const starMat = new THREE.PointsMaterial({ 
-    size: 3, 
+    size: 2, 
     sizeAttenuation: false, 
     vertexColors: true,
     transparent: true,
@@ -96,24 +119,23 @@ const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerH
 }
 
 // ==================== LIGHTING ====================
-const ambient = new THREE.AmbientLight(0x1a2233, 0.4);
+const ambient = new THREE.AmbientLight(0x1a2233, 0.3);
 scene.add(ambient);
 
-const sunLight = new THREE.PointLight(0xffffee, 3.5, 0, 2);
+const sunLight = new THREE.PointLight(0xffffee, 4.0, 0, 2);
 sunLight.position.set(0, 0, 0);
 sunLight.castShadow = true;
-sunLight.shadow.mapSize.width = 1024;
-sunLight.shadow.mapSize.height = 1024;
+sunLight.shadow.mapSize.width = 2048;
+sunLight.shadow.mapSize.height = 2048;
 scene.add(sunLight);
 
-// Rim light for dramatic effect
-const rimLight = new THREE.DirectionalLight(0x4488ff, 0.8);
+const rimLight = new THREE.DirectionalLight(0x4488ff, 0.6);
 rimLight.position.set(500, 200, -500);
 scene.add(rimLight);
 
 // ==================== THE SUN ====================
 const sun = new THREE.Mesh(
-  new THREE.SphereGeometry(80, 32, 32),
+  new THREE.SphereGeometry(toRender(SCALE.SUN_RADIUS), 32, 32),
   new THREE.MeshBasicMaterial({ 
     color: 0xffdd88,
     fog: false 
@@ -122,7 +144,7 @@ const sun = new THREE.Mesh(
 scene.add(sun);
 
 // Sun corona glow
-const coronaGeo = new THREE.SphereGeometry(95, 32, 32);
+const coronaGeo = new THREE.SphereGeometry(toRender(SCALE.SUN_RADIUS * 1.2), 32, 32);
 const coronaMat = new THREE.ShaderMaterial({
   uniforms: {
     time: { value: 0 }
@@ -152,9 +174,8 @@ const corona = new THREE.Mesh(coronaGeo, coronaMat);
 sun.add(corona);
 
 // ==================== PLANET ====================
-const planetOrbitRadius = 1200;
 const planet = new THREE.Mesh(
-  new THREE.SphereGeometry(85, 48, 48),
+  new THREE.SphereGeometry(toRender(SCALE.PLANET_RADIUS), 64, 64),
   new THREE.MeshStandardMaterial({ 
     color: 0x2288ff,
     roughness: 0.8,
@@ -168,7 +189,7 @@ planet.castShadow = true;
 scene.add(planet);
 
 // Atmosphere shader
-const atmosphereGeo = new THREE.SphereGeometry(88, 48, 48);
+const atmosphereGeo = new THREE.SphereGeometry(toRender(SCALE.PLANET_RADIUS * 1.02), 64, 64);
 const atmosphereMat = new THREE.ShaderMaterial({
   uniforms: {
     time: { value: 0 }
@@ -195,12 +216,26 @@ const atmosphereMat = new THREE.ShaderMaterial({
 const atmosphere = new THREE.Mesh(atmosphereGeo, atmosphereMat);
 planet.add(atmosphere);
 
+// Add some cloud detail
+const cloudGeo = new THREE.SphereGeometry(toRender(SCALE.PLANET_RADIUS * 1.005), 64, 64);
+const cloudMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  transparent: true,
+  opacity: 0.2,
+  roughness: 1.0,
+  metalness: 0.0
+});
+const clouds = new THREE.Mesh(cloudGeo, cloudMat);
+planet.add(clouds);
+
 // ==================== STATION ====================
 const station = new THREE.Group();
 {
-  // Main ring
+  const stationScale = toRender(SCALE.STATION_SIZE);
+  
+  // Main ring (bigger and more detailed)
   const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(35, 8, 24, 64),
+    new THREE.TorusGeometry(stationScale * 0.7, stationScale * 0.15, 32, 80),
     new THREE.MeshStandardMaterial({ 
       color: 0x99aadd,
       roughness: 0.3,
@@ -215,7 +250,7 @@ const station = new THREE.Group();
 
   // Hub cylinder
   const hub = new THREE.Mesh(
-    new THREE.CylinderGeometry(8, 8, 35, 24),
+    new THREE.CylinderGeometry(stationScale * 0.15, stationScale * 0.15, stationScale * 0.7, 32),
     new THREE.MeshStandardMaterial({ 
       color: 0x7788aa,
       roughness: 0.4,
@@ -228,28 +263,49 @@ const station = new THREE.Group();
   hub.castShadow = true;
   hub.receiveShadow = true;
 
+  // Solar panels
+  for (let i = 0; i < 4; i++) {
+    const angle = (i / 4) * Math.PI * 2;
+    const panel = new THREE.Mesh(
+      new THREE.BoxGeometry(stationScale * 0.3, stationScale * 0.02, stationScale * 0.5),
+      new THREE.MeshStandardMaterial({ 
+        color: 0x1a2a4a,
+        roughness: 0.2,
+        metalness: 0.9,
+        emissive: 0x0a1a3a,
+        emissiveIntensity: 0.2
+      })
+    );
+    panel.position.set(
+      Math.cos(angle) * stationScale * 1.2,
+      0,
+      Math.sin(angle) * stationScale * 1.2
+    );
+    panel.lookAt(0, 0, 0);
+    station.add(panel);
+  }
+
   // Docking lights
-  for (let i = 0; i < 8; i++) {
-    const angle = (i / 8) * Math.PI * 2;
+  for (let i = 0; i < 12; i++) {
+    const angle = (i / 12) * Math.PI * 2;
     const light = new THREE.Mesh(
-      new THREE.SphereGeometry(1.5, 12, 12),
+      new THREE.SphereGeometry(stationScale * 0.03, 12, 12),
       new THREE.MeshBasicMaterial({ 
         color: i % 2 === 0 ? 0x00ff88 : 0x0088ff,
         fog: false
       })
     );
     light.position.set(
-      Math.cos(angle) * 35,
+      Math.cos(angle) * stationScale * 0.7,
       0,
-      Math.sin(angle) * 35
+      Math.sin(angle) * stationScale * 0.7
     );
     station.add(light);
     
-    // Point light for each docking light
     const pointLight = new THREE.PointLight(
       i % 2 === 0 ? 0x00ff88 : 0x0088ff,
-      0.5,
-      50
+      0.3,
+      stationScale * 5
     );
     pointLight.position.copy(light.position);
     station.add(pointLight);
@@ -257,16 +313,16 @@ const station = new THREE.Group();
 
   // Navigation beacon
   const beacon = new THREE.Mesh(
-    new THREE.SphereGeometry(2.5, 16, 16),
+    new THREE.SphereGeometry(stationScale * 0.05, 16, 16),
     new THREE.MeshBasicMaterial({ 
       color: 0xffaa00,
       fog: false
     })
   );
-  beacon.position.set(0, 0, 45);
+  beacon.position.set(0, 0, stationScale * 1.5);
   station.add(beacon);
 
-  const beaconLight = new THREE.PointLight(0xffaa00, 1.5, 80);
+  const beaconLight = new THREE.PointLight(0xffaa00, 1.0, stationScale * 10);
   beaconLight.position.copy(beacon.position);
   station.add(beaconLight);
 
@@ -277,8 +333,10 @@ scene.add(station);
 // ==================== SHIP ====================
 const ship = new THREE.Group();
 {
-  // Main body - sleeker needle design
-  const bodyGeo = new THREE.ConeGeometry(3.5, 22, 16);
+  const shipScale = 0.03; // 30 meter ship
+  
+  // Main body
+  const bodyGeo = new THREE.ConeGeometry(shipScale * 0.4, shipScale * 2.5, 16);
   const bodyMat = new THREE.MeshStandardMaterial({ 
     color: 0x1a1a2e,
     roughness: 0.4,
@@ -291,9 +349,9 @@ const ship = new THREE.Group();
   body.castShadow = true;
   body.receiveShadow = true;
 
-  // Cockpit window
+  // Cockpit
   const cockpit = new THREE.Mesh(
-    new THREE.SphereGeometry(2, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.SphereGeometry(shipScale * 0.25, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2),
     new THREE.MeshStandardMaterial({ 
       color: 0x2244aa,
       transparent: true,
@@ -304,11 +362,11 @@ const ship = new THREE.Group();
       emissiveIntensity: 0.3
     })
   );
-  cockpit.position.set(0, 0, 8);
+  cockpit.position.set(0, 0, shipScale * 1.0);
   cockpit.rotation.x = -Math.PI / 2;
 
   // Wings
-  const wingGeo = new THREE.BoxGeometry(12, 1, 4);
+  const wingGeo = new THREE.BoxGeometry(shipScale * 1.5, shipScale * 0.08, shipScale * 0.5);
   const wingMat = new THREE.MeshStandardMaterial({ 
     color: 0x2a3a5a,
     roughness: 0.5,
@@ -318,29 +376,29 @@ const ship = new THREE.Group();
   });
   
   const wingL = new THREE.Mesh(wingGeo, wingMat);
-  wingL.position.set(-7, 0, 0);
+  wingL.position.set(-shipScale * 0.85, 0, 0);
   wingL.castShadow = true;
 
   const wingR = new THREE.Mesh(wingGeo, wingMat);
-  wingR.position.set(7, 0, 0);
+  wingR.position.set(shipScale * 0.85, 0, 0);
   wingR.castShadow = true;
 
   // Wing lights
   const wingLightL = new THREE.Mesh(
-    new THREE.SphereGeometry(0.5, 8, 8),
+    new THREE.SphereGeometry(shipScale * 0.05, 8, 8),
     new THREE.MeshBasicMaterial({ color: 0xff0000, fog: false })
   );
-  wingLightL.position.set(-12, 0, 0);
+  wingLightL.position.set(-shipScale * 1.5, 0, 0);
 
   const wingLightR = new THREE.Mesh(
-    new THREE.SphereGeometry(0.5, 8, 8),
+    new THREE.SphereGeometry(shipScale * 0.05, 8, 8),
     new THREE.MeshBasicMaterial({ color: 0x00ff00, fog: false })
   );
-  wingLightR.position.set(12, 0, 0);
+  wingLightR.position.set(shipScale * 1.5, 0, 0);
 
   // Engine glow
   const engineGlow = new THREE.Mesh(
-    new THREE.SphereGeometry(2, 16, 16),
+    new THREE.SphereGeometry(shipScale * 0.25, 16, 16),
     new THREE.MeshBasicMaterial({ 
       color: 0x3388ff,
       transparent: true,
@@ -348,49 +406,44 @@ const ship = new THREE.Group();
       fog: false
     })
   );
-  engineGlow.position.set(0, 0, -12);
+  engineGlow.position.set(0, 0, -shipScale * 1.4);
 
-  // Engine light
-  const engineLight = new THREE.PointLight(0x3388ff, 1.5, 30);
-  engineLight.position.set(0, 0, -12);
+  const engineLight = new THREE.PointLight(0x3388ff, 1.0, shipScale * 10);
+  engineLight.position.set(0, 0, -shipScale * 1.4);
 
   ship.add(body, cockpit, wingL, wingR, wingLightL, wingLightR, engineGlow, engineLight);
 }
 scene.add(ship);
 
-// Ship starting position
-ship.position.set(planetOrbitRadius + 250, 60, 0);
+// Ship starting position - 100km from planet
+const startDistance = toRender(SCALE.PLANET_RADIUS + 100);
+ship.position.set(startDistance, 0, 0);
 ship.lookAt(0, 0, 0);
 
 // ==================== CAMERA SETUP ====================
-camera.position.set(0, 18, 50);
+camera.position.set(0, 0.3, 0.8);
 ship.add(camera);
 
 // ==================== ENGINE PARTICLES ====================
 let engineParticles: THREE.Points;
 {
-  const particleCount = 50;
+  const particleCount = 80;
   const particleGeo = new THREE.BufferGeometry();
   const positions = new Float32Array(particleCount * 3);
-  const velocities = new Float32Array(particleCount * 3);
   const ages = new Float32Array(particleCount);
   
   for (let i = 0; i < particleCount; i++) {
     positions[i * 3 + 0] = 0;
     positions[i * 3 + 1] = 0;
-    positions[i * 3 + 2] = -12;
-    velocities[i * 3 + 0] = 0;
-    velocities[i * 3 + 1] = 0;
-    velocities[i * 3 + 2] = 0;
+    positions[i * 3 + 2] = -0.04;
     ages[i] = Math.random();
   }
   
   particleGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  particleGeo.setAttribute("velocity", new THREE.BufferAttribute(velocities, 3));
   particleGeo.setAttribute("age", new THREE.BufferAttribute(ages, 1));
   
   const particleMat = new THREE.PointsMaterial({
-    size: 1.5,
+    size: 0.015,
     color: 0x3388ff,
     transparent: true,
     opacity: 0.7,
@@ -406,7 +459,10 @@ let engineParticles: THREE.Points;
 const inputs: Inputs = {
   throttleUp: false, throttleDown: false, brake: false, boost: false,
   yawL: false, yawR: false, pitchU: false, pitchD: false, rollL: false, rollR: false,
+  flightAssist: false, supercruise: false, freeLook: false
 };
+
+let flightAssistOn = true; // Flight assist on by default
 
 window.addEventListener("keydown", (e) => setKey(e.code, true));
 window.addEventListener("keyup", (e) => setKey(e.code, false));
@@ -424,18 +480,35 @@ function setKey(code: string, down: boolean) {
     case "ArrowDown": inputs.pitchD = down; break;
     case "KeyQ": inputs.rollL = down; break;
     case "KeyE": inputs.rollR = down; break;
+    case "KeyF": 
+      if (down) {
+        flightAssistOn = !flightAssistOn;
+        console.log("Flight Assist:", flightAssistOn ? "ON" : "OFF");
+      }
+      break;
+    case "KeyJ":
+      if (down) {
+        supercruiseActive = !supercruiseActive;
+        console.log("Supercruise:", supercruiseActive ? "ENGAGED" : "DISENGAGED");
+      }
+      break;
   }
 }
 
-// ==================== FLIGHT MODEL ====================
+// ==================== FLIGHT MODEL - NEWTONIAN PHYSICS ====================
 let throttle = 0.2;
-let speed = 0;
-const maxSpeed = 280;
-const accel = 100;
-const brakeDecel = 200;
-const yawRate = 1.2;
-const pitchRate = 1.0;
-const rollRate = 2.4;
+let velocity = new THREE.Vector3(0, 0, 0); // Actual velocity vector (km/s)
+let speed = 0; // Speed magnitude (km/s)
+let supercruiseActive = false;
+
+const maxAccel = 0.0005; // km/s² (0.5 m/s²)
+const maxDecel = 0.001;  // km/s² (1 m/s²)
+const rotationDamping = 0.92; // How quickly rotation slows
+const velocityDamping = 0.9995; // Slight space friction for gameplay
+
+const yawRate = 0.8;
+const pitchRate = 0.7;
+const rollRate = 1.5;
 
 // ==================== HUD ELEMENTS ====================
 const speedValue = document.getElementById("speed-value")!;
@@ -446,6 +519,7 @@ const targetDist = document.getElementById("target-dist")!;
 
 // ==================== ANIMATION LOOP ====================
 const clock = new THREE.Clock();
+let angularVelocity = new THREE.Euler(0, 0, 0); // Ship rotation velocity
 
 function animate() {
   requestAnimationFrame(animate);
@@ -456,71 +530,115 @@ function animate() {
   (coronaMat.uniforms.time as any).value = elapsed;
   (atmosphereMat.uniforms.time as any).value = elapsed;
 
-  // Orbit planet around sun
-  const t = elapsed * 0.04;
+  // Orbit planet around sun (slow)
+  const t = elapsed * 0.01;
   planet.position.set(
-    Math.cos(t) * planetOrbitRadius,
-    Math.sin(t * 0.3) * 80,
-    Math.sin(t) * planetOrbitRadius
+    Math.cos(t) * toRender(SCALE.PLANET_ORBIT),
+    Math.sin(t * 0.1) * toRender(SCALE.PLANET_ORBIT * 0.05),
+    Math.sin(t) * toRender(SCALE.PLANET_ORBIT)
   );
-  planet.rotation.y += dt * 0.2;
+  planet.rotation.y += dt * 0.1;
+  clouds.rotation.y += dt * 0.15;
 
   // Station orbits planet
-  const st = elapsed * 0.15;
+  const st = elapsed * 0.05;
+  const stationOrbitDist = toRender(SCALE.STATION_ORBIT);
   station.position.set(
-    planet.position.x + Math.cos(st) * 200,
-    planet.position.y + 20,
-    planet.position.z + Math.sin(st) * 200
+    planet.position.x + Math.cos(st) * stationOrbitDist,
+    planet.position.y + toRender(10),
+    planet.position.z + Math.sin(st) * stationOrbitDist
   );
-  station.rotation.y += dt * 0.3;
+  station.rotation.y += dt * 0.2;
 
-  // ==================== FLIGHT CONTROLS ====================
-  // Throttle
+  // ==================== NEWTONIAN FLIGHT CONTROLS ====================
+  // Throttle control
   if (inputs.throttleUp) throttle += dt * 0.4;
   if (inputs.throttleDown) throttle -= dt * 0.4;
   throttle = clamp(throttle, 0, 1);
 
-  // Target speed
-  const boostMul = inputs.boost ? 1.8 : 1.0;
-  const targetSpeed = maxSpeed * throttle * boostMul;
+  // Current max speed based on mode
+  const currentMaxSpeed = supercruiseActive ? SCALE.MAX_SPEED_SUPERCRUISE : SCALE.MAX_SPEED_NORMAL;
+  const targetSpeed = currentMaxSpeed * throttle * (inputs.boost ? 1.5 : 1.0);
 
-  // Acceleration
-  const a = accel * (inputs.boost ? 1.5 : 1.0);
-  if (speed < targetSpeed) speed = Math.min(targetSpeed, speed + a * dt);
-  else speed = Math.max(targetSpeed, speed - a * dt);
+  // Get ship's forward direction
+  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
+  
+  // Apply thrust in forward direction
+  if (flightAssistOn) {
+    // Flight assist: auto-brake when below target speed
+    const currentForwardSpeed = velocity.dot(forward);
+    const speedDiff = targetSpeed - currentForwardSpeed;
+    
+    if (speedDiff > 0) {
+      velocity.addScaledVector(forward, maxAccel * dt * 60);
+    } else if (speedDiff < 0) {
+      velocity.addScaledVector(forward, -maxDecel * dt * 60);
+    }
+  } else {
+    // No flight assist: pure thrust
+    if (throttle > 0.01) {
+      velocity.addScaledVector(forward, maxAccel * throttle * dt * 60);
+    }
+  }
 
   // Braking
-  if (inputs.brake) speed = Math.max(0, speed - brakeDecel * dt);
+  if (inputs.brake) {
+    if (flightAssistOn) {
+      // Full stop brake
+      velocity.multiplyScalar(1 - (maxDecel * 2 * dt * 60) / (velocity.length() + 0.001));
+    } else {
+      // Reverse thrust
+      velocity.addScaledVector(forward, -maxDecel * dt * 60);
+    }
+  }
 
-  // Rotation
+  // Speed limiting
+  speed = velocity.length();
+  if (speed > currentMaxSpeed && flightAssistOn) {
+    velocity.normalize().multiplyScalar(currentMaxSpeed);
+    speed = currentMaxSpeed;
+  }
+
+  // Apply velocity to position (converting km/s to render units)
+  ship.position.addScaledVector(velocity, dt * 60 * SCALE.RENDER_SCALE);
+
+  // Slight velocity damping for gameplay
+  velocity.multiplyScalar(velocityDamping);
+
+  // ==================== ROTATION WITH ANGULAR VELOCITY ====================
   const yaw = (inputs.yawR ? 1 : 0) - (inputs.yawL ? 1 : 0);
   const pitch = (inputs.pitchD ? 1 : 0) - (inputs.pitchU ? 1 : 0);
   const roll = (inputs.rollR ? 1 : 0) - (inputs.rollL ? 1 : 0);
 
-  ship.rotateY(yaw * yawRate * dt);
-  ship.rotateX(pitch * pitchRate * dt);
-  ship.rotateZ(-roll * rollRate * dt);
+  // Apply rotation inputs to angular velocity
+  angularVelocity.y += yaw * yawRate * dt;
+  angularVelocity.x += pitch * pitchRate * dt;
+  angularVelocity.z -= roll * rollRate * dt;
 
-  // Forward movement
-  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
-  ship.position.addScaledVector(forward, speed * dt);
+  // Apply damping to angular velocity
+  angularVelocity.x *= rotationDamping;
+  angularVelocity.y *= rotationDamping;
+  angularVelocity.z *= rotationDamping;
+
+  // Apply angular velocity to ship rotation
+  ship.rotateY(angularVelocity.y * dt * 60);
+  ship.rotateX(angularVelocity.x * dt * 60);
+  ship.rotateZ(angularVelocity.z * dt * 60);
 
   // ==================== ENGINE PARTICLES ====================
   const particlePositions = engineParticles.geometry.attributes.position.array as Float32Array;
   const particleAges = engineParticles.geometry.attributes.age.array as Float32Array;
   
   for (let i = 0; i < particleAges.length; i++) {
-    particleAges[i] += dt * (2 + speed / 100);
+    particleAges[i] += dt * (3 + speed * 2);
     
     if (particleAges[i] > 1) {
-      // Reset particle
       particleAges[i] = 0;
-      particlePositions[i * 3 + 0] = (Math.random() - 0.5) * 2;
-      particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 2;
-      particlePositions[i * 3 + 2] = -12;
+      particlePositions[i * 3 + 0] = (Math.random() - 0.5) * 0.02;
+      particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 0.02;
+      particlePositions[i * 3 + 2] = -0.04;
     } else {
-      // Move particle backward
-      particlePositions[i * 3 + 2] -= dt * (20 + speed / 5);
+      particlePositions[i * 3 + 2] -= dt * (0.5 + speed * 0.1);
     }
   }
   
@@ -528,16 +646,27 @@ function animate() {
   engineParticles.geometry.attributes.age.needsUpdate = true;
 
   // ==================== HUD UPDATES ====================
-  const distToStation = ship.position.distanceTo(station.position);
+  const distToStation = toKm(ship.position.distanceTo(station.position));
+  const distToPlanet = toKm(ship.position.distanceTo(planet.position)) - SCALE.PLANET_RADIUS;
   
-  speedValue.textContent = Math.round(speed).toString();
+  // Display speed in m/s and km/s
+  const speedMS = Math.round(speed * 1000);
+  speedValue.textContent = speedMS < 1000 ? 
+    `${speedMS}` : 
+    `${(speed).toFixed(1)}k`;
+  
   throttleValue.textContent = Math.round(throttle * 100).toString();
-  targetDist.textContent = Math.round(distToStation).toString();
   
-  speedBar.style.width = `${(speed / maxSpeed) * 100}%`;
+  // Distance in km
+  targetDist.textContent = distToStation < 10 ? 
+    `${(distToStation * 1000).toFixed(0)}m` : 
+    `${distToStation.toFixed(1)}km`;
+  
+  // Update bars
+  speedBar.style.width = `${(speed / currentMaxSpeed) * 100}%`;
   throttleBar.style.width = `${throttle * 100}%`;
   
-  if (inputs.boost) {
+  if (inputs.boost || supercruiseActive) {
     throttleBar.classList.add("boost");
   } else {
     throttleBar.classList.remove("boost");
