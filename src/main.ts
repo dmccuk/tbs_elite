@@ -577,8 +577,6 @@ function animate() {
 
   // Current max speed based on mode
   const currentMaxSpeed = supercruiseActive ? SCALE.MAX_SPEED_SUPERCRUISE : SCALE.MAX_SPEED_NORMAL;
-  const targetSpeed = currentMaxSpeed * throttle * (inputs.boost ? 1.5 : 1.0);
-
   // ARCADE FLIGHT MODEL - Point and Go!
   const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
   
