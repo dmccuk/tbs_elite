@@ -26,7 +26,8 @@ const SCALE = {
   SUN_RADIUS: 50,           // km (visual, not realistic)
   
   // Speed constants
-  MAX_SPEED_NORMAL: 0.5,    // km/s (500 m/s)
+  MAX_SPEED_NORMAL: 1.0,    // km/s (1000 m/s)
+  MAX_SPEED_BOOST: 5.0,     // km/s (5000 m/s)
   MAX_SPEED_SUPERCRUISE: 100, // km/s (100 km/s)
   
   // Display scale factor (for rendering)
@@ -578,50 +579,26 @@ function animate() {
   const currentMaxSpeed = supercruiseActive ? SCALE.MAX_SPEED_SUPERCRUISE : SCALE.MAX_SPEED_NORMAL;
   const targetSpeed = currentMaxSpeed * throttle * (inputs.boost ? 1.5 : 1.0);
 
-  // Get ship's forward direction
+  // ARCADE FLIGHT MODEL - Point and Go!
   const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
   
-  // Apply thrust in forward direction
-  if (flightAssistOn) {
-    // Flight assist: auto-brake when below target speed
-    const currentForwardSpeed = velocity.dot(forward);
-    const speedDiff = targetSpeed - currentForwardSpeed;
-    
-    if (speedDiff > 0) {
-      velocity.addScaledVector(forward, maxAccel * dt * 60);
-    } else if (speedDiff < 0) {
-      velocity.addScaledVector(forward, -maxDecel * dt * 60);
-    }
-  } else {
-    // No flight assist: pure thrust
-    if (throttle > 0.01) {
-      velocity.addScaledVector(forward, maxAccel * throttle * dt * 60);
-    }
-  }
-
-  // Braking
+  // Determine target speed based on boost
+  const boostMultiplier = inputs.boost ? (SCALE.MAX_SPEED_BOOST / SCALE.MAX_SPEED_NORMAL) : 1.0;
+  const targetSpeed = currentMaxSpeed * throttle * boostMultiplier;
+  
+  // Simply set velocity to forward direction at target speed
+  velocity.copy(forward).multiplyScalar(targetSpeed);
+  
+  // Braking overrides everything
   if (inputs.brake) {
-    if (flightAssistOn) {
-      // Full stop brake
-      velocity.multiplyScalar(1 - (maxDecel * 2 * dt * 60) / (velocity.length() + 0.001));
-    } else {
-      // Reverse thrust
-      velocity.addScaledVector(forward, -maxDecel * dt * 60);
-    }
+    velocity.multiplyScalar(0.1); // Slow to 10% speed when braking
   }
-
-  // Speed limiting
+  
+  // Update speed
   speed = velocity.length();
-  if (speed > currentMaxSpeed && flightAssistOn) {
-    velocity.normalize().multiplyScalar(currentMaxSpeed);
-    speed = currentMaxSpeed;
-  }
-
-  // Apply velocity to position (converting km/s to render units)
+  
+  // Apply velocity to position
   ship.position.addScaledVector(velocity, dt * 60 * SCALE.RENDER_SCALE);
-
-  // Slight velocity damping for gameplay
-  velocity.multiplyScalar(velocityDamping);
 
   // ==================== ROTATION WITH ANGULAR VELOCITY ====================
   const yaw = (inputs.yawR ? 1 : 0) - (inputs.yawL ? 1 : 0);
@@ -768,6 +745,22 @@ function updateRadar() {
     90 + Math.sin(sweepAngle) * radarRadius
   );
   radarCtx.stroke();
+    // Draw facing direction indicator
+  radarCtx.strokeStyle = "#ffaa00";
+  radarCtx.lineWidth = 2;
+  radarCtx.beginPath();
+  radarCtx.moveTo(90, 90);
+  radarCtx.lineTo(90, 90 - 25); // Orange line pointing up (forward)
+  radarCtx.stroke();
+  
+  // Draw triangle at end
+  radarCtx.fillStyle = "#ffaa00";
+  radarCtx.beginPath();
+  radarCtx.moveTo(90, 90 - 25);
+  radarCtx.lineTo(85, 90 - 15);
+  radarCtx.lineTo(95, 90 - 15);
+  radarCtx.closePath();
+  radarCtx.fill();
 }
 
 animate();
