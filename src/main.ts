@@ -600,7 +600,6 @@ function animate() {
   }
   
   // Station orbits planet
-  constant distance)
   const st = elapsed * 0.0001; // SAME as planet orbit speed!
   const stationOrbitDist = toRender(SCALE.STATION_ORBIT);
   station.position.set(
