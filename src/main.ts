@@ -474,8 +474,8 @@ function setKey(code: string, down: boolean) {
     case "Space": inputs.brake = down; break;
     case "ShiftLeft":
     case "ShiftRight": inputs.boost = down; break;
-    case "ArrowLeft": inputs.yawL = down; break;
-    case "ArrowRight": inputs.yawR = down; break;
+    case "ArrowLeft": inputs.yawR = down; break;
+    case "ArrowRight": inputs.yawL = down; break;
     case "ArrowUp": inputs.pitchU = down; break;
     case "ArrowDown": inputs.pitchD = down; break;
     case "KeyQ": inputs.rollL = down; break;
@@ -487,9 +487,45 @@ function setKey(code: string, down: boolean) {
       }
       break;
     case "KeyJ":
+    case "KeyH":
       if (down) {
+        const helpMenu = document.getElementById("help-menu")!;
+        helpMenu?.classList.toggle("visible");
+      }
+      break;
+      if (down) {
+    case "KeyH":
+      if (down) {
+        const helpMenu = document.getElementById("help-menu")!;
+        helpMenu?.classList.toggle("visible");
+      }
+      break;
         supercruiseActive = !supercruiseActive;
+    case "KeyH":
+      if (down) {
+        const helpMenu = document.getElementById("help-menu")!;
+        helpMenu?.classList.toggle("visible");
+      }
+      break;
         console.log("Supercruise:", supercruiseActive ? "ENGAGED" : "DISENGAGED");
+    case "KeyH":
+      if (down) {
+        const helpMenu = document.getElementById("help-menu")!;
+        helpMenu?.classList.toggle("visible");
+      }
+      break;
+      }
+    case "KeyH":
+      if (down) {
+        const helpMenu = document.getElementById("help-menu")!;
+        helpMenu?.classList.toggle("visible");
+      }
+      break;
+      break;
+    case "KeyH":
+      if (down) {
+        const helpMenu = document.getElementById("help-menu")!;
+        helpMenu?.classList.toggle("visible");
       }
       break;
   }
@@ -672,6 +708,10 @@ function animate() {
     throttleBar.classList.remove("boost");
   }
 
+  updateRadar();
+  const distToPlanet = toKm(ship.position.distanceTo(planet.position)) - SCALE.PLANET_RADIUS;
+  altitudeValue.textContent = Math.max(0, distToPlanet).toFixed(1);
+  if (selectedTarget) updateTargetInfo();
   renderer.render(scene, camera);
 }
 
@@ -683,3 +723,133 @@ window.addEventListener("resize", () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// ==================== RADAR & TARGET SYSTEM ====================
+const radarCanvas = document.getElementById("radar-canvas") as HTMLCanvasElement;
+const radarCtx = radarCanvas?.getContext("2d");
+const radarRadius = 85;
+const radarRange = 500;
+
+const radarObjects = [
+  { name: "Vigilia Prime", ref: planet, type: "planet", color: "#3388ff" },
+  { name: "Vigilant Relay", ref: station, type: "station", color: "#00ff88" },
+  { name: "Sun", ref: sun, type: "star", color: "#ffdd88" }
+];
+
+let selectedTarget: any = null;
+
+function updateRadar() {
+  if (!radarCtx) return;
+  
+  radarCtx.fillStyle = "rgba(0, 20, 15, 0.5)";
+  radarCtx.fillRect(0, 0, 180, 180);
+  
+  radarCtx.fillStyle = "#00ff88";
+  radarCtx.beginPath();
+  radarCtx.arc(90, 90, 3, 0, Math.PI * 2);
+  radarCtx.fill();
+  
+  radarCtx.strokeStyle = "rgba(0, 255, 136, 0.2)";
+  radarCtx.lineWidth = 1;
+  for (let i = 1; i <= 3; i++) {
+    radarCtx.beginPath();
+    radarCtx.arc(90, 90, (radarRadius / 3) * i, 0, Math.PI * 2);
+    radarCtx.stroke();
+  }
+  
+  radarObjects.forEach(obj => {
+    const relPos = obj.ref.position.clone().sub(ship.position);
+    const distKm = toKm(relPos.length());
+    if (distKm > radarRange) return;
+    
+    const radarScale = radarRadius / radarRange;
+    const x = 90 + (relPos.x * radarScale * 100);
+    const y = 90 - (relPos.z * radarScale * 100);
+    
+    radarCtx.fillStyle = obj.color;
+    radarCtx.beginPath();
+    radarCtx.arc(x, y, obj === selectedTarget ? 5 : 3, 0, Math.PI * 2);
+    radarCtx.fill();
+    
+    if (obj === selectedTarget) {
+      radarCtx.strokeStyle = "#ffaa00";
+      radarCtx.lineWidth = 2;
+      radarCtx.beginPath();
+      radarCtx.arc(x, y, 8, 0, Math.PI * 2);
+      radarCtx.stroke();
+    }
+  });
+  
+  const sweepAngle = (clock.elapsedTime * 2) % (Math.PI * 2);
+  radarCtx.strokeStyle = "rgba(0, 255, 136, 0.3)";
+  radarCtx.lineWidth = 1;
+  radarCtx.beginPath();
+  radarCtx.moveTo(90, 90);
+  radarCtx.lineTo(90 + Math.cos(sweepAngle) * radarRadius, 90 + Math.sin(sweepAngle) * radarRadius);
+  radarCtx.stroke();
+}
+
+function updateTargetInfo() {
+  const targetName = document.getElementById("target-name")!;
+  const targetData = document.getElementById("target-data")!;
+  const gotoButton = document.getElementById("goto-button")!;
+  
+  if (selectedTarget) {
+    const distKm = toKm(ship.position.distanceTo(selectedTarget.ref.position));
+    targetName.textContent = selectedTarget.name;
+    targetData.innerHTML = `<div>Type: ${selectedTarget.type.toUpperCase()}</div><div>Distance: ${distKm < 10 ? (distKm * 1000).toFixed(0) + "m" : distKm.toFixed(1) + "km"}</div><div style="margin-top:4px;color:#00ff88">⬤ Target Locked</div>`;
+    gotoButton.style.display = "block";
+  } else {
+    targetName.textContent = "NO TARGET";
+    targetData.innerHTML = '<div>Select object on radar</div><div style="margin-top:4px;opacity:0.6">Click radar contacts</div>';
+    gotoButton.style.display = "none";
+  }
+}
+
+radarCanvas?.addEventListener("click", (e) => {
+  const rect = radarCanvas.getBoundingClientRect();
+  const clickX = ((e.clientX - rect.left) / rect.width) * 180;
+  const clickY = ((e.clientY - rect.top) / rect.height) * 180;
+  
+  let closestObj: any = null;
+  let closestDist = 15;
+  
+  radarObjects.forEach(obj => {
+    const relPos = obj.ref.position.clone().sub(ship.position);
+    const distKm = toKm(relPos.length());
+    if (distKm > radarRange) return;
+    
+    const radarScale = radarRadius / radarRange;
+    const x = 90 + (relPos.x * radarScale * 100);
+    const y = 90 - (relPos.z * radarScale * 100);
+    
+    const dist = Math.sqrt((x - clickX) ** 2 + (y - clickY) ** 2);
+    if (dist < closestDist) {
+      closestDist = dist;
+      closestObj = obj;
+    }
+  });
+  
+  if (closestObj) {
+    selectedTarget = closestObj;
+    updateTargetInfo();
+  }
+});
+
+document.getElementById("goto-button")?.addEventListener("click", () => {
+  if (selectedTarget) {
+    const targetDir = selectedTarget.ref.position.clone().sub(ship.position).normalize();
+    const targetQuaternion = new THREE.Quaternion();
+    const up = new THREE.Vector3(0, 1, 0);
+    const matrix = new THREE.Matrix4();
+    matrix.lookAt(new THREE.Vector3(0, 0, 0), targetDir, up);
+    targetQuaternion.setFromRotationMatrix(matrix);
+    ship.quaternion.slerp(targetQuaternion, 0.1);
+  }
+});
+
+document.getElementById("help-close")?.addEventListener("click", () => {
+  document.getElementById("help-menu")?.classList.remove("visible");
+});
+
+const altitudeValue = document.getElementById("altitude-value")!;
