@@ -1,454 +1,164 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>The Black Ship — Vigilia System</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
-      
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      
-      html, body {
-        height: 100%;
-        overflow: hidden;
-        background: #000;
-        font-family: 'Share Tech Mono', monospace;
-      }
-      
-      canvas {
-        display: block;
-        outline: none;
-      }
-      
-      canvas:focus {
-        outline: 2px solid rgba(0, 255, 136, 0.3);
-      }
-      
-      /* Scanline effect overlay */
-      #scanlines {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        background: linear-gradient(
-          transparent 50%,
-          rgba(0, 255, 136, 0.02) 50%
-        );
-        background-size: 100% 4px;
-        z-index: 1;
-        opacity: 0.3;
-        animation: scanline 8s linear infinite;
-      }
-      
-      @keyframes scanline {
-        0% { transform: translateY(0); }
-        100% { transform: translateY(4px); }
-      }
-      
-      /* CRT vignette */
-      #vignette {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        background: radial-gradient(
-          circle at center,
-          transparent 0%,
-          transparent 60%,
-          rgba(0, 0, 0, 0.3) 100%
-        );
-        z-index: 1;
-      }
-      
-      /* Main HUD container */
-      #hud {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        z-index: 10;
-        color: #00ff88;
-        text-shadow: 0 0 8px rgba(0, 255, 136, 0.7);
-      }
-      
-      /* Top left status panel */
-      #status-panel {
-        position: absolute;
-        left: 20px;
-        top: 20px;
-        border: 2px solid #00ff88;
-        background: rgba(0, 0, 0, 0.8);
-        padding: 12px 16px;
-        box-shadow: 
-          0 0 20px rgba(0, 255, 136, 0.3),
-          inset 0 0 20px rgba(0, 255, 136, 0.05);
-        animation: flicker 3s infinite;
-      }
-      
-      @keyframes flicker {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.97; }
-      }
-      
-      #status-panel .title {
-        font-family: 'Orbitron', sans-serif;
-        font-weight: 900;
-        font-size: 16px;
-        letter-spacing: 2px;
-        margin-bottom: 8px;
-        color: #00ff88;
-        text-transform: uppercase;
-      }
-      
-      #status-panel .data {
-        font-size: 13px;
-        line-height: 1.6;
-        color: #88ffcc;
-      }
-      
-      #status-panel .warning {
-        color: #ffaa00;
-        text-shadow: 0 0 8px rgba(255, 170, 0, 0.7);
-      }
-      
-      /* Top right instruments */
-      #instruments {
-        position: absolute;
-        right: 20px;
-        top: 20px;
-        display: flex;
-        gap: 16px;
-      }
-      
-      .instrument {
-        border: 2px solid #00ff88;
-        background: rgba(0, 0, 0, 0.8);
-        padding: 12px;
-        min-width: 120px;
-        text-align: center;
-        box-shadow: 
-          0 0 20px rgba(0, 255, 136, 0.3),
-          inset 0 0 20px rgba(0, 255, 136, 0.05);
-      }
-      
-      .instrument-label {
-        font-size: 10px;
-        opacity: 0.7;
-        margin-bottom: 4px;
-        letter-spacing: 1px;
-      }
-      
-      .instrument-value {
-        font-family: 'Orbitron', sans-serif;
-        font-size: 24px;
-        font-weight: 700;
-        line-height: 1;
-      }
-      
-      .instrument-unit {
-        font-size: 11px;
-        opacity: 0.8;
-        margin-top: 2px;
-      }
-      
-      /* Bottom center crosshair */
-      #crosshair {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        width: 60px;
-        height: 60px;
-      }
-      
-      #crosshair::before,
-      #crosshair::after {
-        content: '';
-        position: absolute;
-        background: #00ff88;
-        box-shadow: 0 0 6px rgba(0, 255, 136, 0.8);
-      }
-      
-      #crosshair::before {
-        left: 50%;
-        top: 0;
-        width: 2px;
-        height: 100%;
-        transform: translateX(-50%);
-      }
-      
-      #crosshair::after {
-        left: 0;
-        top: 50%;
-        width: 100%;
-        height: 2px;
-        transform: translateY(-50%);
-      }
-      
-      .crosshair-corner {
-        position: absolute;
-        width: 15px;
-        height: 15px;
-        border: 2px solid #00ff88;
-        box-shadow: 0 0 6px rgba(0, 255, 136, 0.8);
-      }
-      
-      .crosshair-corner:nth-child(1) {
-        top: 0;
-        left: 0;
-        border-right: none;
-        border-bottom: none;
-      }
-      
-      .crosshair-corner:nth-child(2) {
-        top: 0;
-        right: 0;
-        border-left: none;
-        border-bottom: none;
-      }
-      
-      .crosshair-corner:nth-child(3) {
-        bottom: 0;
-        left: 0;
-        border-right: none;
-        border-top: none;
-      }
-      
-      .crosshair-corner:nth-child(4) {
-        bottom: 0;
-        right: 0;
-        border-left: none;
-        border-top: none;
-      }
-      
-      /* Bottom HUD bar */
-      #bottom-bar {
-        position: absolute;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        display: flex;
-        gap: 30px;
-        align-items: flex-end;
-      }
-      
-      .bar-section {
-        text-align: center;
-      }
-      
-      .bar-label {
-        font-size: 10px;
-        opacity: 0.7;
-        margin-bottom: 4px;
-        letter-spacing: 1px;
-      }
-      
-      .bar-container {
-        width: 140px;
-        height: 20px;
-        border: 2px solid #00ff88;
-        background: rgba(0, 0, 0, 0.8);
-        position: relative;
-        overflow: hidden;
-      }
-      
-      .bar-fill {
-        height: 100%;
-        background: linear-gradient(90deg, #00ff88, #00cc66);
-        box-shadow: 0 0 10px rgba(0, 255, 136, 0.6);
-        transition: width 0.2s ease-out;
-      }
-      
-      .bar-fill.boost {
-        background: linear-gradient(90deg, #ffaa00, #ff6600);
-        box-shadow: 0 0 10px rgba(255, 170, 0, 0.6);
-        animation: pulse 0.3s infinite;
-      }
-      
-      @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.7; }
-      }
-      
-      /* Controls hint */
-      #controls {
-        position: absolute;
-        bottom: 20px;
-        left: 20px;
-        font-size: 11px;
-        opacity: 0.6;
-        line-height: 1.8;
-        max-width: 300px;
-        background: rgba(0, 0, 0, 0.6);
-        padding: 10px;
-        border: 1px solid rgba(0, 255, 136, 0.3);
-      }
-      
-      #controls .key {
-        display: inline-block;
-        background: rgba(0, 255, 136, 0.2);
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-weight: 700;
-        margin: 0 2px;
-      }
-      
-      /* Target info */
-      #target-info {
-        position: absolute;
-        right: 20px;
-        bottom: 20px;
-        border: 2px solid #00ff88;
-        background: rgba(0, 0, 0, 0.8);
-        padding: 12px;
-        min-width: 200px;
-        box-shadow: 
-          0 0 20px rgba(0, 255, 136, 0.3),
-          inset 0 0 20px rgba(0, 255, 136, 0.05);
-      }
-      
-      #target-info .target-name {
-        font-family: 'Orbitron', sans-serif;
-        font-size: 14px;
-        font-weight: 700;
-        margin-bottom: 6px;
-        color: #ffaa00;
-        text-shadow: 0 0 8px rgba(255, 170, 0, 0.7);
-      }
-      
-      #target-info .target-data {
-        font-size: 12px;
-        line-height: 1.6;
-        color: #88ffcc;
-      }
-      
-      /* Click to start message */
-      #start-message {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-family: 'Orbitron', sans-serif;
-        font-size: 24px;
-        font-weight: 700;
-        color: #00ff88;
-        text-shadow: 0 0 20px rgba(0, 255, 136, 0.8);
-        text-align: center;
-        pointer-events: none;
-        animation: pulse-message 2s ease-in-out infinite;
-        z-index: 100;
-      }
-      
-      @keyframes pulse-message {
-        0%, 100% { opacity: 0.6; }
-        50% { opacity: 1; }
-      }
-      
-      #start-message.hidden {
-        display: none;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="scanlines"></div>
-    <div id="vignette"></div>
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Space Refuse Collector — Vigilia System</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{height:100%;overflow:hidden;background:#000;font-family:'Share Tech Mono',monospace}
+    canvas{display:block;outline:none}
+    canvas:focus{outline:2px solid rgba(0,255,136,0.3)}
     
-    <!-- Click to start message -->
-    <div id="start-message">
-      CLICK TO START<br>
-      <span style="font-size: 16px; font-weight: 400;">Then use W/S/Arrows/Q/E</span>
+    #scanlines{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;background:linear-gradient(transparent 50%,rgba(0,255,136,0.02) 50%);background-size:100% 4px;z-index:1;opacity:0.3;animation:scanline 8s linear infinite}
+    @keyframes scanline{0%{transform:translateY(0)}100%{transform:translateY(4px)}}
+    
+    /* COCKPIT FRAME */
+    #cockpit-frame{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:5}
+    .cockpit-edge{position:absolute;background:linear-gradient(to bottom,rgba(20,30,40,0.9),rgba(10,15,20,0.95));pointer-events:none}
+    .cockpit-edge.top{top:0;left:0;width:100%;height:80px;border-bottom:2px solid rgba(0,255,136,0.3)}
+    .cockpit-edge.bottom{bottom:0;left:0;width:100%;height:200px;border-top:2px solid rgba(0,255,136,0.3);background:linear-gradient(to top,rgba(15,20,25,0.95),rgba(10,15,20,0.85))}
+    .cockpit-edge.left{top:80px;left:0;width:60px;bottom:200px;border-right:2px solid rgba(0,255,136,0.2)}
+    .cockpit-edge.right{top:80px;right:0;width:60px;bottom:200px;border-left:2px solid rgba(0,255,136,0.2)}
+    
+    #hud{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;color:#00ff88;text-shadow:0 0 8px rgba(0,255,136,0.7)}
+    .clickable{pointer-events:auto;cursor:pointer}
+    
+    #vessel-type{position:absolute;left:80px;top:20px;font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;color:#ffaa00;text-shadow:0 0 10px rgba(255,170,0,0.8)}
+    .status-indicator{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;animation:pulse 2s infinite;background:#00ff88;box-shadow:0 0 10px rgba(0,255,136,0.8)}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+    
+    /* RADAR */
+    #radar-container{position:absolute;left:80px;bottom:40px;width:180px;height:180px;border:2px solid #00ff88;background:rgba(0,20,15,0.9);box-shadow:0 0 20px rgba(0,255,136,0.4),inset 0 0 30px rgba(0,255,136,0.1);pointer-events:auto}
+    #radar-canvas{width:100%;height:100%;display:block;cursor:crosshair}
+    #radar-label{position:absolute;top:-20px;left:0;font-size:10px;letter-spacing:1px;opacity:0.8}
+    
+    /* INSTRUMENTS */
+    #instruments-panel{position:absolute;left:50%;transform:translateX(-50%);bottom:40px;display:flex;gap:20px}
+    .instrument{border:2px solid #00ff88;background:rgba(0,20,15,0.9);padding:12px 16px;min-width:100px;text-align:center;box-shadow:0 0 15px rgba(0,255,136,0.3),inset 0 0 15px rgba(0,255,136,0.05)}
+    .instrument-label{font-size:9px;opacity:0.7;margin-bottom:4px;letter-spacing:1px}
+    .instrument-value{font-family:'Orbitron',sans-serif;font-size:20px;font-weight:700;line-height:1}
+    .instrument-unit{font-size:10px;opacity:0.8;margin-top:2px}
+    
+    /* TARGET INFO */
+    #target-info{position:absolute;right:80px;bottom:40px;border:2px solid #00ff88;background:rgba(0,20,15,0.9);padding:12px 16px;min-width:220px;box-shadow:0 0 20px rgba(0,255,136,0.3),inset 0 0 20px rgba(0,255,136,0.05)}
+    #target-info .target-name{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;margin-bottom:6px;color:#ffaa00;text-shadow:0 0 8px rgba(255,170,0,0.7)}
+    #target-info .target-data{font-size:11px;line-height:1.6;color:#88ffcc}
+    #target-info .goto-button{margin-top:8px;padding:6px 12px;background:rgba(0,255,136,0.2);border:1px solid #00ff88;color:#00ff88;font-family:'Share Tech Mono',monospace;font-size:10px;cursor:pointer;pointer-events:auto;transition:all 0.2s;width:100%}
+    #target-info .goto-button:hover{background:rgba(0,255,136,0.4);box-shadow:0 0 10px rgba(0,255,136,0.6)}
+    
+    /* CROSSHAIR */
+    #crosshair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:40px;height:40px;pointer-events:none}
+    #crosshair::before,#crosshair::after{content:'';position:absolute;background:#00ff88;box-shadow:0 0 6px rgba(0,255,136,0.8)}
+    #crosshair::before{left:50%;top:0;width:1px;height:100%;transform:translateX(-50%)}
+    #crosshair::after{left:0;top:50%;width:100%;height:1px;transform:translateY(-50%)}
+    .crosshair-corner{position:absolute;width:12px;height:12px;border:2px solid #00ff88;box-shadow:0 0 6px rgba(0,255,136,0.8)}
+    .crosshair-corner:nth-child(1){top:0;left:0;border-right:none;border-bottom:none}
+    .crosshair-corner:nth-child(2){top:0;right:0;border-left:none;border-bottom:none}
+    .crosshair-corner:nth-child(3){bottom:0;left:0;border-right:none;border-top:none}
+    .crosshair-corner:nth-child(4){bottom:0;right:0;border-left:none;border-top:none}
+    
+    /* HELP MENU */
+    #help-menu{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:500px;max-height:600px;background:rgba(0,20,15,0.98);border:3px solid #00ff88;padding:20px;box-shadow:0 0 30px rgba(0,255,136,0.5);display:none;pointer-events:auto;overflow-y:auto;z-index:1000}
+    #help-menu.visible{display:block}
+    #help-menu h2{font-family:'Orbitron',sans-serif;font-size:18px;margin-bottom:15px;color:#ffaa00;text-align:center;text-shadow:0 0 10px rgba(255,170,0,0.8)}
+    .help-section{margin-bottom:20px}
+    .help-section h3{font-size:14px;color:#00ff88;margin-bottom:8px;border-bottom:1px solid rgba(0,255,136,0.3);padding-bottom:4px}
+    .help-row{display:flex;justify-content:space-between;padding:4px 0;font-size:12px}
+    .help-key{color:#ffaa00;font-weight:700}
+    .help-desc{color:#88ffcc}
+    .help-close{margin-top:15px;padding:8px 20px;background:rgba(0,255,136,0.2);border:1px solid #00ff88;color:#00ff88;font-family:'Share Tech Mono',monospace;font-size:12px;cursor:pointer;width:100%;transition:all 0.2s}
+    .help-close:hover{background:rgba(0,255,136,0.4);box-shadow:0 0 10px rgba(0,255,136,0.6)}
+    
+    #start-message{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Orbitron',sans-serif;font-size:24px;font-weight:700;color:#00ff88;text-shadow:0 0 20px rgba(0,255,136,0.8);text-align:center;pointer-events:none;animation:pulse-message 2s ease-in-out infinite;z-index:100}
+    @keyframes pulse-message{0%,100%{opacity:0.6}50%{opacity:1}}
+    #start-message.hidden{display:none}
+    
+    #help-hint{position:absolute;top:20px;right:80px;font-size:11px;opacity:0.6;color:#ffaa00}
+  </style>
+</head>
+<body>
+  <div id="scanlines"></div>
+  <div id="cockpit-frame">
+    <div class="cockpit-edge top"></div>
+    <div class="cockpit-edge bottom"></div>
+    <div class="cockpit-edge left"></div>
+    <div class="cockpit-edge right"></div>
+  </div>
+  
+  <div id="start-message">CLICK TO START<br><span style="font-size:14px;font-weight:400">Press H for Help</span></div>
+  
+  <div id="hud">
+    <div id="vessel-type"><span class="status-indicator"></span>SPACE REFUSE COLLECTOR MK-IV</div>
+    <div id="help-hint">Press [H] for Controls</div>
+    
+    <div id="radar-container" class="clickable">
+      <div id="radar-label">PROXIMITY RADAR</div>
+      <canvas id="radar-canvas" width="180" height="180"></canvas>
     </div>
     
-    <div id="hud">
-      <!-- Top left status -->
-      <div id="status-panel">
-        <div class="title">Vigilia System</div>
-        <div class="data">
-          <div>House Emerald Territory</div>
-          <div class="warning">⚠ Border Zone Active</div>
-          <div style="margin-top: 8px;">Transponder: <span style="color: #ff4444;">BLACK</span></div>
-          <div>Permit: "Relief Courier"</div>
-          <div style="margin-top: 8px; font-size: 11px; opacity: 0.7;">
-            <div>Planet: 6,400km radius</div>
-            <div>Station: Vigilant Relay</div>
-          </div>
-        </div>
+    <div id="crosshair">
+      <div class="crosshair-corner"></div>
+      <div class="crosshair-corner"></div>
+      <div class="crosshair-corner"></div>
+      <div class="crosshair-corner"></div>
+    </div>
+    
+    <div id="instruments-panel">
+      <div class="instrument">
+        <div class="instrument-label">VELOCITY</div>
+        <div class="instrument-value" id="speed-value">0</div>
+        <div class="instrument-unit">m/s</div>
       </div>
-      
-      <!-- Top right instruments -->
-      <div id="instruments">
-        <div class="instrument">
-          <div class="instrument-label">SPEED</div>
-          <div class="instrument-value" id="speed-value">0</div>
-          <div class="instrument-unit">m/s</div>
-        </div>
-        <div class="instrument">
-          <div class="instrument-label">THROTTLE</div>
-          <div class="instrument-value" id="throttle-value">20</div>
-          <div class="instrument-unit">%</div>
-        </div>
+      <div class="instrument">
+        <div class="instrument-label">THROTTLE</div>
+        <div class="instrument-value" id="throttle-value">20</div>
+        <div class="instrument-unit">%</div>
       </div>
-      
-      <!-- Center crosshair -->
-      <div id="crosshair">
-        <div class="crosshair-corner"></div>
-        <div class="crosshair-corner"></div>
-        <div class="crosshair-corner"></div>
-        <div class="crosshair-corner"></div>
-      </div>
-      
-      <!-- Bottom bar with speed/throttle -->
-      <div id="bottom-bar">
-        <div class="bar-section">
-          <div class="bar-label">VELOCITY</div>
-          <div class="bar-container">
-            <div class="bar-fill" id="speed-bar"></div>
-          </div>
-        </div>
-        <div class="bar-section">
-          <div class="bar-label">POWER</div>
-          <div class="bar-container">
-            <div class="bar-fill" id="throttle-bar"></div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Controls -->
-      <div id="controls">
-        <span class="key">W</span>/<span class="key">S</span> Throttle
-        <span class="key">↑</span>/<span class="key">↓</span> Pitch
-        <span class="key">←</span>/<span class="key">→</span> Yaw<br>
-        <span class="key">Q</span>/<span class="key">E</span> Roll
-        <span class="key">Space</span> Brake
-        <span class="key">Shift</span> Boost<br>
-        <span class="key">F</span> Flight Assist
-        <span class="key">J</span> Supercruise
-      </div>
-      
-      <!-- Target info -->
-      <div id="target-info">
-        <div class="target-name" id="target-name">VIGILANT RELAY</div>
-        <div class="target-data">
-          <div>Distance: <span id="target-dist">0</span></div>
-          <div>Type: Orbital Station</div>
-          <div>Orbit: 400km from planet</div>
-          <div style="margin-top: 4px; color: #00ff88;">⬤ Docking Available</div>
-        </div>
+      <div class="instrument">
+        <div class="instrument-label">ALTITUDE</div>
+        <div class="instrument-value" id="altitude-value">0</div>
+        <div class="instrument-unit">km</div>
       </div>
     </div>
     
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+    <div id="target-info">
+      <div class="target-name" id="target-name">NO TARGET</div>
+      <div class="target-data" id="target-data">
+        <div>Select object on radar</div>
+        <div style="margin-top:4px;opacity:0.6">Click radar contacts</div>
+      </div>
+      <button class="goto-button" id="goto-button" style="display:none">→ NAVIGATE TO TARGET</button>
+    </div>
+    
+    <div id="help-menu">
+      <h2>═══ CONTROLS & FUNCTIONS ═══</h2>
+      <div class="help-section">
+        <h3>Flight Controls</h3>
+        <div class="help-row"><span class="help-key">W / S</span><span class="help-desc">Throttle Up / Down</span></div>
+        <div class="help-row"><span class="help-key">← / →</span><span class="help-desc">Yaw Left / Right</span></div>
+        <div class="help-row"><span class="help-key">↑ / ↓</span><span class="help-desc">Pitch Up / Down</span></div>
+        <div class="help-row"><span class="help-key">Q / E</span><span class="help-desc">Roll Left / Right</span></div>
+        <div class="help-row"><span class="help-key">Space</span><span class="help-desc">Brake (Full Stop)</span></div>
+        <div class="help-row"><span class="help-key">Shift</span><span class="help-desc">Boost (Temporary)</span></div>
+      </div>
+      <div class="help-section">
+        <h3>Navigation</h3>
+        <div class="help-row"><span class="help-key">Radar Click</span><span class="help-desc">Select Target</span></div>
+        <div class="help-row"><span class="help-key">Navigate Button</span><span class="help-desc">Auto-point to Target</span></div>
+      </div>
+      <div class="help-section">
+        <h3>Advanced Systems</h3>
+        <div class="help-row"><span class="help-key">F</span><span class="help-desc">Toggle Flight Assist</span></div>
+        <div class="help-row"><span class="help-key">J</span><span class="help-desc">Toggle Supercruise</span></div>
+        <div class="help-row"><span class="help-key">H</span><span class="help-desc">Toggle Help Menu</span></div>
+      </div>
+      <button class="help-close" id="help-close">CLOSE [H]</button>
+    </div>
+  </div>
+  
+  <script type="module" src="/src/main.ts"></script>
+</body>
 </html>
