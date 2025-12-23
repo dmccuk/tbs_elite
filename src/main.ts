@@ -705,30 +705,35 @@ function updateRadar() {
     radarCtx.stroke();
   }
   
-  // Draw objects
+  // Draw objects (rotated relative to ship facing)
   radarObjects.forEach(obj => {
     const relPos = obj.ref.position.clone().sub(ship.position);
     const distKm = toKm(relPos.length());
     
-    // DEBUG: Log distances (only once per second to avoid spam)
-    if (Math.floor(clock.elapsedTime) !== Math.floor(clock.elapsedTime - 0.016)) {
-      //console.log(`${obj.name}: ${distKm.toFixed(1)}km`);
-    }
+    // DEBUG: Check if station is in range
+    console.log(`${obj.name}: ${distKm.toFixed(1)}km (range: ${radarRange}km)`);
     
     if (distKm > radarRange) {
-      //console.log(`${obj.name} too far: ${distKm.toFixed(1)}km > ${radarRange}km`);
       return;
     }
     
-    const radarScale = radarRadius / radarRange;
-    const x = 90 + (relPos.x * radarScale * 100);
-    const y = 90 - (relPos.z * radarScale * 100);
+    // Transform position relative to ship's rotation
+    // Get ship's forward and right vectors
+    const shipForward = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
+    const shipRight = new THREE.Vector3(1, 0, 0).applyQuaternion(ship.quaternion);
     
-    //console.log(`Drawing ${obj.name} at radar pos (${x.toFixed(1)}, ${y.toFixed(1)})`);
+    // Project relative position onto ship's local axes
+    const forwardDist = relPos.dot(shipForward);
+    const rightDist = relPos.dot(shipRight);
+    
+    // Scale to radar display
+    const radarScale = radarRadius / radarRange;
+    const x = 90 + (rightDist * radarScale * 100);
+    const y = 90 - (forwardDist * radarScale * 100); // Y is inverted (up = forward)
     
     radarCtx.fillStyle = obj.color;
     radarCtx.beginPath();
-    radarCtx.arc(x, y, 3, 0, Math.PI * 2);
+    radarCtx.arc(x, y, 4, 0, Math.PI * 2); // Made dot bigger (4 instead of 3)
     radarCtx.fill();
   });
   
@@ -743,23 +748,6 @@ function updateRadar() {
     90 + Math.sin(sweepAngle) * radarRadius
   );
   radarCtx.stroke();
-    // Draw facing direction indicator
-  radarCtx.strokeStyle = "#ffaa00";
-  radarCtx.lineWidth = 2;
-  radarCtx.beginPath();
-  radarCtx.moveTo(90, 90);
-  radarCtx.lineTo(90, 90 - 25); // Orange line pointing up (forward)
-  radarCtx.stroke();
-  
-  // Draw triangle at end
-  radarCtx.fillStyle = "#ffaa00";
-  radarCtx.beginPath();
-  radarCtx.moveTo(90, 90 - 25);
-  radarCtx.lineTo(85, 90 - 15);
-  radarCtx.lineTo(95, 90 - 15);
-  radarCtx.closePath();
-  radarCtx.fill();
-}
 
 animate();
 
