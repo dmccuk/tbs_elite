@@ -474,8 +474,8 @@ function setKey(code: string, down: boolean) {
     case "Space": inputs.brake = down; break;
     case "ShiftLeft":
     case "ShiftRight": inputs.boost = down; break;
-    case "ArrowLeft": inputs.yawL = down; break;
-    case "ArrowRight": inputs.yawR = down; break;
+    case "ArrowLeft": inputs.yawR = down; break;
+    case "ArrowRight": inputs.yawL = down; break;
     case "ArrowUp": inputs.pitchU = down; break;
     case "ArrowDown": inputs.pitchD = down; break;
     case "KeyQ": inputs.rollL = down; break;
