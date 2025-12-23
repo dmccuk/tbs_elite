@@ -458,6 +458,15 @@ const ship = new THREE.Group();
   engineLight.position.set(0, 0, -shipScale * 1.4);
 
   ship.add(body, cockpit, wingL, wingR, wingLightL, wingLightR, engineGlow, engineLight);
+  
+  // Hide ship model (first-person view)
+  body.visible = false;
+  cockpit.visible = false;
+  wingL.visible = false;
+  wingR.visible = false;
+  wingLightL.visible = false;
+  wingLightR.visible = false;
+  engineGlow.visible = false;
 }
 scene.add(ship);
 
@@ -471,37 +480,6 @@ ship.lookAt(toRender(SCALE.PLANET_ORBIT), 0, 0);
 // ==================== CAMERA SETUP ====================
 camera.position.set(0, 0.3, 0.8);
 ship.add(camera);
-
-// ==================== ENGINE PARTICLES ====================
-let engineParticles: THREE.Points;
-{
-  const particleCount = 80;
-  const particleGeo = new THREE.BufferGeometry();
-  const positions = new Float32Array(particleCount * 3);
-  const ages = new Float32Array(particleCount);
-  
-  for (let i = 0; i < particleCount; i++) {
-    positions[i * 3 + 0] = 0;
-    positions[i * 3 + 1] = 0;
-    positions[i * 3 + 2] = -0.04;
-    ages[i] = Math.random();
-  }
-  
-  particleGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  particleGeo.setAttribute("age", new THREE.BufferAttribute(ages, 1));
-  
-  const particleMat = new THREE.PointsMaterial({
-    size: 0.015,
-    color: 0x3388ff,
-    transparent: true,
-    opacity: 0.7,
-    blending: THREE.AdditiveBlending,
-    fog: false
-  });
-  
-  engineParticles = new THREE.Points(particleGeo, particleMat);
-  ship.add(engineParticles);
-}
 
 // ==================== INPUT HANDLING ====================
 const inputs: Inputs = {
@@ -548,6 +526,19 @@ function setKey(code: string, down: boolean) {
         }
       }
       break;
+    case "KeyD":
+      if (down) {
+        if (!autopilotActive) {
+          autopilotActive = true;
+          autopilotTarget = station;
+          console.log("AUTOPILOT: Docking approach initiated");
+        } else {
+          autopilotActive = false;
+          autopilotTarget = null;
+          console.log("AUTOPILOT: Disengaged");
+        }
+      }
+      break;
   }
 }
 
@@ -565,6 +556,11 @@ const velocityDamping = 0.9995; // Slight space friction for gameplay
 const yawRate = 0.3;
 const pitchRate = 0.3;
 const rollRate = 0.65;
+
+// Autopilot state
+let autopilotActive = false;
+let autopilotTarget: THREE.Object3D | null = null;
+const DOCKING_DISTANCE = toRender(2); // 2km from station
 
 // ==================== HUD ELEMENTS ====================
 const speedValue = document.getElementById("speed-value")!;
@@ -612,6 +608,8 @@ function animate() {
   );
   station.rotation.y += dt * 0.05; // Slower rotation too
 
+
+  
   // ==================== NEWTONIAN FLIGHT CONTROLS ====================
   // Throttle control
   if (inputs.throttleUp) throttle += dt * 0.4;
@@ -640,6 +638,36 @@ function animate() {
   
   // Apply velocity to position
   ship.position.addScaledVector(velocity, dt * 60 * SCALE.RENDER_SCALE);
+
+  // ==================== AUTOPILOT DOCKING ====================
+  if (autopilotActive && autopilotTarget) {
+    const targetPos = autopilotTarget.position;
+    const direction = targetPos.clone().sub(ship.position).normalize();
+    const distance = ship.position.distanceTo(targetPos);
+    
+    // Point ship at target
+    const targetQuaternion = new THREE.Quaternion();
+    const lookAtMatrix = new THREE.Matrix4();
+    lookAtMatrix.lookAt(ship.position, targetPos, new THREE.Vector3(0, 1, 0));
+    targetQuaternion.setFromRotationMatrix(lookAtMatrix);
+    
+    // Smoothly rotate toward target
+    ship.quaternion.slerp(targetQuaternion, dt * 2);
+    
+    // Adjust throttle based on distance
+    const distKm = toKm(distance);
+    if (distKm > 100) {
+      throttle = lerp(throttle, 0.8, dt * 2); // Fast approach
+    } else if (distKm > 10) {
+      throttle = lerp(throttle, 0.4, dt * 2); // Medium approach
+    } else if (distKm > 2) {
+      throttle = lerp(throttle, 0.1, dt * 2); // Slow approach
+    } else {
+      throttle = 0;
+      autopilotActive = false;
+      console.log("AUTOPILOT: Docking complete - holding position");
+    }
+  }
 
   // ==================== ROTATION WITH ANGULAR VELOCITY ====================
   const yaw = (inputs.yawR ? 1 : 0) - (inputs.yawL ? 1 : 0);
@@ -721,7 +749,7 @@ function animate() {
 // ==================== RADAR SYSTEM ====================
 const radarCanvas = document.getElementById("radar-canvas") as HTMLCanvasElement | null;
 const radarCtx = radarCanvas?.getContext("2d") || null;
-const radarRadius = 85;
+const radarRadius = 45;
 const radarRange = 75000; // km
 
 const radarObjects = [
@@ -735,12 +763,16 @@ function updateRadar() {
   
   // Clear and fill background
   radarCtx.fillStyle = "rgba(0, 20, 15, 0.5)";
-  radarCtx.fillRect(0, 0, 180, 180);
+  radarCtx.fillRect(0, 0, radarCanvas.width, radarCanvas.height);
+  
+  // Calculate center position
+  const centerX = radarCanvas.width / 2;
+  const centerY = radarCanvas.height / 2;
   
   // Draw ship center dot
   radarCtx.fillStyle = "#00ff88";
   radarCtx.beginPath();
-  radarCtx.arc(90, 90, 3, 0, Math.PI * 2);
+  radarCtx.arc(centerX, centerY, 3, 0, Math.PI * 2);
   radarCtx.fill();
   
   // Draw range rings
@@ -748,7 +780,7 @@ function updateRadar() {
   radarCtx.lineWidth = 1;
   for (let i = 1; i <= 3; i++) {
     radarCtx.beginPath();
-    radarCtx.arc(90, 90, (radarRadius / 3) * i, 0, Math.PI * 2);
+    radarCtx.arc(centerX, centerY, (radarRadius / 3) * i, 0, Math.PI * 2);
     radarCtx.stroke();
   }
   
@@ -775,8 +807,8 @@ function updateRadar() {
     
     // Scale to radar display
     const radarScale = radarRadius / radarRange;
-    const x = 90 + (rightDist * radarScale * 100);
-    const y = 90 - (forwardDist * radarScale * 100); // Y is inverted (up = forward)
+    const x = centerX + (rightDist * radarScale * 100);
+    const y = centerY - (forwardDist * radarScale * 100);
     
     // Draw dot (bigger!)
     radarCtx.fillStyle = obj.color;
@@ -796,10 +828,10 @@ function updateRadar() {
   radarCtx.strokeStyle = "rgba(0, 255, 136, 0.3)";
   radarCtx.lineWidth = 1;
   radarCtx.beginPath();
-  radarCtx.moveTo(90, 90);
+  radarCtx.moveTo(centerX, centerY);
   radarCtx.lineTo(
-    90 + Math.cos(sweepAngle) * radarRadius,
-    90 + Math.sin(sweepAngle) * radarRadius
+    centerX + Math.cos(sweepAngle) * radarRadius,
+    centerY + Math.sin(sweepAngle) * radarRadius
   );
   radarCtx.stroke();
 }
