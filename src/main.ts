@@ -500,8 +500,6 @@ function setKey(code: string, down: boolean) {
         }
       }
       break;
-      }
-      break;
   }
 }
 
