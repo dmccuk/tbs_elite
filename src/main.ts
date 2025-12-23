@@ -487,48 +487,20 @@ function setKey(code: string, down: boolean) {
       }
       break;
     case "KeyJ":
-    case "KeyH":
+    case "KeyJ":
       if (down) {
-        const helpMenu = document.getElementById("help-menu")!;
-        helpMenu?.classList.toggle("visible");
-      }
-      break;
-      if (down) {
-    case "KeyH":
-      if (down) {
-        const helpMenu = document.getElementById("help-menu")!;
-        helpMenu?.classList.toggle("visible");
-      }
-      break;
         supercruiseActive = !supercruiseActive;
-    case "KeyH":
-      if (down) {
-        const helpMenu = document.getElementById("help-menu")!;
-        helpMenu?.classList.toggle("visible");
-      }
-      break;
         console.log("Supercruise:", supercruiseActive ? "ENGAGED" : "DISENGAGED");
-    case "KeyH":
-      if (down) {
-        const helpMenu = document.getElementById("help-menu")!;
-        helpMenu?.classList.toggle("visible");
       }
-      break;
-      }
-    case "KeyH":
-      if (down) {
-        const helpMenu = document.getElementById("help-menu")!;
-        helpMenu?.classList.toggle("visible");
-      }
-      break;
       break;
     case "KeyH":
       if (down) {
-        const helpMenu = document.getElementById("help-menu")!;
-        helpMenu?.classList.toggle("visible");
+        const helpMenu = document.getElementById("help-menu");
+        if (helpMenu) {
+          helpMenu.classList.toggle("visible");
+        }
       }
       break;
-  }
 }
 
 // ==================== FLIGHT MODEL - NEWTONIAN PHYSICS ====================
@@ -708,10 +680,15 @@ function animate() {
     throttleBar.classList.remove("boost");
   }
 
+  // Update radar and altitude
   updateRadar();
-  const distToPlanet = toKm(ship.position.distanceTo(planet.position)) - SCALE.PLANET_RADIUS;
-  altitudeValue.textContent = Math.max(0, distToPlanet).toFixed(1);
-  if (selectedTarget) updateTargetInfo();
+  if (altitudeValue) {
+    const distToPlanet = toKm(ship.position.distanceTo(planet.position)) - SCALE.PLANET_RADIUS;
+    altitudeValue.textContent = Math.max(0, distToPlanet).toFixed(1);
+  }
+  if (selectedTarget) {
+    updateTargetInfo();
+  }
   renderer.render(scene, camera);
 }
 
@@ -790,9 +767,11 @@ function updateRadar() {
 }
 
 function updateTargetInfo() {
-  const targetName = document.getElementById("target-name")!;
-  const targetData = document.getElementById("target-data")!;
-  const gotoButton = document.getElementById("goto-button")!;
+  const targetName = document.getElementById("target-name");
+  const targetData = document.getElementById("target-data");
+  const gotoButton = document.getElementById("goto-button");
+  
+  if (!targetName || !targetData || !gotoButton) return;
   
   if (selectedTarget) {
     const distKm = toKm(ship.position.distanceTo(selectedTarget.ref.position));
@@ -806,50 +785,69 @@ function updateTargetInfo() {
   }
 }
 
-radarCanvas?.addEventListener("click", (e) => {
-  const rect = radarCanvas.getBoundingClientRect();
-  const clickX = ((e.clientX - rect.left) / rect.width) * 180;
-  const clickY = ((e.clientY - rect.top) / rect.height) * 180;
-  
-  let closestObj: any = null;
-  let closestDist = 15;
-  
-  radarObjects.forEach(obj => {
-    const relPos = obj.ref.position.clone().sub(ship.position);
-    const distKm = toKm(relPos.length());
-    if (distKm > radarRange) return;
+if (radarCanvas) {
+  radarCanvas.addEventListener("click", (e) => {
+    const rect = radarCanvas.getBoundingClientRect();
+    const clickX = ((e.clientX - rect.left) / rect.width) * 180;
+    const clickY = ((e.clientY - rect.top) / rect.height) * 180;
     
-    const radarScale = radarRadius / radarRange;
-    const x = 90 + (relPos.x * radarScale * 100);
-    const y = 90 - (relPos.z * radarScale * 100);
+    let closestObj: any = null;
+    let closestDist = 15;
     
-    const dist = Math.sqrt((x - clickX) ** 2 + (y - clickY) ** 2);
-    if (dist < closestDist) {
-      closestDist = dist;
-      closestObj = obj;
+    radarObjects.forEach(obj => {
+      const relPos = obj.ref.position.clone().sub(ship.position);
+      const distKm = toKm(relPos.length());
+      if (distKm > radarRange) return;
+      
+      const radarScale = radarRadius / radarRange;
+      const x = 90 + (relPos.x * radarScale * 100);
+      const y = 90 - (relPos.z * radarScale * 100);
+      
+      const dist = Math.sqrt((x - clickX) ** 2 + (y - clickY) ** 2);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closestObj = obj;
+      }
+    });
+    
+    if (closestObj) {
+      selectedTarget = closestObj;
+      updateTargetInfo();
     }
   });
-  
-  if (closestObj) {
-    selectedTarget = closestObj;
-    updateTargetInfo();
-  }
-});
+}
 
-document.getElementById("goto-button")?.addEventListener("click", () => {
-  if (selectedTarget) {
-    const targetDir = selectedTarget.ref.position.clone().sub(ship.position).normalize();
-    const targetQuaternion = new THREE.Quaternion();
-    const up = new THREE.Vector3(0, 1, 0);
-    const matrix = new THREE.Matrix4();
-    matrix.lookAt(new THREE.Vector3(0, 0, 0), targetDir, up);
-    targetQuaternion.setFromRotationMatrix(matrix);
-    ship.quaternion.slerp(targetQuaternion, 0.1);
-  }
-});
+const gotoBtn = document.getElementById("goto-button");
+if (gotoBtn) {
+  gotoBtn.addEventListener("click", () => {
+    if (selectedTarget) {
+      const targetDir = selectedTarget.ref.position.clone().sub(ship.position).normalize();
+      const targetQuaternion = new THREE.Quaternion();
+      const up = new THREE.Vector3(0, 1, 0);
+      const matrix = new THREE.Matrix4();
+      matrix.lookAt(new THREE.Vector3(0, 0, 0), targetDir, up);
+      targetQuaternion.setFromRotationMatrix(matrix);
+      ship.quaternion.slerp(targetQuaternion, 0.1);
+    }
+  });
+}
 
-document.getElementById("help-close")?.addEventListener("click", () => {
-  document.getElementById("help-menu")?.classList.remove("visible");
-});
+const helpClose = document.getElementById("help-close");
+if (helpClose) {
+  helpClose.addEventListener("click", () => {
+    const helpMenu = document.getElementById("help-menu");
+    if (helpMenu) {
+      helpMenu.classList.remove("visible");
+    }
+  });
+}
 
-const altitudeValue = document.getElementById("altitude-value")!;
+const altitudeValue = document.getElementById("altitude-value");
+
+// ==================== WINDOW RESIZE ====================
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+}
