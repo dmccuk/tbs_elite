@@ -487,7 +487,6 @@ function setKey(code: string, down: boolean) {
       }
       break;
     case "KeyJ":
-    case "KeyJ":
       if (down) {
         supercruiseActive = !supercruiseActive;
         console.log("Supercruise:", supercruiseActive ? "ENGAGED" : "DISENGAGED");
@@ -501,6 +500,12 @@ function setKey(code: string, down: boolean) {
         }
       }
       break;
+      if (down) {
+        supercruiseActive = !supercruiseActive;
+        console.log("Supercruise:", supercruiseActive ? "ENGAGED" : "DISENGAGED");
+      }
+      break;
+  }
 }
 
 // ==================== FLIGHT MODEL - NEWTONIAN PHYSICS ====================
@@ -686,9 +691,8 @@ function animate() {
     const distToPlanet = toKm(ship.position.distanceTo(planet.position)) - SCALE.PLANET_RADIUS;
     altitudeValue.textContent = Math.max(0, distToPlanet).toFixed(1);
   }
-  if (selectedTarget) {
-    updateTargetInfo();
-  }
+  if (selectedTarget) updateTargetInfo();
+
   renderer.render(scene, camera);
 }
 
@@ -702,8 +706,8 @@ window.addEventListener("resize", () => {
 });
 
 // ==================== RADAR & TARGET SYSTEM ====================
-const radarCanvas = document.getElementById("radar-canvas") as HTMLCanvasElement;
-const radarCtx = radarCanvas?.getContext("2d");
+const radarCanvas = document.getElementById("radar-canvas") as HTMLCanvasElement | null;
+const radarCtx = radarCanvas?.getContext("2d") || null;
 const radarRadius = 85;
 const radarRange = 500;
 
@@ -716,7 +720,7 @@ const radarObjects = [
 let selectedTarget: any = null;
 
 function updateRadar() {
-  if (!radarCtx) return;
+  if (!radarCtx || !radarCanvas) return;
   
   radarCtx.fillStyle = "rgba(0, 20, 15, 0.5)";
   radarCtx.fillRect(0, 0, 180, 180);
@@ -743,17 +747,17 @@ function updateRadar() {
     const x = 90 + (relPos.x * radarScale * 100);
     const y = 90 - (relPos.z * radarScale * 100);
     
-    radarCtx.fillStyle = obj.color;
-    radarCtx.beginPath();
-    radarCtx.arc(x, y, obj === selectedTarget ? 5 : 3, 0, Math.PI * 2);
-    radarCtx.fill();
+    radarCtx!.fillStyle = obj.color;
+    radarCtx!.beginPath();
+    radarCtx!.arc(x, y, obj === selectedTarget ? 5 : 3, 0, Math.PI * 2);
+    radarCtx!.fill();
     
     if (obj === selectedTarget) {
-      radarCtx.strokeStyle = "#ffaa00";
-      radarCtx.lineWidth = 2;
-      radarCtx.beginPath();
-      radarCtx.arc(x, y, 8, 0, Math.PI * 2);
-      radarCtx.stroke();
+      radarCtx!.strokeStyle = "#ffaa00";
+      radarCtx!.lineWidth = 2;
+      radarCtx!.beginPath();
+      radarCtx!.arc(x, y, 8, 0, Math.PI * 2);
+      radarCtx!.stroke();
     }
   });
   
@@ -785,69 +789,51 @@ function updateTargetInfo() {
   }
 }
 
-if (radarCanvas) {
-  radarCanvas.addEventListener("click", (e) => {
-    const rect = radarCanvas.getBoundingClientRect();
-    const clickX = ((e.clientX - rect.left) / rect.width) * 180;
-    const clickY = ((e.clientY - rect.top) / rect.height) * 180;
+radarCanvas?.addEventListener("click", (e) => {
+  if (!radarCanvas) return;
+  const rect = radarCanvas.getBoundingClientRect();
+  const clickX = ((e.clientX - rect.left) / rect.width) * 180;
+  const clickY = ((e.clientY - rect.top) / rect.height) * 180;
+  
+  let closestObj: any = null;
+  let closestDist = 15;
+  
+  radarObjects.forEach(obj => {
+    const relPos = obj.ref.position.clone().sub(ship.position);
+    const distKm = toKm(relPos.length());
+    if (distKm > radarRange) return;
     
-    let closestObj: any = null;
-    let closestDist = 15;
+    const radarScale = radarRadius / radarRange;
+    const x = 90 + (relPos.x * radarScale * 100);
+    const y = 90 - (relPos.z * radarScale * 100);
     
-    radarObjects.forEach(obj => {
-      const relPos = obj.ref.position.clone().sub(ship.position);
-      const distKm = toKm(relPos.length());
-      if (distKm > radarRange) return;
-      
-      const radarScale = radarRadius / radarRange;
-      const x = 90 + (relPos.x * radarScale * 100);
-      const y = 90 - (relPos.z * radarScale * 100);
-      
-      const dist = Math.sqrt((x - clickX) ** 2 + (y - clickY) ** 2);
-      if (dist < closestDist) {
-        closestDist = dist;
-        closestObj = obj;
-      }
-    });
-    
-    if (closestObj) {
-      selectedTarget = closestObj;
-      updateTargetInfo();
+    const dist = Math.sqrt((x - clickX) ** 2 + (y - clickY) ** 2);
+    if (dist < closestDist) {
+      closestDist = dist;
+      closestObj = obj;
     }
   });
-}
+  
+  if (closestObj) {
+    selectedTarget = closestObj;
+    updateTargetInfo();
+  }
+});
 
-const gotoBtn = document.getElementById("goto-button");
-if (gotoBtn) {
-  gotoBtn.addEventListener("click", () => {
-    if (selectedTarget) {
-      const targetDir = selectedTarget.ref.position.clone().sub(ship.position).normalize();
-      const targetQuaternion = new THREE.Quaternion();
-      const up = new THREE.Vector3(0, 1, 0);
-      const matrix = new THREE.Matrix4();
-      matrix.lookAt(new THREE.Vector3(0, 0, 0), targetDir, up);
-      targetQuaternion.setFromRotationMatrix(matrix);
-      ship.quaternion.slerp(targetQuaternion, 0.1);
-    }
-  });
-}
+document.getElementById("goto-button")?.addEventListener("click", () => {
+  if (selectedTarget) {
+    const targetDir = selectedTarget.ref.position.clone().sub(ship.position).normalize();
+    const targetQuaternion = new THREE.Quaternion();
+    const up = new THREE.Vector3(0, 1, 0);
+    const matrix = new THREE.Matrix4();
+    matrix.lookAt(new THREE.Vector3(0, 0, 0), targetDir, up);
+    targetQuaternion.setFromRotationMatrix(matrix);
+    ship.quaternion.slerp(targetQuaternion, 0.1);
+  }
+});
 
-const helpClose = document.getElementById("help-close");
-if (helpClose) {
-  helpClose.addEventListener("click", () => {
-    const helpMenu = document.getElementById("help-menu");
-    if (helpMenu) {
-      helpMenu.classList.remove("visible");
-    }
-  });
-}
+document.getElementById("help-close")?.addEventListener("click", () => {
+  document.getElementById("help-menu")?.classList.remove("visible");
+});
 
 const altitudeValue = document.getElementById("altitude-value");
-
-// ==================== WINDOW RESIZE ====================
-window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-}
