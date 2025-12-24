@@ -14,9 +14,8 @@ type Inputs = {
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
 const SCALE = {
-  SUN_RADIUS: 100,
   STATION_SIZE: 0.5,
-  MAX_SPEED: 3.0,  // 3 km/s (3000 m/s) - no boost needed!
+  MAX_SPEED: 3.0,  // 3 km/s (3000 m/s)
   RENDER_SCALE: 0.001,
 };
 
@@ -131,7 +130,7 @@ scene.add(sunLight);
   scene.add(new THREE.Points(asteroidGeo, asteroidMat));
 }
 
-// Station 1
+// Station 1 - at 166,000 km (2nd radar ring)
 const station1 = new THREE.Group();
 {
   const scale = toRender(SCALE.STATION_SIZE * 100);
@@ -173,11 +172,11 @@ const station1 = new THREE.Group();
     station1.add(light);
   }
   
-  station1.position.set(-toRender(400000), 0, 0);
+  station1.position.set(-toRender(166000), 0, 0);
 }
 scene.add(station1);
 
-// Station 2
+// Station 2 - at 166,000 km (2nd radar ring)
 const station2 = new THREE.Group();
 {
   const scale = toRender(SCALE.STATION_SIZE * 200);
@@ -206,7 +205,7 @@ const station2 = new THREE.Group();
   hub.rotation.z = Math.PI / 2;
   station2.add(hub);
   
-  station2.position.set(toRender(400000), 0, 0);
+  station2.position.set(toRender(166000), 0, 0);
 }
 scene.add(station2);
 
@@ -254,10 +253,10 @@ function createRoyalYacht() {
   const body = new THREE.Mesh(
     new THREE.CylinderGeometry(scale * 0.2, scale * 0.35, scale * 4, 24),
     new THREE.MeshStandardMaterial({
-      color: 0xdddddd,        // Brighter silver
-      roughness: 0.1,         // Very smooth/reflective
-      metalness: 1.0,         // Full metallic
-      emissive: 0x222244,     // Subtle blue glow
+      color: 0xdddddd,
+      roughness: 0.1,
+      metalness: 1.0,
+      emissive: 0x222244,
       emissiveIntensity: 0.1
     })
   );
@@ -277,7 +276,7 @@ function createRoyalYacht() {
   nose.position.set(scale * 2.3, 0, 0);
   yacht.add(nose);
   
-  // Blue engine glow (single elegant thruster)
+  // Blue engine glow
   const engine = new THREE.Mesh(
     new THREE.CylinderGeometry(scale * 0.15, scale * 0.18, scale * 0.4, 16),
     new THREE.MeshBasicMaterial({ color: 0x3388ff, fog: false })
@@ -444,28 +443,26 @@ function setKey(code: string, down: boolean) {
         if (helpMenu) helpMenu.classList.toggle("visible");
       }
       break;
-      case "KeyX":
-        if (down && !cargoDetached && missionStarted && blackShip) {
-          cargoDetached = true;
-          
-          // Create cargo with velocity toward black ship
-          cargoContainer = new THREE.Group();
-          const containerMesh = new THREE.Mesh(
-            new THREE.BoxGeometry(0.04, 0.03, 0.06),
-            new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.8, metalness: 0.5 })
-          );
-          cargoContainer.add(containerMesh);
-          cargoContainer.position.copy(ship.position);
-          
-          // Calculate intercept trajectory - INHERIT ship velocity + boost toward target!
-          cargoVelocity.copy(velocity); // Start with YOUR velocity
-          const toBlackShip = new THREE.Vector3().subVectors(blackShip.position, ship.position).normalize();
-          const boost = toBlackShip.multiplyScalar(toRender(1500)); // Add 1500 km/s boost toward black ship
-          cargoVelocity.add(boost);
-          
-          scene.add(cargoContainer);
+    case "KeyX":
+      if (down && !cargoDetached && missionStarted && blackShip) {
+        cargoDetached = true;
         
-        // Update UI
+        cargoContainer = new THREE.Group();
+        const containerMesh = new THREE.Mesh(
+          new THREE.BoxGeometry(0.04, 0.03, 0.06),
+          new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.8, metalness: 0.5 })
+        );
+        cargoContainer.add(containerMesh);
+        cargoContainer.position.copy(ship.position);
+        
+        // Inherit ship velocity + boost toward target
+        cargoVelocity.copy(velocity);
+        const toBlackShip = new THREE.Vector3().subVectors(blackShip.position, ship.position).normalize();
+        const boost = toBlackShip.multiplyScalar(toRender(1500));
+        cargoVelocity.add(boost);
+        
+        scene.add(cargoContainer);
+        
         const cargoStatus = document.getElementById('cargo-status');
         const cargoState = document.getElementById('cargo-state');
         const cargoTrajectory = document.getElementById('cargo-trajectory');
@@ -475,14 +472,14 @@ function setKey(code: string, down: boolean) {
         if (cargoTrajectory) cargoTrajectory.textContent = "INTERCEPT";
         if (cargoComp) cargoComp.classList.add('visible');
         
-        console.log("Cargo container ejected on intercept trajectory!");
+        console.log("Cargo ejected on intercept trajectory!");
       }
       break;
     case "KeyC":
       if (down && cargoDetached && !cargoDetonated && cargoContainer) {
         cargoDetonated = true;
         
-        // Fire green laser from ship to cargo
+        // Green laser
         const laserGeo = new THREE.BufferGeometry();
         const laserPositions = new Float32Array([
           ship.position.x, ship.position.y, ship.position.z,
@@ -492,10 +489,9 @@ function setKey(code: string, down: boolean) {
         const laserMat = new THREE.LineBasicMaterial({ color: 0x00ff88, linewidth: 3, fog: false });
         const laser = new THREE.Line(laserGeo, laserMat);
         scene.add(laser);
-        
         setTimeout(() => scene.remove(laser), 100);
         
-        // Create explosion
+        // Explosion
         const explosionPos = cargoContainer.position.clone();
         const explosion = new THREE.Mesh(
           new THREE.SphereGeometry(5, 32, 32),
@@ -509,10 +505,8 @@ function setKey(code: string, down: boolean) {
         explosion.position.copy(explosionPos);
         scene.add(explosion);
         
-        // Remove cargo
         scene.remove(cargoContainer);
         
-        // Check damage
         if (blackShip && !blackShipDamaged) {
           const distToExplosion = toKm(blackShip.position.distanceTo(explosionPos));
           if (distToExplosion < 25) {
@@ -532,7 +526,6 @@ function setKey(code: string, down: boolean) {
           }
         }
         
-        // Animate explosion
         let explosionTime = 0;
         const explosionInterval = setInterval(() => {
           explosionTime += 0.016;
@@ -545,7 +538,6 @@ function setKey(code: string, down: boolean) {
           }
         }, 16);
         
-        // Hide cargo computer
         const cargoComp = document.getElementById('cargo-computer');
         if (cargoComp) {
           setTimeout(() => cargoComp.classList.remove('visible'), 2000);
@@ -576,7 +568,6 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.033);
   const elapsed = clock.elapsedTime;
 
-  // Mission trigger
   if (!missionStarted && elapsed > 30) {
     missionStarted = true;
     showAlert("EMERGENCY: Warp signatures detected in Lingering Systems!", 3000);
@@ -591,20 +582,19 @@ function animate() {
     }, 2000);
   }
 
-  // Royal Yacht movement (1 km/s)
+  // Royal Yacht: 1 km/s
   if (royalYacht) {
     const yachtSpeed = toRender(1000);
     royalYacht.position.x += yachtSpeed * dt;
     royalYacht.rotation.y += dt * 0.5;
   }
   
-  // Black Ship movement (1.1 km/s - slightly faster)
+  // Black Ship: 1.1 km/s
   if (blackShip && !blackShipDamaged) {
     const chaseSpeed = toRender(1100);
     blackShip.position.x += chaseSpeed * dt;
     blackShip.rotation.y += dt * 0.3;
     
-    // Fire missiles
     missileTimer += dt;
     if (missileTimer > 3.5) {
       fireMissileVolley();
@@ -612,7 +602,6 @@ function animate() {
     }
   }
 
-  // Update missiles
   for (let i = missiles.length - 1; i >= 0; i--) {
     const missile = missiles[i];
     const vel = (missile as any).velocity;
@@ -639,7 +628,6 @@ function animate() {
     }
   }
 
-  // Cargo physics (moves toward black ship)
   if (cargoContainer && !cargoDetonated) {
     cargoContainer.position.addScaledVector(cargoVelocity, dt);
     cargoContainer.rotation.x += dt * 0.5;
@@ -647,7 +635,6 @@ function animate() {
     updateCargoComputer();
   }
 
-  // Flight controls (3 km/s max!)
   if (inputs.throttleUp) throttle += dt * 0.4;
   if (inputs.throttleDown) throttle -= dt * 0.4;
   throttle = clamp(throttle, 0, 1);
@@ -664,7 +651,6 @@ function animate() {
   speed = velocity.length();
   ship.position.addScaledVector(velocity, dt * 60 * SCALE.RENDER_SCALE);
 
-  // Rotation
   const yaw = (inputs.yawR ? 1 : 0) - (inputs.yawL ? 1 : 0);
   const pitch = (inputs.pitchD ? 1 : 0) - (inputs.pitchU ? 1 : 0);
   const roll = (inputs.rollR ? 1 : 0) - (inputs.rollL ? 1 : 0);
@@ -681,7 +667,6 @@ function animate() {
   ship.rotateX(angularVelocity.x * dt * 60);
   ship.rotateZ(angularVelocity.z * dt * 60);
 
-  // HUD
   const distToStation = toKm(ship.position.distanceTo(station1.position));
   
   const speedMS = Math.round(speed * 1000);
@@ -698,7 +683,7 @@ function animate() {
 const radarCanvas = document.getElementById("radar-canvas") as HTMLCanvasElement | null;
 const radarCtx = radarCanvas?.getContext("2d") || null;
 const radarRadius = 85;
-const radarRange = 500000; // 500,000 km - see both stations!
+const radarRange = 500000;
 
 function updateRadar() {
   if (!radarCtx || !radarCanvas) return;
@@ -788,6 +773,36 @@ function drawShipMarkers() {
   if (!ctx) return;
   
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // Draw stations
+  [
+    { station: station1, name: "STATION ALPHA", color: '#ff6600' },
+    { station: station2, name: "STATION BETA", color: '#ff8800' }
+  ].forEach(({ station, name, color }) => {
+    const stationPos = station.position.clone();
+    stationPos.project(camera);
+    
+    if (stationPos.z <= 1) {
+      const x = (stationPos.x * 0.5 + 0.5) * canvas.clientWidth;
+      const y = (-stationPos.y * 0.5 + 0.5) * canvas.clientHeight;
+      
+      if (x >= 0 && x <= canvas.clientWidth && y >= 0 && y <= canvas.clientHeight) {
+        const dist = toKm(ship.position.distanceTo(station.position));
+        
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, 35, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        ctx.fillStyle = color;
+        ctx.font = '12px Orbitron, monospace';
+        ctx.fillText(name, x + 45, y - 5);
+        ctx.font = '10px Share Tech Mono, monospace';
+        ctx.fillText(`${dist.toFixed(0)}km`, x + 45, y + 8);
+      }
+    }
+  });
   
   if (royalYacht) {
     const yachtPos = royalYacht.position.clone();
