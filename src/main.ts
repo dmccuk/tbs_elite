@@ -437,24 +437,26 @@ function setKey(code: string, down: boolean) {
         if (helpMenu) helpMenu.classList.toggle("visible");
       }
       break;
-    case "KeyX":
-      if (down && !cargoDetached && missionStarted && blackShip) {
-        cargoDetached = true;
-        
-        // Create cargo with velocity toward black ship
-        cargoContainer = new THREE.Group();
-        const containerMesh = new THREE.Mesh(
-          new THREE.BoxGeometry(0.04, 0.03, 0.06),
-          new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.8, metalness: 0.5 })
-        );
-        cargoContainer.add(containerMesh);
-        cargoContainer.position.copy(ship.position);
-        
-        // Calculate intercept trajectory
-        const toBlackShip = new THREE.Vector3().subVectors(blackShip.position, ship.position).normalize();
-        cargoVelocity.copy(toBlackShip).multiplyScalar(toRender(600)); // 600 km/s toward black ship
-        
-        scene.add(cargoContainer);
+      case "KeyX":
+        if (down && !cargoDetached && missionStarted && blackShip) {
+          cargoDetached = true;
+          
+          // Create cargo with velocity toward black ship
+          cargoContainer = new THREE.Group();
+          const containerMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(0.04, 0.03, 0.06),
+            new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.8, metalness: 0.5 })
+          );
+          cargoContainer.add(containerMesh);
+          cargoContainer.position.copy(ship.position);
+          
+          // Calculate intercept trajectory - INHERIT ship velocity + boost toward target!
+          cargoVelocity.copy(velocity); // Start with YOUR velocity
+          const toBlackShip = new THREE.Vector3().subVectors(blackShip.position, ship.position).normalize();
+          const boost = toBlackShip.multiplyScalar(toRender(1500)); // Add 1500 km/s boost toward black ship
+          cargoVelocity.add(boost);
+          
+          scene.add(cargoContainer);
         
         // Update UI
         const cargoStatus = document.getElementById('cargo-status');
