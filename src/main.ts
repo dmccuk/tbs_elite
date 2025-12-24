@@ -250,28 +250,41 @@ function createRoyalYacht() {
   const yacht = new THREE.Group();
   const scale = 0.08;
   
+  // Sleek elongated body - chrome silver
   const body = new THREE.Mesh(
-    new THREE.CylinderGeometry(scale * 0.3, scale * 0.5, scale * 3, 16),
+    new THREE.CylinderGeometry(scale * 0.2, scale * 0.35, scale * 4, 24),
     new THREE.MeshStandardMaterial({
-      color: 0xcccccc,
-      roughness: 0.2,
-      metalness: 0.9,
-      emissive: 0x4444ff,
-      emissiveIntensity: 0.2
+      color: 0xdddddd,        // Brighter silver
+      roughness: 0.1,         // Very smooth/reflective
+      metalness: 1.0,         // Full metallic
+      emissive: 0x222244,     // Subtle blue glow
+      emissiveIntensity: 0.1
     })
   );
   body.rotation.z = Math.PI / 2;
   yacht.add(body);
   
-  for (let i = 0; i < 3; i++) {
-    const engine = new THREE.Mesh(
-      new THREE.SphereGeometry(scale * 0.15, 16, 16),
-      new THREE.MeshBasicMaterial({ color: 0x4488ff, fog: false })
-    );
-    const angle = (i / 3) * Math.PI * 2;
-    engine.position.set(-scale * 1.5, Math.cos(angle) * scale * 0.3, Math.sin(angle) * scale * 0.3);
-    yacht.add(engine);
-  }
+  // Sleek nose cone
+  const nose = new THREE.Mesh(
+    new THREE.ConeGeometry(scale * 0.2, scale * 0.6, 24),
+    new THREE.MeshStandardMaterial({
+      color: 0xeeeeee,
+      roughness: 0.05,
+      metalness: 1.0
+    })
+  );
+  nose.rotation.z = -Math.PI / 2;
+  nose.position.set(scale * 2.3, 0, 0);
+  yacht.add(nose);
+  
+  // Blue engine glow (single elegant thruster)
+  const engine = new THREE.Mesh(
+    new THREE.CylinderGeometry(scale * 0.15, scale * 0.18, scale * 0.4, 16),
+    new THREE.MeshBasicMaterial({ color: 0x3388ff, fog: false })
+  );
+  engine.rotation.z = Math.PI / 2;
+  engine.position.set(-scale * 2, 0, 0);
+  yacht.add(engine);
   
   yacht.position.set(-toRender(50000), 0, toRender(5000));
   return yacht;
