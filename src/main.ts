@@ -280,7 +280,6 @@ SCALE.PLANETS.forEach((pData, index) => {
 });
 
 // ==================== ASTEROID BELT ====================
-const asteroids: THREE.Points[] = [];
 {
   const asteroidGeo = new THREE.BufferGeometry();
   const count = SCALE.ASTEROID_BELT.count;
@@ -314,12 +313,151 @@ const asteroids: THREE.Points[] = [];
   scene.add(asteroidField);
 }
 
-// ==================== STATIONS ====================
-// Earth station (keep existing station code, just update reference)
-const earthStation = station; // Rename existing station
-const earthPlanet = planetData[2]; // Earth is index 2
+// ==================== EARTH STATION ====================
+const station = new THREE.Group();
+{
+  const stationScale = toRender(SCALE.STATION_SIZE * 100);
+  
+  // Main ring (bigger and more detailed)
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(stationScale * 0.7, stationScale * 0.15, 32, 80),
+    new THREE.MeshStandardMaterial({ 
+      color: 0x99aadd,
+      roughness: 0.3,
+      metalness: 0.8,
+      emissive: 0x112244,
+      emissiveIntensity: 0.3
+    })
+  );
+  ring.rotation.x = Math.PI / 2;
+  ring.castShadow = true;
+  ring.receiveShadow = true;
 
-// Add outer system station (near Neptune)
+  // Hub cylinder
+  const hub = new THREE.Mesh(
+    new THREE.CylinderGeometry(stationScale * 0.15, stationScale * 0.15, stationScale * 0.7, 32),
+    new THREE.MeshStandardMaterial({ 
+      color: 0x7788aa,
+      roughness: 0.4,
+      metalness: 0.7,
+      emissive: 0x0a0f1a,
+      emissiveIntensity: 0.4
+    })
+  );
+  hub.rotation.z = Math.PI / 2;
+  hub.castShadow = true;
+  hub.receiveShadow = true;
+  
+  // Industrial modules (cargo containers)
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2;
+    const module = new THREE.Mesh(
+      new THREE.BoxGeometry(stationScale * 0.4, stationScale * 0.3, stationScale * 0.6),
+      new THREE.MeshStandardMaterial({
+        color: 0x4a5a6a,
+        roughness: 0.8,
+        metalness: 0.5,
+        emissive: 0x1a2a3a,
+        emissiveIntensity: 0.1
+      })
+    );
+    module.position.set(
+      Math.cos(angle) * stationScale * 0.9,
+      0,
+      Math.sin(angle) * stationScale * 0.9
+    );
+    module.lookAt(0, 0, 0);
+    station.add(module);
+  }
+
+  // Communication arrays
+  for (let i = 0; i < 4; i++) {
+    const angle = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    const dish = new THREE.Mesh(
+      new THREE.CylinderGeometry(stationScale * 0.15, stationScale * 0.05, stationScale * 0.02, 16),
+      new THREE.MeshStandardMaterial({
+        color: 0x6a7a8a,
+        roughness: 0.3,
+        metalness: 0.9
+      })
+    );
+    dish.position.set(
+      Math.cos(angle) * stationScale * 0.85,
+      stationScale * 0.2,
+      Math.sin(angle) * stationScale * 0.85
+    );
+    dish.rotation.z = Math.PI / 2;
+    station.add(dish);
+  }
+  
+  // Solar panels
+  for (let i = 0; i < 4; i++) {
+    const angle = (i / 4) * Math.PI * 2;
+    const panel = new THREE.Mesh(
+      new THREE.BoxGeometry(stationScale * 0.3, stationScale * 0.02, stationScale * 0.5),
+      new THREE.MeshStandardMaterial({ 
+        color: 0x1a2a4a,
+        roughness: 0.2,
+        metalness: 0.9,
+        emissive: 0x0a1a3a,
+        emissiveIntensity: 0.2
+      })
+    );
+    panel.position.set(
+      Math.cos(angle) * stationScale * 1.2,
+      0,
+      Math.sin(angle) * stationScale * 1.2
+    );
+    panel.lookAt(0, 0, 0);
+    station.add(panel);
+  }
+
+  // Docking lights
+  for (let i = 0; i < 12; i++) {
+    const angle = (i / 12) * Math.PI * 2;
+    const light = new THREE.Mesh(
+      new THREE.SphereGeometry(stationScale * 0.03, 12, 12),
+      new THREE.MeshBasicMaterial({ 
+        color: i % 2 === 0 ? 0x00ff88 : 0x0088ff,
+        fog: false
+      })
+    );
+    light.position.set(
+      Math.cos(angle) * stationScale * 0.7,
+      0,
+      Math.sin(angle) * stationScale * 0.7
+    );
+    station.add(light);
+    
+    const pointLight = new THREE.PointLight(
+      i % 2 === 0 ? 0x00ff88 : 0x0088ff,
+      0.3,
+      stationScale * 5
+    );
+    pointLight.position.copy(light.position);
+    station.add(pointLight);
+  }
+
+  // Navigation beacon
+  const beacon = new THREE.Mesh(
+    new THREE.SphereGeometry(stationScale * 0.05, 16, 16),
+    new THREE.MeshBasicMaterial({ 
+      color: 0xffaa00,
+      fog: false
+    })
+  );
+  beacon.position.set(0, 0, stationScale * 1.5);
+  station.add(beacon);
+
+  const beaconLight = new THREE.PointLight(0xffaa00, 1.0, stationScale * 10);
+  beaconLight.position.copy(beacon.position);
+  station.add(beaconLight);
+
+  station.add(ring, hub);
+}
+scene.add(station);
+
+// ==================== OUTER SYSTEM STATION ====================
 const outerStation = new THREE.Group();
 {
   const scale = toRender(SCALE.STATION_SIZE * 300); // 3x bigger!
@@ -393,148 +531,6 @@ const outerStation = new THREE.Group();
   }
 }
 scene.add(outerStation);
-
-// ==================== STATION ====================
-const station = new THREE.Group();
-{
-  const stationScale = toRender(SCALE.STATION_SIZE * 100);
-  
-  // Main ring (bigger and more detailed)
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(stationScale * 0.7, stationScale * 0.15, 32, 80),
-    new THREE.MeshStandardMaterial({ 
-      color: 0x99aadd,
-      roughness: 0.3,
-      metalness: 0.8,
-      emissive: 0x112244,
-      emissiveIntensity: 0.3
-    })
-  );
-  ring.rotation.x = Math.PI / 2;
-  ring.castShadow = true;
-  ring.receiveShadow = true;
-
-  // Hub cylinder
-  const hub = new THREE.Mesh(
-    new THREE.CylinderGeometry(stationScale * 0.15, stationScale * 0.15, stationScale * 0.7, 32),
-    new THREE.MeshStandardMaterial({ 
-      color: 0x7788aa,
-      roughness: 0.4,
-      metalness: 0.7,
-      emissive: 0x0a0f1a,
-      emissiveIntensity: 0.4
-    })
-  );
-  hub.rotation.z = Math.PI / 2;
-  hub.castShadow = true;
-  hub.receiveShadow = true;
-  // Industrial modules (cargo containers)
-  for (let i = 0; i < 8; i++) {
-    const angle = (i / 8) * Math.PI * 2;
-    const module = new THREE.Mesh(
-      new THREE.BoxGeometry(stationScale * 0.4, stationScale * 0.3, stationScale * 0.6),
-      new THREE.MeshStandardMaterial({
-        color: 0x4a5a6a,
-        roughness: 0.8,
-        metalness: 0.5,
-        emissive: 0x1a2a3a,
-        emissiveIntensity: 0.1
-      })
-    );
-    module.position.set(
-      Math.cos(angle) * stationScale * 0.9,
-      0,
-      Math.sin(angle) * stationScale * 0.9
-    );
-    module.lookAt(0, 0, 0);
-    station.add(module);
-  }
-
-  // Communication arrays
-  for (let i = 0; i < 4; i++) {
-    const angle = (i / 4) * Math.PI * 2 + Math.PI / 4;
-    const dish = new THREE.Mesh(
-      new THREE.CylinderGeometry(stationScale * 0.15, stationScale * 0.05, stationScale * 0.02, 16),
-      new THREE.MeshStandardMaterial({
-        color: 0x6a7a8a,
-        roughness: 0.3,
-        metalness: 0.9
-      })
-    );
-    dish.position.set(
-      Math.cos(angle) * stationScale * 0.85,
-      stationScale * 0.2,
-      Math.sin(angle) * stationScale * 0.85
-    );
-    dish.rotation.z = Math.PI / 2;
-    station.add(dish);
-  }
-  // Solar panels
-  for (let i = 0; i < 4; i++) {
-    const angle = (i / 4) * Math.PI * 2;
-    const panel = new THREE.Mesh(
-      new THREE.BoxGeometry(stationScale * 0.3, stationScale * 0.02, stationScale * 0.5),
-      new THREE.MeshStandardMaterial({ 
-        color: 0x1a2a4a,
-        roughness: 0.2,
-        metalness: 0.9,
-        emissive: 0x0a1a3a,
-        emissiveIntensity: 0.2
-      })
-    );
-    panel.position.set(
-      Math.cos(angle) * stationScale * 1.2,
-      0,
-      Math.sin(angle) * stationScale * 1.2
-    );
-    panel.lookAt(0, 0, 0);
-    station.add(panel);
-  }
-
-  // Docking lights
-  for (let i = 0; i < 12; i++) {
-    const angle = (i / 12) * Math.PI * 2;
-    const light = new THREE.Mesh(
-      new THREE.SphereGeometry(stationScale * 0.03, 12, 12),
-      new THREE.MeshBasicMaterial({ 
-        color: i % 2 === 0 ? 0x00ff88 : 0x0088ff,
-        fog: false
-      })
-    );
-    light.position.set(
-      Math.cos(angle) * stationScale * 0.7,
-      0,
-      Math.sin(angle) * stationScale * 0.7
-    );
-    station.add(light);
-    
-    const pointLight = new THREE.PointLight(
-      i % 2 === 0 ? 0x00ff88 : 0x0088ff,
-      0.3,
-      stationScale * 5
-    );
-    pointLight.position.copy(light.position);
-    station.add(pointLight);
-  }
-
-  // Navigation beacon
-  const beacon = new THREE.Mesh(
-    new THREE.SphereGeometry(stationScale * 0.05, 16, 16),
-    new THREE.MeshBasicMaterial({ 
-      color: 0xffaa00,
-      fog: false
-    })
-  );
-  beacon.position.set(0, 0, stationScale * 1.5);
-  station.add(beacon);
-
-  const beaconLight = new THREE.PointLight(0xffaa00, 1.0, stationScale * 10);
-  beaconLight.position.copy(beacon.position);
-  station.add(beaconLight);
-
-  station.add(ring, hub);
-}
-scene.add(station);
 
 // ==================== SHIP ====================
 const ship = new THREE.Group();
@@ -630,12 +626,11 @@ const ship = new THREE.Group();
 }
 scene.add(ship);
 
-// Ship starting position - start at planet's orbit position + altitude
-const startDistance = toRender(SCALE.PLANET_RADIUS + 25000); // 400km altitude
-// Planet starts at (PLANET_ORBIT, 0, 0) when t=0, so position ship there
-ship.position.set(toRender(SCALE.PLANET_ORBIT) + startDistance, 0, 0);
-ship.lookAt(toRender(SCALE.PLANET_ORBIT), 0, 0);
-ship.lookAt(toRender(SCALE.PLANET_ORBIT), 0, 0);
+// Ship starting position - near Earth
+const earthData = SCALE.PLANETS[2]; // Earth
+const startDistance = toRender(earthData.radius + 25000); // 25000km altitude
+ship.position.set(toRender(earthData.orbit) + startDistance, 0, 0);
+ship.lookAt(toRender(earthData.orbit), 0, 0);
 
 // ==================== CAMERA SETUP ====================
 camera.position.set(0, 0.3, 0.8);
@@ -723,34 +718,46 @@ function animate() {
 
   // Update shader uniforms
   (coronaMat.uniforms.time as any).value = elapsed;
-  (atmosphereMat.uniforms.time as any).value = elapsed;
 
-  // Orbit planet around sun (slow)
-  const t = elapsed * 0.0001;
-  planet.position.set(
-    Math.cos(t) * toRender(SCALE.PLANET_ORBIT),
-    Math.sin(t * 0.1) * toRender(SCALE.PLANET_ORBIT * 0.05),
-    Math.sin(t) * toRender(SCALE.PLANET_ORBIT)
-  );
-  planet.rotation.y += dt * 0.1;
-  clouds.rotation.y += dt * 0.15;
-  // Initialize ship position relative to planet on first frame
+  // Orbit all planets around sun
+  planetData.forEach((pData) => {
+    const t = elapsed * pData.speed;
+    pData.group.position.set(
+      Math.cos(t) * toRender(pData.orbit),
+      Math.sin(t * 0.1) * toRender(pData.orbit * 0.05),
+      Math.sin(t) * toRender(pData.orbit)
+    );
+    pData.group.rotation.y += dt * 0.1;
+  });
+
+  // Initialize ship position relative to Earth on first frame
   if (!initialized) {
-    ship.position.copy(planet.position);
+    const earthPlanet = planetData[2]; // Earth
+    ship.position.copy(earthPlanet.group.position);
     ship.position.x += startDistance;
-    ship.lookAt(planet.position);
+    ship.lookAt(earthPlanet.group.position);
     initialized = true;
   }
   
-  // Station orbits planet
-  const st = elapsed * 0.0001; // SAME as planet orbit speed!
-  const stationOrbitDist = toRender(SCALE.STATION_ORBIT);
+  // Station orbits Earth
+  const earthPlanet = planetData[2]; // Earth
+  const st = elapsed * 0.0001;
+  const stationOrbitDist = toRender(50000); // 50,000km from Earth
   station.position.set(
-    planet.position.x + Math.cos(st) * stationOrbitDist,
-    planet.position.y + toRender(10),
-    planet.position.z + Math.sin(st) * stationOrbitDist
+    earthPlanet.group.position.x + Math.cos(st) * stationOrbitDist,
+    earthPlanet.group.position.y + toRender(10),
+    earthPlanet.group.position.z + Math.sin(st) * stationOrbitDist
   );
-  station.rotation.y += dt * 0.05; // Slower rotation too
+  station.rotation.y += dt * 0.05;
+  
+  // Position outer station near Neptune
+  const neptunePlanet = planetData[7]; // Neptune
+  outerStation.position.set(
+    neptunePlanet.group.position.x + toRender(100000),
+    neptunePlanet.group.position.y,
+    neptunePlanet.group.position.z
+  );
+  outerStation.rotation.y += dt * 0.02;
 
   // ==================== NEWTONIAN FLIGHT CONTROLS ====================
   // Throttle control
@@ -803,7 +810,7 @@ function animate() {
 
   // ==================== HUD UPDATES ====================
   const distToStation = toKm(ship.position.distanceTo(station.position));
-  const distToPlanet = toKm(ship.position.distanceTo(planet.position)) - SCALE.PLANET_RADIUS;
+  const distToPlanet = toKm(ship.position.distanceTo(earthPlanet.group.position)) - earthPlanet.radius;
   
   // Display speed in m/s and km/s
   const speedMS = Math.round(speed * 1000);
@@ -851,8 +858,8 @@ const radarRadius = 85;
 const radarRange = 75000; // km
 
 const radarObjects = [
-  { name: "Vigilia Prime", ref: planet, type: "planet", color: "#3388ff" },
-  { name: "Vigilant Relay", ref: station, type: "station", color: "#ff6600" },  // Bright orange!
+  { name: "Earth", ref: planetData[2].group, type: "planet", color: "#2288ff" },
+  { name: "Vigilant Relay", ref: station, type: "station", color: "#ff6600" },
   { name: "Sun", ref: sun, type: "star", color: "#ffdd88" }
 ];
 
@@ -882,9 +889,6 @@ function updateRadar() {
   radarObjects.forEach(obj => {
     const relPos = obj.ref.position.clone().sub(ship.position);
     const distKm = toKm(relPos.length());
-    
-    // DEBUG: Check if station is in range
-    //console.log(`${obj.name}: ${distKm.toFixed(1)}km (range: ${radarRange}km)`);
     
     if (distKm > radarRange) {
       return;
