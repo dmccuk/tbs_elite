@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Space Refuse Collector MK-IV — Vigilia System</title>
+    <title>Space Refuse Collector MK-IV — The Black Ship</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
@@ -30,7 +30,6 @@
         outline: 2px solid rgba(0, 255, 136, 0.3);
       }
       
-      /* Scanline effect overlay */
       #scanlines {
         position: fixed;
         top: 0;
@@ -53,7 +52,6 @@
         100% { transform: translateY(4px); }
       }
       
-      /* CRT vignette */
       #vignette {
         position: fixed;
         top: 0;
@@ -70,7 +68,6 @@
         z-index: 1;
       }
       
-      /* Main HUD container */
       #hud {
         position: fixed;
         top: 0;
@@ -83,7 +80,6 @@
         text-shadow: 0 0 8px rgba(0, 255, 136, 0.7);
       }
       
-      /* Top left status panel */
       #status-panel {
         position: absolute;
         left: 20px;
@@ -123,7 +119,6 @@
         text-shadow: 0 0 8px rgba(255, 170, 0, 0.7);
       }
       
-      /* Top right instruments */
       #instruments {
         position: absolute;
         right: 20px;
@@ -163,7 +158,6 @@
         margin-top: 2px;
       }
       
-      /* Bottom center crosshair */
       #crosshair {
         position: absolute;
         left: 50%;
@@ -233,7 +227,6 @@
         border-top: none;
       }
       
-      /* Bottom HUD bar */
       #bottom-bar {
         position: absolute;
         bottom: 20px;
@@ -282,7 +275,6 @@
         50% { opacity: 0.7; }
       }
       
-      /* Controls hint */
       #controls {
         position: absolute;
         bottom: 20px;
@@ -305,7 +297,6 @@
         margin: 0 2px;
       }
       
-      /* Target info */
       #target-info {
         position: absolute;
         right: 20px;
@@ -334,7 +325,6 @@
         color: #88ffcc;
       }
       
-      /* Click to start message */
       #start-message {
         position: absolute;
         top: 50%;
@@ -359,7 +349,7 @@
       #start-message.hidden {
         display: none;
       }
-      /* Help Menu */
+
       #help-menu {
         position: absolute;
         left: 50%;
@@ -417,25 +407,7 @@
       .help-desc {
         color: #88ffcc;
       }
-      
-      .help-close {
-        margin-top: 15px;
-        padding: 8px 20px;
-        background: rgba(0, 255, 136, 0.2);
-        border: 1px solid #00ff88;
-        color: #00ff88;
-        font-family: 'Share Tech Mono', monospace;
-        font-size: 12px;
-        cursor: pointer;
-        width: 100%;
-        transition: all 0.2s;
-      }
-      
-      .help-close:hover {
-        background: rgba(0, 255, 136, 0.4);
-        box-shadow: 0 0 10px rgba(0, 255, 136, 0.6);
-      }
-      /* Radar Display */
+
       #radar-container {
         position: absolute;
         left: 20px;
@@ -471,14 +443,12 @@
     <div id="scanlines"></div>
     <div id="vignette"></div>
     
-    <!-- Click to start message -->
     <div id="start-message">
       CLICK TO START<br>
-      <span style="font-size: 16px; font-weight: 400;">Then use W/S/Arrows/Q/E</span>
+      <span style="font-size: 16px; font-weight: 400;">Mission begins in 30 seconds...</span>
     </div>
     
     <div id="hud">
-      <!-- Top left status -->
       <div id="status-panel">
         <div class="title">Space Refuse Collector MK-IV</div>
         <div class="data">
@@ -487,21 +457,20 @@
           <div style="margin-top: 8px;">Transponder: <span style="color: #ff4444;">BLACK</span></div>
           <div>Permit: "Relief Courier"</div>
           <div style="margin-top: 8px; font-size: 11px; opacity: 0.7;">
-            <div>Planet: 6,400km radius</div>
-            <div>Station: Vigilant Relay</div>
+            <div>Route: Deep Space</div>
+            <div>Cargo: Bio-Waste Container</div>
           </div>
         </div>
       </div>
-      <!-- Radar -->
+
       <div id="radar-container">
         <div id="radar-label">PROXIMITY RADAR</div>
         <canvas id="radar-canvas" width="180" height="180"></canvas>
       </div>
       
-      <!-- Help Menu -->
       <div id="help-menu">
-        <h2>═══ CONTROLS & FUNCTIONS ═══</h2>
-<div class="help-section">
+        <h2>═══ CONTROLS & MISSION ═══</h2>
+        <div class="help-section">
           <h3>Flight Controls</h3>
           <div class="help-row"><span class="help-key">W / S</span><span class="help-desc">Throttle Up / Down</span></div>
           <div class="help-row"><span class="help-key">← / →</span><span class="help-desc">Yaw Left / Right</span></div>
@@ -511,21 +480,19 @@
           <div class="help-row"><span class="help-key">Shift</span><span class="help-desc">Boost (Temporary)</span></div>
         </div>
         <div class="help-section">
-          <h3>Advanced Systems</h3>
+          <h3>Systems</h3>
           <div class="help-row"><span class="help-key">F</span><span class="help-desc">Toggle Flight Assist</span></div>
-          <div class="help-row"><span class="help-key">J</span><span class="help-desc">Supercruise / Jump</span></div>
+          <div class="help-row"><span class="help-key">J</span><span class="help-desc">Toggle Supercruise</span></div>
           <div class="help-row"><span class="help-key">H</span><span class="help-desc">Toggle Help Menu</span></div>
         </div>
         <div class="help-section">
-          <h3>Navigation</h3>
-          <div class="help-row"><span class="help-key">R</span><span class="help-desc">Cycle Radar Zoom</span></div>
-          <div class="help-row"><span class="help-key">M</span><span class="help-desc">Jump Computer Menu</span></div>
-          <div class="help-row"><span class="help-key">1 / 2 / 3</span><span class="help-desc">Select Jump Target</span></div>
+          <h3>Mission Briefing</h3>
+          <div style="color: #88ffcc; font-size: 11px; line-height: 1.6; margin-top: 8px;">
+            You're hauling bio-waste between stations when suddenly emergency warp signatures are detected. A Royal Yacht appears, fleeing from an unknown hostile vessel. Watch the chase unfold and prepare for action...
+          </div>
         </div>
-        <button class="help-close" id="help-close">CLOSE [H]</button>
       </div>
       
-      <!-- Top right instruments -->
       <div id="instruments">
         <div class="instrument">
           <div class="instrument-label">SPEED</div>
@@ -539,12 +506,10 @@
         </div>
       </div>
       
-      <!-- Help hint -->
       <div style="position: absolute; top: 20px; right: 20px; font-size: 11px; opacity: 0.6; margin-top: 100px;">
         Press <span style="color: #ffaa00; font-weight: 700;">[H]</span> for Controls
       </div>
       
-      <!-- Center crosshair -->
       <div id="crosshair">
         <div class="crosshair-corner"></div>
         <div class="crosshair-corner"></div>
@@ -552,7 +517,6 @@
         <div class="crosshair-corner"></div>
       </div>
       
-      <!-- Bottom bar with speed/throttle -->
       <div id="bottom-bar">
         <div class="bar-section">
           <div class="bar-label">VELOCITY</div>
@@ -568,7 +532,6 @@
         </div>
       </div>
       
-      <!-- Controls -->
       <div id="controls">
         <span class="key">W</span>/<span class="key">S</span> Throttle
         <span class="key">↑</span>/<span class="key">↓</span> Pitch
@@ -580,13 +543,11 @@
         <span class="key">J</span> Supercruise
       </div>
       
-      <!-- Target info -->
       <div id="target-info">
         <div class="target-name" id="target-name">VIGILANT RELAY</div>
         <div class="target-data">
           <div>Distance: <span id="target-dist">0</span></div>
           <div>Type: Orbital Station</div>
-          <div>Orbit: 400km from planet</div>
           <div style="margin-top: 4px; color: #00ff88;">⬤ Docking Available</div>
         </div>
       </div>
