@@ -453,6 +453,15 @@ const ship = new THREE.Group();
   engineLight.position.set(0, 0, -shipScale * 1.4);
 
   ship.add(body, cockpit, wingL, wingR, wingLightL, wingLightR, engineGlow, engineLight);
+  
+  // Hide all ship parts (first-person view)
+  body.visible = false;
+  cockpit.visible = false;
+  wingL.visible = false;
+  wingR.visible = false;
+  wingLightL.visible = false;
+  wingLightR.visible = false;
+  engineGlow.visible = false;
 }
 scene.add(ship);
 
@@ -466,37 +475,6 @@ ship.lookAt(toRender(SCALE.PLANET_ORBIT), 0, 0);
 // ==================== CAMERA SETUP ====================
 camera.position.set(0, 0.3, 0.8);
 ship.add(camera);
-
-// ==================== ENGINE PARTICLES ====================
-let engineParticles: THREE.Points;
-{
-  const particleCount = 80;
-  const particleGeo = new THREE.BufferGeometry();
-  const positions = new Float32Array(particleCount * 3);
-  const ages = new Float32Array(particleCount);
-  
-  for (let i = 0; i < particleCount; i++) {
-    positions[i * 3 + 0] = 0;
-    positions[i * 3 + 1] = 0;
-    positions[i * 3 + 2] = -0.04;
-    ages[i] = Math.random();
-  }
-  
-  particleGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  particleGeo.setAttribute("age", new THREE.BufferAttribute(ages, 1));
-  
-  const particleMat = new THREE.PointsMaterial({
-    size: 0.015,
-    color: 0x3388ff,
-    transparent: true,
-    opacity: 0.7,
-    blending: THREE.AdditiveBlending,
-    fog: false
-  });
-  
-  engineParticles = new THREE.Points(particleGeo, particleMat);
-  ship.add(engineParticles);
-}
 
 // ==================== INPUT HANDLING ====================
 const inputs: Inputs = {
@@ -657,26 +635,6 @@ function animate() {
   ship.rotateY(angularVelocity.y * dt * 60);
   ship.rotateX(angularVelocity.x * dt * 60);
   ship.rotateZ(angularVelocity.z * dt * 60);
-
-  // ==================== ENGINE PARTICLES ====================
-  const particlePositions = engineParticles.geometry.attributes.position.array as Float32Array;
-  const particleAges = engineParticles.geometry.attributes.age.array as Float32Array;
-  
-  for (let i = 0; i < particleAges.length; i++) {
-    particleAges[i] += dt * (3 + speed * 2);
-    
-    if (particleAges[i] > 1) {
-      particleAges[i] = 0;
-      particlePositions[i * 3 + 0] = (Math.random() - 0.5) * 0.02;
-      particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 0.02;
-      particlePositions[i * 3 + 2] = -0.04;
-    } else {
-      particlePositions[i * 3 + 2] -= dt * (0.5 + speed * 0.1);
-    }
-  }
-  
-  engineParticles.geometry.attributes.position.needsUpdate = true;
-  engineParticles.geometry.attributes.age.needsUpdate = true;
 
   // ==================== HUD UPDATES ====================
   const distToStation = toKm(ship.position.distanceTo(station.position));
