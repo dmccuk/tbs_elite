@@ -509,7 +509,7 @@ function setKey(code: string, down: boolean) {
         
         if (blackShip && !blackShipDamaged) {
           const distToExplosion = toKm(blackShip.position.distanceTo(explosionPos));
-          if (distToExplosion < 25) {
+          if (distToExplosion < 3000) {
             blackShipDamaged = true;
             showAlert("HOSTILE VESSEL DAMAGED! Enemy initiating emergency jump!");
             
