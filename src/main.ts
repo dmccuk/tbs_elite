@@ -102,12 +102,6 @@ const sunLight = new THREE.PointLight(0xffffee, 4.0, 0, 2);
 sunLight.position.set(0, 0, 0);
 scene.add(sunLight);
 
-const sun = new THREE.Mesh(
-  new THREE.SphereGeometry(toRender(SCALE.SUN_RADIUS), 32, 32),
-  new THREE.MeshBasicMaterial({ color: 0xffdd88, fog: false })
-);
-scene.add(sun);
-
 // Asteroids
 {
   const asteroidGeo = new THREE.BufferGeometry();
