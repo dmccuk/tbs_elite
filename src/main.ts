@@ -804,7 +804,7 @@ function drawShipMarkers() {
     }
   });
   
-  if (royalYacht) {
+if (royalYacht) {
     const yachtPos = royalYacht.position.clone();
     yachtPos.project(camera);
     
@@ -823,9 +823,11 @@ function drawShipMarkers() {
         
         ctx.fillStyle = '#4488ff';
         ctx.font = 'bold 16px Orbitron, monospace';
-        ctx.fillText('ROYAL FAVOR', x + 55, y - 10);
+        ctx.textAlign = 'right';
+        ctx.fillText('ROYAL FAVOR', x - 55, y - 10);
         ctx.font = '12px Share Tech Mono, monospace';
-        ctx.fillText(`${dist.toFixed(1)}km`, x + 55, y + 8);
+        ctx.fillText(`${dist.toFixed(1)}km`, x - 55, y + 8);
+        ctx.textAlign = 'left'; // Reset to default
       }
     }
   }
