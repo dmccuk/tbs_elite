@@ -17,6 +17,7 @@ const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(ma
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 // ==================== SCALE CONSTANTS ====================
+const SCALE = {
   // Solar system (scaled for gameplay)
   SUN_RADIUS: 100,           // km (visual)
   STATION_SIZE: 0.5,         // km (500m station)
