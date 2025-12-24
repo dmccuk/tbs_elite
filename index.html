@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Space Refuse Collector MK-IV — Lingering Systems</title>
+    <title>The Black Ship — Vigilia System</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
@@ -30,6 +30,7 @@
         outline: 2px solid rgba(0, 255, 136, 0.3);
       }
       
+      /* Scanline effect overlay */
       #scanlines {
         position: fixed;
         top: 0;
@@ -52,6 +53,7 @@
         100% { transform: translateY(4px); }
       }
       
+      /* CRT vignette */
       #vignette {
         position: fixed;
         top: 0;
@@ -68,6 +70,7 @@
         z-index: 1;
       }
       
+      /* Main HUD container */
       #hud {
         position: fixed;
         top: 0;
@@ -80,6 +83,7 @@
         text-shadow: 0 0 8px rgba(0, 255, 136, 0.7);
       }
       
+      /* Top left status panel */
       #status-panel {
         position: absolute;
         left: 20px;
@@ -119,6 +123,7 @@
         text-shadow: 0 0 8px rgba(255, 170, 0, 0.7);
       }
       
+      /* Top right instruments */
       #instruments {
         position: absolute;
         right: 20px;
@@ -158,6 +163,7 @@
         margin-top: 2px;
       }
       
+      /* Bottom center crosshair */
       #crosshair {
         position: absolute;
         left: 50%;
@@ -227,6 +233,7 @@
         border-top: none;
       }
       
+      /* Bottom HUD bar */
       #bottom-bar {
         position: absolute;
         bottom: 20px;
@@ -275,6 +282,7 @@
         50% { opacity: 0.7; }
       }
       
+      /* Controls hint */
       #controls {
         position: absolute;
         bottom: 20px;
@@ -297,6 +305,7 @@
         margin: 0 2px;
       }
       
+      /* Target info */
       #target-info {
         position: absolute;
         right: 20px;
@@ -325,6 +334,7 @@
         color: #88ffcc;
       }
       
+      /* Click to start message */
       #start-message {
         position: absolute;
         top: 50%;
@@ -349,364 +359,35 @@
       #start-message.hidden {
         display: none;
       }
-
-      #help-menu {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        width: 500px;
-        max-height: 600px;
-        background: rgba(0, 20, 15, 0.98);
-        border: 3px solid #00ff88;
-        padding: 20px;
-        box-shadow: 0 0 30px rgba(0, 255, 136, 0.5);
-        display: none;
-        pointer-events: auto;
-        overflow-y: auto;
-        z-index: 1000;
-      }
-      
-      #help-menu.visible {
-        display: block;
-      }
-      
-      #help-menu h2 {
-        font-family: 'Orbitron', sans-serif;
-        font-size: 18px;
-        margin-bottom: 15px;
-        color: #ffaa00;
-        text-align: center;
-        text-shadow: 0 0 10px rgba(255, 170, 0, 0.8);
-      }
-      
-      .help-section {
-        margin-bottom: 20px;
-      }
-      
-      .help-section h3 {
-        font-size: 14px;
-        color: #00ff88;
-        margin-bottom: 8px;
-        border-bottom: 1px solid rgba(0, 255, 136, 0.3);
-        padding-bottom: 4px;
-      }
-      
-      .help-row {
-        display: flex;
-        justify-content: space-between;
-        padding: 4px 0;
-        font-size: 12px;
-      }
-      
-      .help-key {
-        color: #ffaa00;
-        font-weight: 700;
-      }
-      
-      .help-desc {
-        color: #88ffcc;
-      }
-
-      #radar-container {
-        position: absolute;
-        left: 20px;
-        bottom: 280px;
-        width: 180px;
-        height: 180px;
-        border: 2px solid #00ff88;
-        background: rgba(0, 20, 15, 0.9);
-        box-shadow: 
-          0 0 20px rgba(0, 255, 136, 0.4),
-          inset 0 0 30px rgba(0, 255, 136, 0.1);
-        pointer-events: auto;
-      }
-      
-      #radar-canvas {
-        width: 100%;
-        height: 100%;
-        display: block;
-        cursor: crosshair;
-      }
-      
-      #radar-label {
-        position: absolute;
-        top: -20px;
-        left: 0;
-        font-size: 10px;
-        letter-spacing: 1px;
-        opacity: 0.8;
-      }
-
-      #cargo-computer {
-        position: absolute;
-        left: 50%;
-        top: 120px;
-        transform: translateX(-50%);
-        width: 350px;
-        background: rgba(0, 20, 15, 0.95);
-        border: 3px solid #ffaa00;
-        padding: 15px;
-        box-shadow: 0 0 30px rgba(255, 170, 0, 0.6);
-        display: none;
-        z-index: 50;
-      }
-
-      #cargo-computer.visible {
-        display: block;
-        animation: slideDown 0.3s ease-out;
-      }
-
-      @keyframes slideDown {
-        from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
-        to { transform: translateX(-50%) translateY(0); opacity: 1; }
-      }
-
-      #cargo-computer h3 {
-        font-family: 'Orbitron', sans-serif;
-        font-size: 16px;
-        color: #ffaa00;
-        text-align: center;
-        margin-bottom: 10px;
-        text-shadow: 0 0 10px rgba(255, 170, 0, 0.8);
-      }
-
-      #cargo-computer .cargo-status {
-        font-size: 12px;
-        line-height: 1.8;
-        color: #88ffcc;
-        margin-bottom: 10px;
-      }
-
-      #cargo-computer .cargo-bar {
-        width: 100%;
-        height: 25px;
-        background: rgba(0, 0, 0, 0.5);
-        border: 2px solid #00ff88;
-        position: relative;
-        margin: 10px 0;
-      }
-
-      #cargo-computer .cargo-bar-fill {
-        height: 100%;
-        background: linear-gradient(90deg, #00ff88, #00cc66);
-        width: 0%;
-        transition: width 0.2s;
-      }
-
-      #cargo-computer .cargo-bar-fill.optimal {
-        background: linear-gradient(90deg, #ffaa00, #ff6600);
-        animation: pulse 0.5s infinite;
-      }
-
-      #cargo-computer .detonation-hint {
-        text-align: center;
-        font-size: 14px;
-        font-weight: 700;
-        color: #ffaa00;
-        margin-top: 10px;
-        animation: blink 1s infinite;
-      }
-
-      @keyframes blink {
-        0%, 50%, 100% { opacity: 1; }
-        25%, 75% { opacity: 0.3; }
-      }
-
-      #alert-box {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 500px;
-        background: rgba(20, 0, 0, 0.95);
-        border: 4px solid #ff0000;
-        padding: 20px;
-        box-shadow: 0 0 40px rgba(255, 0, 0, 0.8);
-        display: none;
-        z-index: 100;
-        animation: alertPulse 0.5s ease-out;
-      }
-
-      #alert-box.visible {
-        display: block;
-      }
-
-      @keyframes alertPulse {
-        0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
-        50% { transform: translate(-50%, -50%) scale(1.05); }
-        100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-      }
-
-      #alert-box h2 {
-        font-family: 'Orbitron', sans-serif;
-        font-size: 22px;
-        color: #ff0000;
-        text-align: center;
-        margin-bottom: 15px;
-        text-shadow: 0 0 15px rgba(255, 0, 0, 1);
-        animation: flash 1s infinite;
-      }
-
-      @keyframes flash {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.6; }
-      }
-
-      #alert-box .alert-message {
-        font-size: 14px;
-        line-height: 1.8;
-        color: #ffcccc;
-        text-align: center;
-      }
-
-      #mission-complete {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        width: 600px;
-        background: rgba(0, 20, 15, 0.98);
-        border: 4px solid #00ff88;
-        padding: 25px;
-        box-shadow: 0 0 50px rgba(0, 255, 136, 0.8);
-        display: none;
-        z-index: 150;
-      }
-
-      #mission-complete.visible {
-        display: block;
-        animation: slideDown 0.5s ease-out;
-      }
-
-      #mission-complete h2 {
-        font-family: 'Orbitron', sans-serif;
-        font-size: 20px;
-        color: #ffaa00;
-        text-align: center;
-        margin-bottom: 15px;
-        text-shadow: 0 0 15px rgba(255, 170, 0, 0.8);
-      }
-
-      #mission-complete .message-header {
-        font-size: 12px;
-        color: #88ffcc;
-        margin-bottom: 15px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid rgba(0, 255, 136, 0.3);
-      }
-
-      #mission-complete .message-body {
-        font-size: 14px;
-        line-height: 1.8;
-        color: #88ffcc;
-        margin-bottom: 20px;
-      }
-
-      #mission-complete .mission-status {
-        text-align: center;
-        font-family: 'Orbitron', sans-serif;
-        font-size: 18px;
-        font-weight: 700;
-        color: #00ff88;
-        text-shadow: 0 0 15px rgba(0, 255, 136, 0.8);
-      }
     </style>
   </head>
   <body>
     <div id="scanlines"></div>
     <div id="vignette"></div>
     
+    <!-- Click to start message -->
     <div id="start-message">
       CLICK TO START<br>
-      <span style="font-size: 16px; font-weight: 400;">Lingering Systems — Chapter 1</span>
+      <span style="font-size: 16px; font-weight: 400;">Then use W/S/Arrows/Q/E</span>
     </div>
     
     <div id="hud">
+      <!-- Top left status -->
       <div id="status-panel">
-        <div class="title">Space Refuse Collector MK-IV</div>
+        <div class="title">Vigilia System</div>
         <div class="data">
-          <div>Lingering Systems</div>
-          <div class="warning">⚠ House Cayston Territory</div>
+          <div>House Emerald Territory</div>
+          <div class="warning">⚠ Border Zone Active</div>
           <div style="margin-top: 8px;">Transponder: <span style="color: #ff4444;">BLACK</span></div>
           <div>Permit: "Relief Courier"</div>
           <div style="margin-top: 8px; font-size: 11px; opacity: 0.7;">
-            <div>Route: Deep Space Transit</div>
-            <div id="cargo-status">Cargo: Bio-Waste Container</div>
-          </div>
-        </div>
-      </div>
-
-      <div id="radar-container">
-        <div id="radar-label">PROXIMITY RADAR</div>
-        <canvas id="radar-canvas" width="180" height="180"></canvas>
-      </div>
-
-      <div id="alert-box">
-        <h2>⚠ EMERGENCY ALERT ⚠</h2>
-        <div class="alert-message" id="alert-message"></div>
-      </div>
-
-      <div id="cargo-computer">
-        <h3>═══ CARGO COMPUTER ═══</h3>
-        <div class="cargo-status">
-          <div>Container: <span id="cargo-state">ATTACHED</span></div>
-          <div>Trajectory: <span id="cargo-trajectory">STANDBY</span></div>
-          <div style="margin-top: 8px;">
-            <div>Cargo Distance: <span id="cargo-distance">--</span></div>
-            <div>Target Distance: <span id="target-distance">--</span></div>
-          </div>
-        </div>
-        <div class="cargo-bar">
-          <div class="cargo-bar-fill" id="cargo-bar-fill"></div>
-        </div>
-        <div class="detonation-hint" id="detonation-hint" style="display: none;">
-          Press [C] to DETONATE
-        </div>
-      </div>
-
-      <div id="mission-complete">
-        <h2>INCOMING TRANSMISSION</h2>
-        <div class="message-header">
-          SOURCE: ROYAL STARSHIP "ROYAL FAVOR"<br>
-          SENDER: Commander Redford Kalon
-        </div>
-        <div class="message-body">
-          "Resourceful work, Warrant Officer Staples. You've saved our VIP with those... creative tactics of yours.<br><br>
-          
-          House Cayston has turned traitor. If you return to your station, Lieutenant-Commander Thomas Cayston will have you executed.<br><br>
-          
-          Join us. His Majesty will want to meet the pilot who throws garbage at enemy warships. Set course for the rendezvous coordinates."
-        </div>
-        <div class="mission-status">
-          [ MISSION COMPLETE ]
-        </div>
-      </div>
-      
-      <div id="help-menu">
-        <h2>═══ CONTROLS & MISSION ═══</h2>
-        <div class="help-section">
-          <h3>Flight Controls</h3>
-          <div class="help-row"><span class="help-key">W / S</span><span class="help-desc">Throttle Up / Down</span></div>
-          <div class="help-row"><span class="help-key">← / →</span><span class="help-desc">Yaw Left / Right</span></div>
-          <div class="help-row"><span class="help-key">↑ / ↓</span><span class="help-desc">Pitch Up / Down</span></div>
-          <div class="help-row"><span class="help-key">Q / E</span><span class="help-desc">Roll Left / Right</span></div>
-          <div class="help-row"><span class="help-key">Space</span><span class="help-desc">Brake (Full Stop)</span></div>
-        </div>
-        <div class="help-section">
-          <h3>Combat Systems</h3>
-          <div class="help-row"><span class="help-key">X</span><span class="help-desc">Detach Cargo Container</span></div>
-          <div class="help-row"><span class="help-key">C</span><span class="help-desc">Fire PD Turret / Detonate</span></div>
-          <div class="help-row"><span class="help-key">H</span><span class="help-desc">Toggle Help Menu</span></div>
-        </div>
-        <div class="help-section">
-          <h3>Mission Briefing</h3>
-          <div style="color: #88ffcc; font-size: 11px; line-height: 1.6; margin-top: 8px;">
-            Lingering Systems, House Cayston territory. A Royal Yacht flees from an unknown hostile corvette. Use your bio-waste container as an improvised mine to save the VIP aboard. Speed: 3km/s max.
+            <div>Planet: 6,400km radius</div>
+            <div>Station: Vigilant Relay</div>
           </div>
         </div>
       </div>
       
+      <!-- Top right instruments -->
       <div id="instruments">
         <div class="instrument">
           <div class="instrument-label">SPEED</div>
@@ -720,10 +401,7 @@
         </div>
       </div>
       
-      <div style="position: absolute; top: 20px; right: 20px; font-size: 11px; opacity: 0.6; margin-top: 100px;">
-        Press <span style="color: #ffaa00; font-weight: 700;">[H]</span> for Controls
-      </div>
-      
+      <!-- Center crosshair -->
       <div id="crosshair">
         <div class="crosshair-corner"></div>
         <div class="crosshair-corner"></div>
@@ -731,6 +409,7 @@
         <div class="crosshair-corner"></div>
       </div>
       
+      <!-- Bottom bar with speed/throttle -->
       <div id="bottom-bar">
         <div class="bar-section">
           <div class="bar-label">VELOCITY</div>
@@ -746,22 +425,26 @@
         </div>
       </div>
       
+      <!-- Controls -->
       <div id="controls">
         <span class="key">W</span>/<span class="key">S</span> Throttle
         <span class="key">↑</span>/<span class="key">↓</span> Pitch
         <span class="key">←</span>/<span class="key">→</span> Yaw<br>
         <span class="key">Q</span>/<span class="key">E</span> Roll
-        <span class="key">Space</span> Brake<br>
-        <span class="key">X</span> Detach Cargo
-        <span class="key">C</span> Detonate
+        <span class="key">Space</span> Brake
+        <span class="key">Shift</span> Boost<br>
+        <span class="key">F</span> Flight Assist
+        <span class="key">J</span> Supercruise
       </div>
       
+      <!-- Target info -->
       <div id="target-info">
-        <div class="target-name" id="target-name">NEAREST STATION</div>
+        <div class="target-name" id="target-name">VIGILANT RELAY</div>
         <div class="target-data">
           <div>Distance: <span id="target-dist">0</span></div>
-          <div>System: Lingering Systems</div>
-          <div style="margin-top: 4px; color: #00ff88;">⬤ Deep Space Route</div>
+          <div>Type: Orbital Station</div>
+          <div>Orbit: 400km from planet</div>
+          <div style="margin-top: 4px; color: #00ff88;">⬤ Docking Available</div>
         </div>
       </div>
     </div>
