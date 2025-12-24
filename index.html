@@ -611,9 +611,182 @@
         color: #00ff88;
         text-shadow: 0 0 15px rgba(0, 255, 136, 0.8);
       }
+
+      #splash-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.98);
+        z-index: 200;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
+      }
+
+      #splash-screen.hidden {
+        display: none;
+      }
+
+      .splash-content {
+        width: 700px;
+        max-height: 90vh;
+        background: rgba(0, 20, 15, 0.95);
+        border: 4px solid #00ff88;
+        padding: 40px;
+        box-shadow: 0 0 60px rgba(0, 255, 136, 0.8);
+        overflow-y: auto;
+        animation: splashFadeIn 1s ease-out;
+      }
+
+      @keyframes splashFadeIn {
+        from { opacity: 0; transform: scale(0.9); }
+        to { opacity: 1; transform: scale(1); }
+      }
+
+      .splash-title {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 42px;
+        font-weight: 900;
+        text-align: center;
+        color: #ffaa00;
+        text-shadow: 0 0 20px rgba(255, 170, 0, 1);
+        margin-bottom: 10px;
+        letter-spacing: 4px;
+      }
+
+      .splash-subtitle {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 18px;
+        text-align: center;
+        color: #88ffcc;
+        margin-bottom: 30px;
+        font-style: italic;
+      }
+
+      .splash-divider {
+        border-top: 2px solid #00ff88;
+        margin: 25px 0;
+        opacity: 0.3;
+      }
+
+      .splash-story {
+        font-size: 14px;
+        line-height: 1.8;
+        color: #88ffcc;
+        margin-bottom: 25px;
+        text-align: justify;
+      }
+
+      .splash-section-title {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 16px;
+        font-weight: 700;
+        color: #ffaa00;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+
+      .splash-controls {
+        font-size: 13px;
+        line-height: 1.8;
+        color: #88ffcc;
+        margin-bottom: 25px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .splash-kofi {
+        text-align: center;
+        margin: 25px 0;
+        padding: 20px;
+        background: rgba(255, 170, 0, 0.1);
+        border: 2px solid #ffaa00;
+        border-radius: 8px;
+      }
+
+      .splash-kofi-text {
+        font-size: 14px;
+        color: #ffaa00;
+        margin-bottom: 10px;
+        font-weight: 700;
+      }
+
+      .splash-kofi-link {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 16px;
+        color: #00ff88;
+        text-decoration: none;
+        text-shadow: 0 0 10px rgba(0, 255, 136, 0.8);
+        transition: all 0.3s;
+      }
+
+      .splash-kofi-link:hover {
+        color: #ffaa00;
+        text-shadow: 0 0 15px rgba(255, 170, 0, 1);
+      }
+
+      .splash-start {
+        text-align: center;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 18px;
+        font-weight: 700;
+        color: #00ff88;
+        margin-top: 30px;
+        animation: blink 1.5s infinite;
+      }
     </style>
   </head>
   <body>
+    <div id="splash-screen">
+      <div class="splash-content">
+        <div class="splash-title">THE BLACK SHIP</div>
+        <div class="splash-subtitle">Chapter 1: Lingering Systems</div>
+        
+        <div class="splash-divider"></div>
+        
+        <div class="splash-story">
+          You are <strong>Warrant Officer Wyatt Staples</strong>, hauling bio-waste through hostile territory aboard the Space Refuse Collector MK-IV.
+          <br><br>
+          House Cayston has betrayed the Crown. Their forces hunt a Royal Yacht carrying a high-value VIP through the Lingering Systems.
+          <br><br>
+          You're just a garbage hauler with a black transponder. But sometimes, desperate times call for creative solutions...
+        </div>
+        
+        <div class="splash-divider"></div>
+        
+        <div class="splash-section-title">Mission Objective</div>
+        <div class="splash-story">
+          Save the Royal Yacht from the unknown hostile corvette using any means necessary.
+        </div>
+        
+        <div class="splash-divider"></div>
+        
+        <div class="splash-section-title">Controls</div>
+        <div class="splash-controls">
+          <div><strong>W / S:</strong> Throttle Up/Down</div>
+          <div><strong>← / →:</strong> Yaw Left/Right</div>
+          <div><strong>↑ / ↓:</strong> Pitch Up/Down</div>
+          <div><strong>Q / E:</strong> Roll Left/Right</div>
+          <div><strong>Space:</strong> Brake</div>
+          <div><strong>H:</strong> Help Menu</div>
+          <div><strong>X:</strong> Detach Cargo</div>
+          <div><strong>C:</strong> Detonate</div>
+        </div>
+        
+        <div class="splash-kofi">
+          <div class="splash-kofi-text">☕ Support Game Development</div>
+          <a href="https://ko-fi.com/scifistories1977" target="_blank" class="splash-kofi-link">ko-fi.com/scifistories1977</a>
+        </div>
+        
+        <div class="splash-start">[PRESS ANY KEY TO BEGIN]</div>
+      </div>
+    </div>
+    
     <div id="scanlines"></div>
     <div id="vignette"></div>
     
