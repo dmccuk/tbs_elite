@@ -25,8 +25,8 @@ const SCALE = {
   // Planet data (simplified to 3 planets)
   PLANETS: [
     { name: "Earth", radius: 6400, orbit: 150000, color: 0x2288ff, speed: 0.0001, hasStation: true },
-    { name: "Mars", radius: 3400, orbit: 228000, color: 0xcd5c5c, speed: 0.00005, hasStation: false },
-    { name: "Jupiter", radius: 71000, orbit: 778000, color: 0xc88b3a, speed: 0.00001, hasStation: true }
+    { name: "Mars", radius: 3400, orbit: 350000, color: 0xcd5c5c, speed: 0.00005, hasStation: false },
+    { name: "Jupiter", radius: 71000, orbit: 1200000, color: 0xc88b3a, speed: 0.00001, hasStation: true }
   ],
   
   // Asteroid belt (between Mars and Jupiter)
@@ -769,6 +769,7 @@ function updateRadar() {
     radarCtx.arc(x, y, 4, 0, Math.PI * 2);
     radarCtx.fill();
     
+    radarCtx.fillStyle = obj.color;
     radarCtx.font = "7px monospace";
     radarCtx.fillText(obj.label, x + 6, y + 3);
   });
@@ -875,8 +876,6 @@ function drawPlanetMarkers() {
 
 // ==================== JUMP MENU ====================
 function drawJumpMenu() {
-  if (!jumpMenuOpen) return;
-  
   const canvas = renderer.domElement;
   let overlay = document.getElementById('jump-menu-canvas') as HTMLCanvasElement;
   if (!overlay) {
@@ -899,6 +898,8 @@ function drawJumpMenu() {
   if (!ctx) return;
   
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  if (!jumpMenuOpen) return;
   
   // Draw menu background
   ctx.fillStyle = 'rgba(0, 20, 15, 0.95)';
