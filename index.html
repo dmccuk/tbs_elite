@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Space Refuse Collector MK-IV — The Black Ship</title>
+    <title>Space Refuse Collector MK-IV — Lingering Systems</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
@@ -438,7 +438,6 @@
         opacity: 0.8;
       }
 
-      /* Cargo Computer */
       #cargo-computer {
         position: absolute;
         left: 50%;
@@ -514,7 +513,6 @@
         25%, 75% { opacity: 0.3; }
       }
 
-      /* Alert System */
       #alert-box {
         position: absolute;
         top: 50%;
@@ -562,7 +560,6 @@
         text-align: center;
       }
 
-      /* Mission Complete */
       #mission-complete {
         position: absolute;
         left: 50%;
@@ -622,19 +619,19 @@
     
     <div id="start-message">
       CLICK TO START<br>
-      <span style="font-size: 16px; font-weight: 400;">Mission begins in 30 seconds...</span>
+      <span style="font-size: 16px; font-weight: 400;">Lingering Systems — Chapter 1</span>
     </div>
     
     <div id="hud">
       <div id="status-panel">
         <div class="title">Space Refuse Collector MK-IV</div>
         <div class="data">
-          <div>House Emerald Territory</div>
-          <div class="warning">⚠ Border Zone Active</div>
+          <div>Lingering Systems</div>
+          <div class="warning">⚠ House Cayston Territory</div>
           <div style="margin-top: 8px;">Transponder: <span style="color: #ff4444;">BLACK</span></div>
           <div>Permit: "Relief Courier"</div>
           <div style="margin-top: 8px; font-size: 11px; opacity: 0.7;">
-            <div>Route: Deep Space</div>
+            <div>Route: Deep Space Transit</div>
             <div id="cargo-status">Cargo: Bio-Waste Container</div>
           </div>
         </div>
@@ -645,13 +642,11 @@
         <canvas id="radar-canvas" width="180" height="180"></canvas>
       </div>
 
-      <!-- Alert Box -->
       <div id="alert-box">
         <h2>⚠ EMERGENCY ALERT ⚠</h2>
         <div class="alert-message" id="alert-message"></div>
       </div>
 
-      <!-- Cargo Computer -->
       <div id="cargo-computer">
         <h3>═══ CARGO COMPUTER ═══</h3>
         <div class="cargo-status">
@@ -670,19 +665,18 @@
         </div>
       </div>
 
-      <!-- Mission Complete -->
       <div id="mission-complete">
         <h2>INCOMING TRANSMISSION</h2>
         <div class="message-header">
-          SOURCE: ROYAL YACHT "ROYAL FAVOR"<br>
+          SOURCE: ROYAL STARSHIP "ROYAL FAVOR"<br>
           SENDER: Commander Redford Kalon
         </div>
         <div class="message-body">
-          "Resourceful work, Warrant Officer Staples. You've saved the VIP aboard this vessel with your... creative tactics.<br><br>
+          "Resourceful work, Warrant Officer Staples. You've saved our VIP with those... creative tactics of yours.<br><br>
           
-          I recommend you join the loyalist forces. House Cayston has turned traitor. Return to your station and you'll face execution.<br><br>
+          House Cayston has turned traitor. If you return to your station, Lieutenant-Commander Thomas Cayston will have you executed.<br><br>
           
-          Report to the rendezvous coordinates. His Majesty will want to meet the pilot who throws garbage at enemy warships."
+          Join us. His Majesty will want to meet the pilot who throws garbage at enemy warships. Set course for the rendezvous coordinates."
         </div>
         <div class="mission-status">
           [ MISSION COMPLETE ]
@@ -698,19 +692,17 @@
           <div class="help-row"><span class="help-key">↑ / ↓</span><span class="help-desc">Pitch Up / Down</span></div>
           <div class="help-row"><span class="help-key">Q / E</span><span class="help-desc">Roll Left / Right</span></div>
           <div class="help-row"><span class="help-key">Space</span><span class="help-desc">Brake (Full Stop)</span></div>
-          <div class="help-row"><span class="help-key">Shift</span><span class="help-desc">Boost (Temporary)</span></div>
         </div>
         <div class="help-section">
           <h3>Combat Systems</h3>
           <div class="help-row"><span class="help-key">X</span><span class="help-desc">Detach Cargo Container</span></div>
           <div class="help-row"><span class="help-key">C</span><span class="help-desc">Fire PD Turret / Detonate</span></div>
-          <div class="help-row"><span class="help-key">J</span><span class="help-desc">Toggle Supercruise</span></div>
           <div class="help-row"><span class="help-key">H</span><span class="help-desc">Toggle Help Menu</span></div>
         </div>
         <div class="help-section">
           <h3>Mission Briefing</h3>
           <div style="color: #88ffcc; font-size: 11px; line-height: 1.6; margin-top: 8px;">
-            A Royal Yacht is under attack by an unknown hostile vessel. Use your bio-waste container as a makeshift mine to damage the enemy ship and save the VIP aboard the yacht.
+            Lingering Systems, House Cayston territory. A Royal Yacht flees from an unknown hostile corvette. Use your bio-waste container as an improvised mine to save the VIP aboard. Speed: 3km/s max.
           </div>
         </div>
       </div>
@@ -759,18 +751,17 @@
         <span class="key">↑</span>/<span class="key">↓</span> Pitch
         <span class="key">←</span>/<span class="key">→</span> Yaw<br>
         <span class="key">Q</span>/<span class="key">E</span> Roll
-        <span class="key">Space</span> Brake
-        <span class="key">Shift</span> Boost<br>
+        <span class="key">Space</span> Brake<br>
         <span class="key">X</span> Detach Cargo
         <span class="key">C</span> Detonate
       </div>
       
       <div id="target-info">
-        <div class="target-name" id="target-name">VIGILANT RELAY</div>
+        <div class="target-name" id="target-name">NEAREST STATION</div>
         <div class="target-data">
           <div>Distance: <span id="target-dist">0</span></div>
-          <div>Type: Orbital Station</div>
-          <div style="margin-top: 4px; color: #00ff88;">⬤ Docking Available</div>
+          <div>System: Lingering Systems</div>
+          <div style="margin-top: 4px; color: #00ff88;">⬤ Deep Space Route</div>
         </div>
       </div>
     </div>
