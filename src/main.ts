@@ -17,21 +17,37 @@ const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(ma
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 // ==================== SCALE CONSTANTS ====================
-// Real-world inspired scales
-const SCALE = {
-  PLANET_RADIUS: 6400,      // km (Earth-sized)
-  PLANET_ORBIT: 150000,     // km from sun (1 AU = 150 million km, scaled down)
-  STATION_SIZE: 0.5,        // km (500m station)
-  STATION_ORBIT: 50000,       // km from planet
-  SUN_RADIUS: 50,           // km (visual, not realistic)
+  // Solar system (scaled for gameplay)
+  SUN_RADIUS: 100,           // km (visual)
+  STATION_SIZE: 0.5,         // km (500m station)
+  
+  // Planet data: [radius_km, orbit_km, color, name]
+  PLANETS: [
+    { name: "Mercury", radius: 2400, orbit: 58000, color: 0x8c7853, speed: 0.0004 },
+    { name: "Venus", radius: 6000, orbit: 108000, color: 0xffc649, speed: 0.00015 },
+    { name: "Earth", radius: 6400, orbit: 150000, color: 0x2288ff, speed: 0.0001, hasStation: true, stationOrbit: 50000 },
+    { name: "Mars", radius: 3400, orbit: 228000, color: 0xcd5c5c, speed: 0.00005 },
+    { name: "Jupiter", radius: 71000, orbit: 778000, color: 0xc88b3a, speed: 0.00001 },
+    { name: "Saturn", radius: 60000, orbit: 1427000, color: 0xfad5a5, speed: 0.000005, hasRings: true },
+    { name: "Uranus", radius: 25000, orbit: 2871000, color: 0x4fd0e8, speed: 0.000002 },
+    { name: "Neptune", radius: 24000, orbit: 4495000, color: 0x4166f5, speed: 0.000001 }
+  ],
+  
+  // Asteroid belt (between Mars and Jupiter)
+  ASTEROID_BELT: {
+    count: 500,
+    innerRadius: 300000,
+    outerRadius: 500000,
+    speed: 0.00003
+  },
   
   // Speed constants
   MAX_SPEED_NORMAL: 1.0,    // km/s (1000 m/s)
   MAX_SPEED_BOOST: 5.0,     // km/s (5000 m/s)
-  MAX_SPEED_SUPERCRUISE: 100, // km/s (100 km/s)
+  MAX_SPEED_SUPERCRUISE: 1000, // km/s (1000 km/s for interplanetary)
   
-  // Display scale factor (for rendering)
-  RENDER_SCALE: 0.01,       // Scale everything down 100x for rendering
+  // Display scale factor
+  RENDER_SCALE: 0.001,       // Scale everything down 1000x for rendering
 };
 
 // Convert km to render units
@@ -174,60 +190,208 @@ const coronaMat = new THREE.ShaderMaterial({
 const corona = new THREE.Mesh(coronaGeo, coronaMat);
 sun.add(corona);
 
-// ==================== PLANET ====================
-const planet = new THREE.Mesh(
-  new THREE.SphereGeometry(toRender(SCALE.PLANET_RADIUS), 64, 64),
-  new THREE.MeshStandardMaterial({ 
-    color: 0x2288ff,
-    roughness: 0.8,
-    metalness: 0.1,
-    emissive: 0x001133,
-    emissiveIntensity: 0.2
-  })
-);
-planet.receiveShadow = true;
-planet.castShadow = true;
-scene.add(planet);
+// ==================== SOLAR SYSTEM ====================
+const planets: THREE.Group[] = [];
+const planetData: any[] = [];
 
-// Atmosphere shader
-const atmosphereGeo = new THREE.SphereGeometry(toRender(SCALE.PLANET_RADIUS * 1.02), 64, 64);
-const atmosphereMat = new THREE.ShaderMaterial({
-  uniforms: {
-    time: { value: 0 }
-  },
-  vertexShader: `
-    varying vec3 vNormal;
-    void main() {
-      vNormal = normalize(normalMatrix * normal);
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `,
-  fragmentShader: `
-    varying vec3 vNormal;
-    void main() {
-      float intensity = pow(0.7 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.0);
-      vec3 atmosphere = vec3(0.3, 0.6, 1.0) * intensity;
-      gl_FragColor = vec4(atmosphere, intensity * 0.5);
-    }
-  `,
-  transparent: true,
-  blending: THREE.AdditiveBlending,
-  side: THREE.BackSide
+// Create all 8 planets
+SCALE.PLANETS.forEach((pData, index) => {
+  const planetGroup = new THREE.Group();
+  
+  // Planet sphere
+  const planet = new THREE.Mesh(
+    new THREE.SphereGeometry(toRender(pData.radius), 32, 32),
+    new THREE.MeshStandardMaterial({
+      color: pData.color,
+      roughness: 0.8,
+      metalness: 0.1,
+      emissive: pData.color,
+      emissiveIntensity: 0.05
+    })
+  );
+  planet.receiveShadow = true;
+  planet.castShadow = true;
+  planetGroup.add(planet);
+  
+  // Add atmosphere for Earth, Venus, Mars
+  if (index === 2 || index === 1 || index === 3) {
+    const atmosphereGeo = new THREE.SphereGeometry(toRender(pData.radius * 1.02), 32, 32);
+    const atmosphereMat = new THREE.ShaderMaterial({
+      uniforms: { time: { value: 0 } },
+      vertexShader: `
+        varying vec3 vNormal;
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vNormal;
+        void main() {
+          float intensity = pow(0.7 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.0);
+          vec3 atmosphere = vec3(0.3, 0.6, 1.0) * intensity;
+          gl_FragColor = vec4(atmosphere, intensity * 0.5);
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      side: THREE.BackSide
+    });
+    const atmosphere = new THREE.Mesh(atmosphereGeo, atmosphereMat);
+    planetGroup.add(atmosphere);
+  }
+  
+  // Add clouds to Earth
+  if (index === 2) {
+    const cloudGeo = new THREE.SphereGeometry(toRender(pData.radius * 1.005), 32, 32);
+    const cloudMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.2,
+      roughness: 1.0,
+      metalness: 0.0
+    });
+    const clouds = new THREE.Mesh(cloudGeo, cloudMat);
+    planetGroup.add(clouds);
+  }
+  
+  // Add rings to Saturn
+  if (pData.hasRings) {
+    const ringGeo = new THREE.RingGeometry(
+      toRender(pData.radius * 1.5),
+      toRender(pData.radius * 2.3),
+      64
+    );
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0xc9b382,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.8
+    });
+    const rings = new THREE.Mesh(ringGeo, ringMat);
+    rings.rotation.x = Math.PI / 2;
+    planetGroup.add(rings);
+  }
+  
+  scene.add(planetGroup);
+  planets.push(planetGroup);
+  planetData.push({ ...pData, group: planetGroup, planet: planet });
 });
-const atmosphere = new THREE.Mesh(atmosphereGeo, atmosphereMat);
-planet.add(atmosphere);
 
-// Add some cloud detail
-const cloudGeo = new THREE.SphereGeometry(toRender(SCALE.PLANET_RADIUS * 1.005), 64, 64);
-const cloudMat = new THREE.MeshStandardMaterial({
-  color: 0xffffff,
-  transparent: true,
-  opacity: 0.2,
-  roughness: 1.0,
-  metalness: 0.0
-});
-const clouds = new THREE.Mesh(cloudGeo, cloudMat);
-planet.add(clouds);
+// ==================== ASTEROID BELT ====================
+const asteroids: THREE.Points[] = [];
+{
+  const asteroidGeo = new THREE.BufferGeometry();
+  const count = SCALE.ASTEROID_BELT.count;
+  const positions = new Float32Array(count * 3);
+  const sizes = new Float32Array(count);
+  
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = SCALE.ASTEROID_BELT.innerRadius + 
+                   Math.random() * (SCALE.ASTEROID_BELT.outerRadius - SCALE.ASTEROID_BELT.innerRadius);
+    const height = (Math.random() - 0.5) * 10000;
+    
+    positions[i * 3 + 0] = Math.cos(angle) * toRender(radius);
+    positions[i * 3 + 1] = toRender(height);
+    positions[i * 3 + 2] = Math.sin(angle) * toRender(radius);
+    sizes[i] = 1 + Math.random() * 3;
+  }
+  
+  asteroidGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  asteroidGeo.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
+  
+  const asteroidMat = new THREE.PointsMaterial({
+    color: 0x999999,
+    size: 2,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0.6
+  });
+  
+  const asteroidField = new THREE.Points(asteroidGeo, asteroidMat);
+  scene.add(asteroidField);
+}
+
+// ==================== STATIONS ====================
+// Earth station (keep existing station code, just update reference)
+const earthStation = station; // Rename existing station
+const earthPlanet = planetData[2]; // Earth is index 2
+
+// Add outer system station (near Neptune)
+const outerStation = new THREE.Group();
+{
+  const scale = toRender(SCALE.STATION_SIZE * 300); // 3x bigger!
+  
+  // Massive toroidal structure
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(scale * 1.5, scale * 0.3, 64, 128),
+    new THREE.MeshStandardMaterial({
+      color: 0x667788,
+      roughness: 0.3,
+      metalness: 0.9,
+      emissive: 0x223344,
+      emissiveIntensity: 0.4
+    })
+  );
+  ring.rotation.x = Math.PI / 2;
+  outerStation.add(ring);
+  
+  // Central hub
+  const hub = new THREE.Mesh(
+    new THREE.CylinderGeometry(scale * 0.4, scale * 0.4, scale * 2, 64),
+    new THREE.MeshStandardMaterial({
+      color: 0x556677,
+      roughness: 0.4,
+      metalness: 0.8,
+      emissive: 0x112233,
+      emissiveIntensity: 0.5
+    })
+  );
+  hub.rotation.z = Math.PI / 2;
+  outerStation.add(hub);
+  
+  // Massive solar arrays
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2;
+    const panel = new THREE.Mesh(
+      new THREE.BoxGeometry(scale * 1.5, scale * 0.05, scale * 3),
+      new THREE.MeshStandardMaterial({
+        color: 0x0a1a3a,
+        roughness: 0.2,
+        metalness: 0.9,
+        emissive: 0x0a1a3a,
+        emissiveIntensity: 0.3
+      })
+    );
+    panel.position.set(
+      Math.cos(angle) * scale * 2.5,
+      0,
+      Math.sin(angle) * scale * 2.5
+    );
+    panel.lookAt(0, 0, 0);
+    outerStation.add(panel);
+  }
+  
+  // Navigation lights
+  for (let i = 0; i < 20; i++) {
+    const angle = (i / 20) * Math.PI * 2;
+    const light = new THREE.Mesh(
+      new THREE.SphereGeometry(scale * 0.08, 16, 16),
+      new THREE.MeshBasicMaterial({
+        color: i % 2 === 0 ? 0xff6600 : 0x00ff88,
+        fog: false
+      })
+    );
+    light.position.set(
+      Math.cos(angle) * scale * 1.5,
+      0,
+      Math.sin(angle) * scale * 1.5
+    );
+    outerStation.add(light);
+  }
+}
+scene.add(outerStation);
 
 // ==================== STATION ====================
 const station = new THREE.Group();
