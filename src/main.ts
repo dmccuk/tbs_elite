@@ -22,23 +22,18 @@ const SCALE = {
   SUN_RADIUS: 100,           // km (visual)
   STATION_SIZE: 0.5,         // km (500m station)
   
-  // Planet data: [radius_km, orbit_km, color, name]
+  // Planet data (simplified to 3 planets)
   PLANETS: [
-    { name: "Mercury", radius: 2400, orbit: 58000, color: 0x8c7853, speed: 0.0004 },
-    { name: "Venus", radius: 6000, orbit: 108000, color: 0xffc649, speed: 0.00015 },
-    { name: "Earth", radius: 6400, orbit: 150000, color: 0x2288ff, speed: 0.0001, hasStation: true, stationOrbit: 50000 },
-    { name: "Mars", radius: 3400, orbit: 228000, color: 0xcd5c5c, speed: 0.00005 },
-    { name: "Jupiter", radius: 71000, orbit: 778000, color: 0xc88b3a, speed: 0.00001 },
-    { name: "Saturn", radius: 60000, orbit: 1427000, color: 0xfad5a5, speed: 0.000005, hasRings: true },
-    { name: "Uranus", radius: 25000, orbit: 2871000, color: 0x4fd0e8, speed: 0.000002 },
-    { name: "Neptune", radius: 24000, orbit: 4495000, color: 0x4166f5, speed: 0.000001 }
+    { name: "Earth", radius: 6400, orbit: 150000, color: 0x2288ff, speed: 0.0001, hasStation: true },
+    { name: "Mars", radius: 3400, orbit: 228000, color: 0xcd5c5c, speed: 0.00005, hasStation: false },
+    { name: "Jupiter", radius: 71000, orbit: 778000, color: 0xc88b3a, speed: 0.00001, hasStation: true }
   ],
   
   // Asteroid belt (between Mars and Jupiter)
   ASTEROID_BELT: {
-    count: 500,
+    count: 800,
     innerRadius: 300000,
-    outerRadius: 500000,
+    outerRadius: 600000,
     speed: 0.00003
   },
   
@@ -191,11 +186,11 @@ const coronaMat = new THREE.ShaderMaterial({
 const corona = new THREE.Mesh(coronaGeo, coronaMat);
 sun.add(corona);
 
-// ==================== SOLAR SYSTEM ====================
+// ==================== SOLAR SYSTEM (3 PLANETS) ====================
 const planets: THREE.Group[] = [];
 const planetData: any[] = [];
 
-// Create all 8 planets
+// Create 3 planets
 SCALE.PLANETS.forEach((pData, index) => {
   const planetGroup = new THREE.Group();
   
@@ -214,8 +209,8 @@ SCALE.PLANETS.forEach((pData, index) => {
   planet.castShadow = true;
   planetGroup.add(planet);
   
-  // Add atmosphere for Earth, Venus, Mars
-  if (index === 2 || index === 1 || index === 3) {
+  // Add atmosphere for Earth and Mars
+  if (index === 0 || index === 1) {
     const atmosphereGeo = new THREE.SphereGeometry(toRender(pData.radius * 1.02), 32, 32);
     const atmosphereMat = new THREE.ShaderMaterial({
       uniforms: { time: { value: 0 } },
@@ -243,7 +238,7 @@ SCALE.PLANETS.forEach((pData, index) => {
   }
   
   // Add clouds to Earth
-  if (index === 2) {
+  if (index === 0) {
     const cloudGeo = new THREE.SphereGeometry(toRender(pData.radius * 1.005), 32, 32);
     const cloudMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
@@ -254,24 +249,6 @@ SCALE.PLANETS.forEach((pData, index) => {
     });
     const clouds = new THREE.Mesh(cloudGeo, cloudMat);
     planetGroup.add(clouds);
-  }
-  
-  // Add rings to Saturn
-  if (pData.hasRings) {
-    const ringGeo = new THREE.RingGeometry(
-      toRender(pData.radius * 1.5),
-      toRender(pData.radius * 2.3),
-      64
-    );
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: 0xc9b382,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.8
-    });
-    const rings = new THREE.Mesh(ringGeo, ringMat);
-    rings.rotation.x = Math.PI / 2;
-    planetGroup.add(rings);
   }
   
   scene.add(planetGroup);
@@ -313,12 +290,14 @@ SCALE.PLANETS.forEach((pData, index) => {
   scene.add(asteroidField);
 }
 
-// ==================== EARTH STATION ====================
-const station = new THREE.Group();
+// ==================== STATIONS ====================
+const stations: THREE.Group[] = [];
+
+// Earth station
+const earthStation = new THREE.Group();
 {
   const stationScale = toRender(SCALE.STATION_SIZE * 100);
   
-  // Main ring (bigger and more detailed)
   const ring = new THREE.Mesh(
     new THREE.TorusGeometry(stationScale * 0.7, stationScale * 0.15, 32, 80),
     new THREE.MeshStandardMaterial({ 
@@ -330,10 +309,8 @@ const station = new THREE.Group();
     })
   );
   ring.rotation.x = Math.PI / 2;
-  ring.castShadow = true;
-  ring.receiveShadow = true;
+  earthStation.add(ring);
 
-  // Hub cylinder
   const hub = new THREE.Mesh(
     new THREE.CylinderGeometry(stationScale * 0.15, stationScale * 0.15, stationScale * 0.7, 32),
     new THREE.MeshStandardMaterial({ 
@@ -345,73 +322,8 @@ const station = new THREE.Group();
     })
   );
   hub.rotation.z = Math.PI / 2;
-  hub.castShadow = true;
-  hub.receiveShadow = true;
+  earthStation.add(hub);
   
-  // Industrial modules (cargo containers)
-  for (let i = 0; i < 8; i++) {
-    const angle = (i / 8) * Math.PI * 2;
-    const module = new THREE.Mesh(
-      new THREE.BoxGeometry(stationScale * 0.4, stationScale * 0.3, stationScale * 0.6),
-      new THREE.MeshStandardMaterial({
-        color: 0x4a5a6a,
-        roughness: 0.8,
-        metalness: 0.5,
-        emissive: 0x1a2a3a,
-        emissiveIntensity: 0.1
-      })
-    );
-    module.position.set(
-      Math.cos(angle) * stationScale * 0.9,
-      0,
-      Math.sin(angle) * stationScale * 0.9
-    );
-    module.lookAt(0, 0, 0);
-    station.add(module);
-  }
-
-  // Communication arrays
-  for (let i = 0; i < 4; i++) {
-    const angle = (i / 4) * Math.PI * 2 + Math.PI / 4;
-    const dish = new THREE.Mesh(
-      new THREE.CylinderGeometry(stationScale * 0.15, stationScale * 0.05, stationScale * 0.02, 16),
-      new THREE.MeshStandardMaterial({
-        color: 0x6a7a8a,
-        roughness: 0.3,
-        metalness: 0.9
-      })
-    );
-    dish.position.set(
-      Math.cos(angle) * stationScale * 0.85,
-      stationScale * 0.2,
-      Math.sin(angle) * stationScale * 0.85
-    );
-    dish.rotation.z = Math.PI / 2;
-    station.add(dish);
-  }
-  
-  // Solar panels
-  for (let i = 0; i < 4; i++) {
-    const angle = (i / 4) * Math.PI * 2;
-    const panel = new THREE.Mesh(
-      new THREE.BoxGeometry(stationScale * 0.3, stationScale * 0.02, stationScale * 0.5),
-      new THREE.MeshStandardMaterial({ 
-        color: 0x1a2a4a,
-        roughness: 0.2,
-        metalness: 0.9,
-        emissive: 0x0a1a3a,
-        emissiveIntensity: 0.2
-      })
-    );
-    panel.position.set(
-      Math.cos(angle) * stationScale * 1.2,
-      0,
-      Math.sin(angle) * stationScale * 1.2
-    );
-    panel.lookAt(0, 0, 0);
-    station.add(panel);
-  }
-
   // Docking lights
   for (let i = 0; i < 12; i++) {
     const angle = (i / 12) * Math.PI * 2;
@@ -427,131 +339,82 @@ const station = new THREE.Group();
       0,
       Math.sin(angle) * stationScale * 0.7
     );
-    station.add(light);
-    
-    const pointLight = new THREE.PointLight(
-      i % 2 === 0 ? 0x00ff88 : 0x0088ff,
-      0.3,
-      stationScale * 5
-    );
-    pointLight.position.copy(light.position);
-    station.add(pointLight);
+    earthStation.add(light);
   }
-
-  // Navigation beacon
-  const beacon = new THREE.Mesh(
-    new THREE.SphereGeometry(stationScale * 0.05, 16, 16),
-    new THREE.MeshBasicMaterial({ 
-      color: 0xffaa00,
-      fog: false
-    })
-  );
-  beacon.position.set(0, 0, stationScale * 1.5);
-  station.add(beacon);
-
-  const beaconLight = new THREE.PointLight(0xffaa00, 1.0, stationScale * 10);
-  beaconLight.position.copy(beacon.position);
-  station.add(beaconLight);
-
-  station.add(ring, hub);
 }
-scene.add(station);
+scene.add(earthStation);
+stations.push(earthStation);
 
-// ==================== OUTER SYSTEM STATION ====================
-const outerStation = new THREE.Group();
+// Jupiter station (bigger)
+const jupiterStation = new THREE.Group();
 {
-  const scale = toRender(SCALE.STATION_SIZE * 300); // 3x bigger!
+  const stationScale = toRender(SCALE.STATION_SIZE * 200);
   
-  // Massive toroidal structure
   const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(scale * 1.5, scale * 0.3, 64, 128),
+    new THREE.TorusGeometry(stationScale * 1.2, stationScale * 0.25, 48, 96),
     new THREE.MeshStandardMaterial({
-      color: 0x667788,
+      color: 0xaa8866,
       roughness: 0.3,
       metalness: 0.9,
-      emissive: 0x223344,
+      emissive: 0x443322,
       emissiveIntensity: 0.4
     })
   );
   ring.rotation.x = Math.PI / 2;
-  outerStation.add(ring);
+  jupiterStation.add(ring);
   
-  // Central hub
   const hub = new THREE.Mesh(
-    new THREE.CylinderGeometry(scale * 0.4, scale * 0.4, scale * 2, 64),
+    new THREE.CylinderGeometry(stationScale * 0.3, stationScale * 0.3, stationScale * 1.5, 48),
     new THREE.MeshStandardMaterial({
-      color: 0x556677,
+      color: 0x998877,
       roughness: 0.4,
       metalness: 0.8,
-      emissive: 0x112233,
+      emissive: 0x332211,
       emissiveIntensity: 0.5
     })
   );
   hub.rotation.z = Math.PI / 2;
-  outerStation.add(hub);
+  jupiterStation.add(hub);
   
-  // Massive solar arrays
-  for (let i = 0; i < 8; i++) {
-    const angle = (i / 8) * Math.PI * 2;
-    const panel = new THREE.Mesh(
-      new THREE.BoxGeometry(scale * 1.5, scale * 0.05, scale * 3),
-      new THREE.MeshStandardMaterial({
-        color: 0x0a1a3a,
-        roughness: 0.2,
-        metalness: 0.9,
-        emissive: 0x0a1a3a,
-        emissiveIntensity: 0.3
-      })
-    );
-    panel.position.set(
-      Math.cos(angle) * scale * 2.5,
-      0,
-      Math.sin(angle) * scale * 2.5
-    );
-    panel.lookAt(0, 0, 0);
-    outerStation.add(panel);
-  }
-  
-  // Navigation lights
+  // Lights
   for (let i = 0; i < 20; i++) {
     const angle = (i / 20) * Math.PI * 2;
     const light = new THREE.Mesh(
-      new THREE.SphereGeometry(scale * 0.08, 16, 16),
+      new THREE.SphereGeometry(stationScale * 0.05, 16, 16),
       new THREE.MeshBasicMaterial({
         color: i % 2 === 0 ? 0xff6600 : 0x00ff88,
         fog: false
       })
     );
     light.position.set(
-      Math.cos(angle) * scale * 1.5,
+      Math.cos(angle) * stationScale * 1.2,
       0,
-      Math.sin(angle) * scale * 1.5
+      Math.sin(angle) * stationScale * 1.2
     );
-    outerStation.add(light);
+    jupiterStation.add(light);
   }
 }
-scene.add(outerStation);
+scene.add(jupiterStation);
+stations.push(jupiterStation);
 
 // ==================== SHIP ====================
 const ship = new THREE.Group();
 {
-  const shipScale = 0.03; // 30 meter ship
+  const shipScale = 0.03;
   
-  // Main body
-  const bodyGeo = new THREE.ConeGeometry(shipScale * 0.4, shipScale * 2.5, 16);
-  const bodyMat = new THREE.MeshStandardMaterial({ 
-    color: 0x1a1a2e,
-    roughness: 0.4,
-    metalness: 0.9,
-    emissive: 0x0a0a15,
-    emissiveIntensity: 0.2
-  });
-  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  const body = new THREE.Mesh(
+    new THREE.ConeGeometry(shipScale * 0.4, shipScale * 2.5, 16),
+    new THREE.MeshStandardMaterial({ 
+      color: 0x1a1a2e,
+      roughness: 0.4,
+      metalness: 0.9,
+      emissive: 0x0a0a15,
+      emissiveIntensity: 0.2
+    })
+  );
   body.rotation.x = Math.PI / 2;
-  body.castShadow = true;
-  body.receiveShadow = true;
+  body.visible = false; // First-person view
 
-  // Cockpit
   const cockpit = new THREE.Mesh(
     new THREE.SphereGeometry(shipScale * 0.25, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2),
     new THREE.MeshStandardMaterial({ 
@@ -566,68 +429,36 @@ const ship = new THREE.Group();
   );
   cockpit.position.set(0, 0, shipScale * 1.0);
   cockpit.rotation.x = -Math.PI / 2;
+  cockpit.visible = false;
 
-  // Wings
-  const wingGeo = new THREE.BoxGeometry(shipScale * 1.5, shipScale * 0.08, shipScale * 0.5);
-  const wingMat = new THREE.MeshStandardMaterial({ 
-    color: 0x2a3a5a,
-    roughness: 0.5,
-    metalness: 0.7,
-    emissive: 0x0f1a2a,
-    emissiveIntensity: 0.2
-  });
-  
-  const wingL = new THREE.Mesh(wingGeo, wingMat);
-  wingL.position.set(-shipScale * 0.85, 0, 0);
-  wingL.castShadow = true;
-
-  const wingR = new THREE.Mesh(wingGeo, wingMat);
-  wingR.position.set(shipScale * 0.85, 0, 0);
-  wingR.castShadow = true;
-
-  // Wing lights
-  const wingLightL = new THREE.Mesh(
-    new THREE.SphereGeometry(shipScale * 0.05, 8, 8),
-    new THREE.MeshBasicMaterial({ color: 0xff0000, fog: false })
-  );
-  wingLightL.position.set(-shipScale * 1.5, 0, 0);
-
-  const wingLightR = new THREE.Mesh(
-    new THREE.SphereGeometry(shipScale * 0.05, 8, 8),
-    new THREE.MeshBasicMaterial({ color: 0x00ff00, fog: false })
-  );
-  wingLightR.position.set(shipScale * 1.5, 0, 0);
-
-  // Engine glow
-  const engineGlow = new THREE.Mesh(
-    new THREE.SphereGeometry(shipScale * 0.25, 16, 16),
-    new THREE.MeshBasicMaterial({ 
-      color: 0x3388ff,
-      transparent: true,
-      opacity: 0.8,
-      fog: false
+  const wingL = new THREE.Mesh(
+    new THREE.BoxGeometry(shipScale * 1.5, shipScale * 0.08, shipScale * 0.5),
+    new THREE.MeshStandardMaterial({ 
+      color: 0x2a3a5a,
+      roughness: 0.5,
+      metalness: 0.7
     })
   );
-  engineGlow.position.set(0, 0, -shipScale * 1.4);
-
-  const engineLight = new THREE.PointLight(0x3388ff, 1.0, shipScale * 10);
-  engineLight.position.set(0, 0, -shipScale * 1.4);
-
-  ship.add(body, cockpit, wingL, wingR, wingLightL, wingLightR, engineGlow, engineLight);
-  
-  // Hide all ship parts (first-person view)
-  body.visible = false;
-  cockpit.visible = false;
+  wingL.position.set(-shipScale * 0.85, 0, 0);
   wingL.visible = false;
+
+  const wingR = new THREE.Mesh(
+    new THREE.BoxGeometry(shipScale * 1.5, shipScale * 0.08, shipScale * 0.5),
+    new THREE.MeshStandardMaterial({ 
+      color: 0x2a3a5a,
+      roughness: 0.5,
+      metalness: 0.7
+    })
+  );
+  wingR.position.set(shipScale * 0.85, 0, 0);
   wingR.visible = false;
-  wingLightL.visible = false;
-  wingLightR.visible = false;
-  engineGlow.visible = false;
+
+  ship.add(body, cockpit, wingL, wingR);
 }
 scene.add(ship);
 
 // Ship starting position - near Earth
-const earthData = SCALE.PLANETS[2]; // Earth
+const earthData = SCALE.PLANETS[0]; // Earth
 const startDistance = toRender(earthData.radius + 25000); // 25000km altitude
 ship.position.set(toRender(earthData.orbit) + startDistance, 0, 0);
 ship.lookAt(toRender(earthData.orbit), 0, 0);
@@ -636,6 +467,14 @@ ship.lookAt(toRender(earthData.orbit), 0, 0);
 camera.position.set(0, 0.3, 0.8);
 ship.add(camera);
 
+// ==================== RADAR & JUMP SYSTEM ====================
+let radarZoomLevel = 0;
+const radarZoomLevels = [5000, 50000, 500000, 5000000]; // km
+let jumpTarget = 0; // 0=Earth, 1=Mars, 2=Jupiter
+let jumpMenuOpen = false;
+let isJumping = false;
+let jumpFade = 0;
+
 // ==================== INPUT HANDLING ====================
 const inputs: Inputs = {
   throttleUp: false, throttleDown: false, brake: false, boost: false,
@@ -643,7 +482,8 @@ const inputs: Inputs = {
   flightAssist: false, supercruise: false, freeLook: false
 };
 
-let flightAssistOn = true; // Flight assist on by default
+let flightAssistOn = true;
+let supercruiseActive = false;
 
 window.addEventListener("keydown", (e) => setKey(e.code, true));
 window.addEventListener("keyup", (e) => setKey(e.code, false));
@@ -669,8 +509,13 @@ function setKey(code: string, down: boolean) {
       break;
     case "KeyJ":
       if (down) {
-        supercruiseActive = !supercruiseActive;
-        console.log("Supercruise:", supercruiseActive ? "ENGAGED" : "DISENGAGED");
+        if (jumpMenuOpen && supercruiseActive && !isJumping) {
+          // Execute jump
+          initiateJump();
+        } else {
+          supercruiseActive = !supercruiseActive;
+          console.log("Supercruise:", supercruiseActive ? "ENGAGED" : "DISENGAGED");
+        }
       }
       break;
     case "KeyH":
@@ -681,23 +526,54 @@ function setKey(code: string, down: boolean) {
         }
       }
       break;
+    case "KeyR":
+      if (down) {
+        radarZoomLevel = (radarZoomLevel + 1) % radarZoomLevels.length;
+        console.log(`Radar zoom: ${radarZoomLevels[radarZoomLevel]}km`);
+      }
+      break;
+    case "KeyM":
+      if (down) {
+        jumpMenuOpen = !jumpMenuOpen;
+        console.log("Jump menu:", jumpMenuOpen ? "OPEN" : "CLOSED");
+      }
+      break;
+    case "Digit1":
+      if (down && jumpMenuOpen) {
+        jumpTarget = 0;
+        console.log("Jump target: Earth");
+      }
+      break;
+    case "Digit2":
+      if (down && jumpMenuOpen) {
+        jumpTarget = 1;
+        console.log("Jump target: Mars");
+      }
+      break;
+    case "Digit3":
+      if (down && jumpMenuOpen) {
+        jumpTarget = 2;
+        console.log("Jump target: Jupiter");
+      }
+      break;
   }
 }
 
-// ==================== FLIGHT MODEL - NEWTONIAN PHYSICS ====================
-let throttle = 0.2;
-let velocity = new THREE.Vector3(0, 0, 0); // Actual velocity vector (km/s)
-let speed = 0; // Speed magnitude (km/s)
-let supercruiseActive = false;
+function initiateJump() {
+  isJumping = true;
+  jumpFade = 0;
+  console.log(`Jumping to ${SCALE.PLANETS[jumpTarget].name}...`);
+}
 
-const maxAccel = 0.0005; // km/s² (0.5 m/s²)
-const maxDecel = 0.001;  // km/s² (1 m/s²)
-const rotationDamping = 0.92; // How quickly rotation slows
-const velocityDamping = 0.9995; // Slight space friction for gameplay
+// ==================== FLIGHT MODEL ====================
+let throttle = 0.2;
+let velocity = new THREE.Vector3(0, 0, 0);
+let speed = 0;
 
 const yawRate = 0.3;
 const pitchRate = 0.3;
 const rollRate = 0.65;
+const rotationDamping = 0.92;
 
 // ==================== HUD ELEMENTS ====================
 const speedValue = document.getElementById("speed-value")!;
@@ -708,7 +584,7 @@ const targetDist = document.getElementById("target-dist")!;
 
 // ==================== ANIMATION LOOP ====================
 const clock = new THREE.Clock();
-let angularVelocity = new THREE.Euler(0, 0, 0); // Ship rotation velocity
+let angularVelocity = new THREE.Euler(0, 0, 0);
 let initialized = false;
 
 function animate() {
@@ -719,7 +595,7 @@ function animate() {
   // Update shader uniforms
   (coronaMat.uniforms.time as any).value = elapsed;
 
-  // Orbit all planets around sun
+  // Orbit planets
   planetData.forEach((pData) => {
     const t = elapsed * pData.speed;
     pData.group.position.set(
@@ -730,112 +606,97 @@ function animate() {
     pData.group.rotation.y += dt * 0.1;
   });
 
-  // Initialize ship position relative to Earth on first frame
+  // Initialize ship
   if (!initialized) {
-    const earthPlanet = planetData[2]; // Earth
+    const earthPlanet = planetData[0];
     ship.position.copy(earthPlanet.group.position);
     ship.position.x += startDistance;
     ship.lookAt(earthPlanet.group.position);
     initialized = true;
   }
   
-  // Station orbits Earth
-  const earthPlanet = planetData[2]; // Earth
+  // Position stations
+  const earthPlanet = planetData[0];
   const st = elapsed * 0.0001;
-  const stationOrbitDist = toRender(50000); // 50,000km from Earth
-  station.position.set(
-    earthPlanet.group.position.x + Math.cos(st) * stationOrbitDist,
+  earthStation.position.set(
+    earthPlanet.group.position.x + Math.cos(st) * toRender(50000),
     earthPlanet.group.position.y + toRender(10),
-    earthPlanet.group.position.z + Math.sin(st) * stationOrbitDist
+    earthPlanet.group.position.z + Math.sin(st) * toRender(50000)
   );
-  station.rotation.y += dt * 0.05;
+  earthStation.rotation.y += dt * 0.05;
   
-  // Position outer station near Neptune
-  const neptunePlanet = planetData[7]; // Neptune
-  outerStation.position.set(
-    neptunePlanet.group.position.x + toRender(100000),
-    neptunePlanet.group.position.y,
-    neptunePlanet.group.position.z
+  const jupiterPlanet = planetData[2];
+  jupiterStation.position.set(
+    jupiterPlanet.group.position.x + Math.cos(st * 0.5) * toRender(150000),
+    jupiterPlanet.group.position.y,
+    jupiterPlanet.group.position.z + Math.sin(st * 0.5) * toRender(150000)
   );
-  outerStation.rotation.y += dt * 0.02;
+  jupiterStation.rotation.y += dt * 0.03;
 
-  // ==================== NEWTONIAN FLIGHT CONTROLS ====================
-  // Throttle control
-  if (inputs.throttleUp) throttle += dt * 0.4;
-  if (inputs.throttleDown) throttle -= dt * 0.4;
-  throttle = clamp(throttle, 0, 1);
-
-  // Current max speed based on mode
-  const currentMaxSpeed = supercruiseActive ? SCALE.MAX_SPEED_SUPERCRUISE : SCALE.MAX_SPEED_NORMAL;
-  // ARCADE FLIGHT MODEL - Point and Go!
-  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
-  
-  // Determine target speed based on boost
-  const boostMultiplier = inputs.boost ? (SCALE.MAX_SPEED_BOOST / SCALE.MAX_SPEED_NORMAL) : 1.0;
-  const targetSpeed = currentMaxSpeed * throttle * boostMultiplier;
-  
-  // Simply set velocity to forward direction at target speed
-  velocity.copy(forward).multiplyScalar(targetSpeed);
-  
-  // Braking overrides everything
-  if (inputs.brake) {
-    velocity.multiplyScalar(0.1); // Slow to 10% speed when braking
+  // Handle jump
+  if (isJumping) {
+    jumpFade += dt * 2;
+    if (jumpFade > 2) {
+      // Teleport to target
+      const target = planetData[jumpTarget];
+      const offset = toRender(target.radius + 50000);
+      ship.position.copy(target.group.position);
+      ship.position.x += offset;
+      ship.lookAt(target.group.position);
+      velocity.set(0, 0, 0);
+      speed = 0;
+      isJumping = false;
+      jumpFade = 0;
+      jumpMenuOpen = false;
+    }
   }
-  
-  // Update speed
-  speed = velocity.length();
-  
-  // Apply velocity to position
-  ship.position.addScaledVector(velocity, dt * 60 * SCALE.RENDER_SCALE);
 
-  // ==================== ROTATION WITH ANGULAR VELOCITY ====================
-  const yaw = (inputs.yawR ? 1 : 0) - (inputs.yawL ? 1 : 0);
-  const pitch = (inputs.pitchD ? 1 : 0) - (inputs.pitchU ? 1 : 0);
-  const roll = (inputs.rollR ? 1 : 0) - (inputs.rollL ? 1 : 0);
+  // Flight controls (only if not jumping)
+  if (!isJumping) {
+    if (inputs.throttleUp) throttle += dt * 0.4;
+    if (inputs.throttleDown) throttle -= dt * 0.4;
+    throttle = clamp(throttle, 0, 1);
 
-  // Apply rotation inputs to angular velocity
-  angularVelocity.y += yaw * yawRate * dt;
-  angularVelocity.x += pitch * pitchRate * dt;
-  angularVelocity.z -= roll * rollRate * dt;
+    const currentMaxSpeed = supercruiseActive ? SCALE.MAX_SPEED_SUPERCRUISE : SCALE.MAX_SPEED_NORMAL;
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
+    const boostMultiplier = inputs.boost ? (SCALE.MAX_SPEED_BOOST / SCALE.MAX_SPEED_NORMAL) : 1.0;
+    const targetSpeed = currentMaxSpeed * throttle * boostMultiplier;
+    
+    velocity.copy(forward).multiplyScalar(targetSpeed);
+    
+    if (inputs.brake) {
+      velocity.multiplyScalar(0.1);
+    }
+    
+    speed = velocity.length();
+    ship.position.addScaledVector(velocity, dt * 60 * SCALE.RENDER_SCALE);
 
-  // Apply damping to angular velocity
-  angularVelocity.x *= rotationDamping;
-  angularVelocity.y *= rotationDamping;
-  angularVelocity.z *= rotationDamping;
+    // Rotation
+    const yaw = (inputs.yawR ? 1 : 0) - (inputs.yawL ? 1 : 0);
+    const pitch = (inputs.pitchD ? 1 : 0) - (inputs.pitchU ? 1 : 0);
+    const roll = (inputs.rollR ? 1 : 0) - (inputs.rollL ? 1 : 0);
 
-  // Apply angular velocity to ship rotation
-  ship.rotateY(angularVelocity.y * dt * 60);
-  ship.rotateX(angularVelocity.x * dt * 60);
-  ship.rotateZ(angularVelocity.z * dt * 60);
+    angularVelocity.y += yaw * yawRate * dt;
+    angularVelocity.x += pitch * pitchRate * dt;
+    angularVelocity.z -= roll * rollRate * dt;
 
-  // ==================== HUD UPDATES ====================
-  const distToStation = toKm(ship.position.distanceTo(station.position));
+    angularVelocity.x *= rotationDamping;
+    angularVelocity.y *= rotationDamping;
+    angularVelocity.z *= rotationDamping;
+
+    ship.rotateY(angularVelocity.y * dt * 60);
+    ship.rotateX(angularVelocity.x * dt * 60);
+    ship.rotateZ(angularVelocity.z * dt * 60);
+  }
+
+  // HUD Updates
+  const distToStation = toKm(ship.position.distanceTo(earthStation.position));
   const distToPlanet = toKm(ship.position.distanceTo(earthPlanet.group.position)) - earthPlanet.radius;
   
-  // Display speed in m/s and km/s
   const speedMS = Math.round(speed * 1000);
-  speedValue.textContent = speedMS < 1000 ? 
-    `${speedMS}` : 
-    `${(speed).toFixed(1)}k`;
-  
+  speedValue.textContent = speedMS < 1000 ? `${speedMS}` : `${(speed).toFixed(1)}k`;
   throttleValue.textContent = Math.round(throttle * 100).toString();
-  
-  // Distance in km
-  targetDist.textContent = distToStation < 10 ? 
-    `${(distToStation * 1000).toFixed(0)}m` : 
-    `${distToStation.toFixed(1)}km`;
-  
-  // Update altitude display
-  const altitudeValue = document.getElementById("altitude-value");
-  if (altitudeValue) {
-    altitudeValue.textContent = Math.round(distToPlanet).toString();
-  }
-  
-  // Update target info
-  const targetType = document.getElementById("target-type");
-  if (targetType) {
-    targetType.textContent = "Orbital Station";
-  }
+  targetDist.textContent = distToStation < 10 ? `${(distToStation * 1000).toFixed(0)}m` : `${distToStation.toFixed(1)}km`;
   
   if (inputs.boost || supercruiseActive) {
     throttleBar.classList.add("boost");
@@ -843,10 +704,10 @@ function animate() {
     throttleBar.classList.remove("boost");
   }
 
-  // Update radar
   updateRadar();
-
-  drawStationMarker();
+  drawPlanetMarkers();
+  drawJumpMenu();
+  drawJumpFade();
 
   renderer.render(scene, camera);
 }
@@ -855,28 +716,22 @@ function animate() {
 const radarCanvas = document.getElementById("radar-canvas") as HTMLCanvasElement | null;
 const radarCtx = radarCanvas?.getContext("2d") || null;
 const radarRadius = 85;
-const radarRange = 75000; // km
-
-const radarObjects = [
-  { name: "Earth", ref: planetData[2].group, type: "planet", color: "#2288ff" },
-  { name: "Vigilant Relay", ref: station, type: "station", color: "#ff6600" },
-  { name: "Sun", ref: sun, type: "star", color: "#ffdd88" }
-];
 
 function updateRadar() {
   if (!radarCtx || !radarCanvas) return;
   
-  // Clear and fill background
+  const radarRange = radarZoomLevels[radarZoomLevel];
+  
   radarCtx.fillStyle = "rgba(0, 20, 15, 0.5)";
   radarCtx.fillRect(0, 0, 180, 180);
   
-  // Draw ship center dot
+  // Ship center
   radarCtx.fillStyle = "#00ff88";
   radarCtx.beginPath();
   radarCtx.arc(90, 90, 3, 0, Math.PI * 2);
   radarCtx.fill();
   
-  // Draw range rings
+  // Range rings
   radarCtx.strokeStyle = "rgba(0, 255, 136, 0.2)";
   radarCtx.lineWidth = 1;
   for (let i = 1; i <= 3; i++) {
@@ -885,81 +740,61 @@ function updateRadar() {
     radarCtx.stroke();
   }
   
-  // Draw objects (rotated relative to ship facing)
-  radarObjects.forEach(obj => {
+  // Draw objects
+  const objectsToDraw = [
+    { name: "Sun", ref: sun, color: "#ffdd88", label: "SUN" },
+    ...planetData.map(p => ({ name: p.name, ref: p.group, color: p.color === 0x2288ff ? "#2288ff" : p.color === 0xcd5c5c ? "#cd5c5c" : "#c88b3a", label: "PLT" })),
+    { name: "Earth Station", ref: earthStation, color: "#ff6600", label: "STA" },
+    { name: "Jupiter Station", ref: jupiterStation, color: "#ff8800", label: "STA" }
+  ];
+  
+  objectsToDraw.forEach(obj => {
     const relPos = obj.ref.position.clone().sub(ship.position);
     const distKm = toKm(relPos.length());
     
-    if (distKm > radarRange) {
-      return;
-    }
+    if (distKm > radarRange) return;
     
-    // Transform position relative to ship's rotation
-    // Get ship's forward and right vectors
     const shipForward = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
     const shipRight = new THREE.Vector3(1, 0, 0).applyQuaternion(ship.quaternion);
     
-    // Project relative position onto ship's local axes
     const forwardDist = relPos.dot(shipForward);
     const rightDist = relPos.dot(shipRight);
     
-    // Scale to radar display
     const radarScale = radarRadius / radarRange;
     const x = 90 + (rightDist * radarScale * 100);
-    const y = 90 - (forwardDist * radarScale * 100); // Y is inverted (up = forward)
+    const y = 90 - (forwardDist * radarScale * 100);
     
-    // Draw dot (bigger!)
     radarCtx.fillStyle = obj.color;
     radarCtx.beginPath();
-    radarCtx.arc(x, y, 5, 0, Math.PI * 2);
+    radarCtx.arc(x, y, 4, 0, Math.PI * 2);
     radarCtx.fill();
     
-    // Draw label
-    radarCtx.fillStyle = obj.color;
-    radarCtx.font = "8px monospace";
-    const label = obj.type === "planet" ? "PLT" : obj.type === "station" ? "STA" : "SUN";
-    radarCtx.fillText(label, x + 7, y + 3);
+    radarCtx.font = "7px monospace";
+    radarCtx.fillText(obj.label, x + 6, y + 3);
   });
   
-  // Sweeping radar line
+  // Radar range label
+  radarCtx.fillStyle = "#00ff88";
+  radarCtx.font = "10px monospace";
+  radarCtx.fillText(`${radarRange}km`, 5, 175);
+  
+  // Sweep line
   const sweepAngle = (clock.elapsedTime * 2) % (Math.PI * 2);
   radarCtx.strokeStyle = "rgba(0, 255, 136, 0.3)";
   radarCtx.lineWidth = 1;
   radarCtx.beginPath();
   radarCtx.moveTo(90, 90);
-  radarCtx.lineTo(
-    90 + Math.cos(sweepAngle) * radarRadius,
-    90 + Math.sin(sweepAngle) * radarRadius
-  );
+  radarCtx.lineTo(90 + Math.cos(sweepAngle) * radarRadius, 90 + Math.sin(sweepAngle) * radarRadius);
   radarCtx.stroke();
 }
 
-function drawStationMarker() {
+// ==================== PLANET MARKERS ====================
+function drawPlanetMarkers() {
   const canvas = renderer.domElement;
-  const distToStation = ship.position.distanceTo(station.position);
-  
-  // Get station position in screen space
-  const stationPos = station.position.clone();
-  stationPos.project(camera);
-  
-  // Check if station is in front of camera (z should be between -1 and 1 after projection)
-  if (stationPos.z > 1) return; // Behind camera
-  
-  // Convert to screen coordinates using clientWidth/clientHeight for accuracy
-  const x = (stationPos.x * 0.5 + 0.5) * canvas.clientWidth;
-  const y = (-stationPos.y * 0.5 + 0.5) * canvas.clientHeight;
-  
-  // Check if on screen
-  if (x < 0 || x > canvas.clientWidth || y < 0 || y > canvas.clientHeight) return;
-  
-  // Only draw if on screen
-  if (x < 0 || x > canvas.width || y < 0 || y > canvas.height) return;
-  
-  // Create overlay canvas if it doesn't exist
-  let overlay = document.getElementById('station-marker-canvas') as HTMLCanvasElement;
+  let overlay = document.getElementById('planet-marker-canvas') as HTMLCanvasElement;
   if (!overlay) {
     overlay = document.createElement('canvas');
-    overlay.id = 'station-marker-canvas';
+    overlay.id = 'planet-marker-canvas';
     overlay.style.position = 'fixed';
     overlay.style.top = '0';
     overlay.style.left = '0';
@@ -970,7 +805,6 @@ function drawStationMarker() {
     document.body.appendChild(overlay);
   }
   
-  // Match canvas size to window
   overlay.width = canvas.clientWidth;
   overlay.height = canvas.clientHeight;
   
@@ -979,33 +813,162 @@ function drawStationMarker() {
   
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   
-  // Draw orange circle around station
-  ctx.strokeStyle = '#ff6600';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.arc(x, y, 40, 0, Math.PI * 2);
-  ctx.stroke();
-  
-  // Draw corners
-  for (let i = 0; i < 4; i++) {
-    const angle = (i / 4) * Math.PI * 2 + Math.PI / 4;
-    const cx = x + Math.cos(angle) * 50;
-    const cy = y + Math.sin(angle) * 50;
+  // Draw planet markers
+  planetData.forEach((pData) => {
+    const planetPos = pData.group.position.clone();
+    planetPos.project(camera);
+    
+    if (planetPos.z > 1) return;
+    
+    const x = (planetPos.x * 0.5 + 0.5) * canvas.clientWidth;
+    const y = (-planetPos.y * 0.5 + 0.5) * canvas.clientHeight;
+    
+    if (x < 0 || x > canvas.clientWidth || y < 0 || y > canvas.clientHeight) return;
+    
+    const dist = toKm(ship.position.distanceTo(pData.group.position));
+    
+    // Draw marker
+    const colorMap: any = { 0x2288ff: '#2288ff', 0xcd5c5c: '#cd5c5c', 0xc88b3a: '#ff8800' };
+    ctx.strokeStyle = colorMap[pData.color] || '#00ff88';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(cx - 10 * Math.cos(angle + Math.PI / 2), cy - 10 * Math.sin(angle + Math.PI / 2));
-    ctx.lineTo(cx + 10 * Math.cos(angle + Math.PI / 2), cy + 10 * Math.sin(angle + Math.PI / 2));
+    ctx.arc(x, y, 30, 0, Math.PI * 2);
     ctx.stroke();
+    
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.font = '12px Orbitron, monospace';
+    ctx.fillText(pData.name.toUpperCase(), x + 35, y - 5);
+    ctx.font = '10px Share Tech Mono, monospace';
+    ctx.fillText(`${dist.toFixed(0)}km`, x + 35, y + 8);
+  });
+  
+  // Draw station markers
+  [
+    { station: earthStation, name: "VIGILANT RELAY", color: '#ff6600' },
+    { station: jupiterStation, name: "GALILEO OUTPOST", color: '#ff8800' }
+  ].forEach(({ station, name, color }) => {
+    const stationPos = station.position.clone();
+    stationPos.project(camera);
+    
+    if (stationPos.z > 1) return;
+    
+    const x = (stationPos.x * 0.5 + 0.5) * canvas.clientWidth;
+    const y = (-stationPos.y * 0.5 + 0.5) * canvas.clientHeight;
+    
+    if (x < 0 || x > canvas.clientWidth || y < 0 || y > canvas.clientHeight) return;
+    
+    const dist = toKm(ship.position.distanceTo(station.position));
+    
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(x, y, 40, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    ctx.fillStyle = color;
+    ctx.font = '14px Orbitron, monospace';
+    ctx.fillText(name, x + 50, y - 10);
+    ctx.font = '12px Share Tech Mono, monospace';
+    ctx.fillText(`${dist.toFixed(1)}km`, x + 50, y + 5);
+  });
+}
+
+// ==================== JUMP MENU ====================
+function drawJumpMenu() {
+  if (!jumpMenuOpen) return;
+  
+  const canvas = renderer.domElement;
+  let overlay = document.getElementById('jump-menu-canvas') as HTMLCanvasElement;
+  if (!overlay) {
+    overlay = document.createElement('canvas');
+    overlay.id = 'jump-menu-canvas';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.pointerEvents = 'none';
+    overlay.style.zIndex = '15';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    document.body.appendChild(overlay);
   }
   
-  // Draw label
-  ctx.fillStyle = '#ff6600';
-  ctx.font = '14px Orbitron, monospace';
-  ctx.fillText('VIGILANT RELAY', x + 50, y - 10);
+  overlay.width = canvas.clientWidth;
+  overlay.height = canvas.clientHeight;
   
-  // Draw distance
-  const distKm = toKm(distToStation);
+  const ctx = overlay.getContext('2d');
+  if (!ctx) return;
+  
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // Draw menu background
+  ctx.fillStyle = 'rgba(0, 20, 15, 0.95)';
+  ctx.fillRect(canvas.clientWidth / 2 - 200, canvas.clientHeight / 2 - 150, 400, 300);
+  
+  ctx.strokeStyle = '#00ff88';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(canvas.clientWidth / 2 - 200, canvas.clientHeight / 2 - 150, 400, 300);
+  
+  // Title
+  ctx.fillStyle = '#ffaa00';
+  ctx.font = '20px Orbitron, monospace';
+  ctx.fillText('═══ JUMP COMPUTER ═══', canvas.clientWidth / 2 - 150, canvas.clientHeight / 2 - 110);
+  
+  // Planet list
+  const centerX = canvas.clientWidth / 2;
+  const centerY = canvas.clientHeight / 2;
+  
+  SCALE.PLANETS.forEach((planet, i) => {
+    const y = centerY - 50 + i * 60;
+    const isSelected = jumpTarget === i;
+    
+    ctx.fillStyle = isSelected ? '#ffaa00' : '#00ff88';
+    ctx.font = '16px Orbitron, monospace';
+    ctx.fillText(`[${i + 1}] ${planet.name.toUpperCase()}`, centerX - 150, y);
+    
+    const dist = toKm(ship.position.distanceTo(planetData[i].group.position));
+    ctx.font = '12px Share Tech Mono, monospace';
+    ctx.fillText(`Distance: ${dist.toFixed(0)}km`, centerX - 150, y + 20);
+  });
+  
+  // Instructions
+  ctx.fillStyle = '#88ffcc';
   ctx.font = '12px Share Tech Mono, monospace';
-  ctx.fillText(`${distKm.toFixed(1)}km`, x + 50, y + 5);
+  ctx.fillText('Press 1/2/3 to select target', centerX - 120, centerY + 100);
+  ctx.fillText('Press J (in Supercruise) to jump', centerX - 120, centerY + 120);
+  ctx.fillText('Press M to close', centerX - 120, centerY + 140);
+}
+
+// ==================== JUMP FADE EFFECT ====================
+function drawJumpFade() {
+  if (jumpFade === 0) return;
+  
+  const canvas = renderer.domElement;
+  let overlay = document.getElementById('jump-fade-canvas') as HTMLCanvasElement;
+  if (!overlay) {
+    overlay = document.createElement('canvas');
+    overlay.id = 'jump-fade-canvas';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.pointerEvents = 'none';
+    overlay.style.zIndex = '20';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    document.body.appendChild(overlay);
+  }
+  
+  overlay.width = canvas.clientWidth;
+  overlay.height = canvas.clientHeight;
+  
+  const ctx = overlay.getContext('2d');
+  if (!ctx) return;
+  
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // Fade to white
+  const opacity = jumpFade < 1 ? jumpFade : (2 - jumpFade);
+  ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
 animate();
