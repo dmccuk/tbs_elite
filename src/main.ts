@@ -15,7 +15,7 @@ const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(ma
 
 const SCALE = {
   STATION_SIZE: 0.5,
-  MAX_SPEED: 5.0,  // 3 km/s (3000 m/s)
+  MAX_SPEED: 3.0,  // 3 km/s (3000 m/s)
   RENDER_SCALE: 0.001,
 };
 
@@ -33,6 +33,33 @@ renderer.domElement.tabIndex = 1;
 renderer.domElement.focus();
 
 const startMessage = document.getElementById('start-message');
+const splashScreen = document.getElementById('splash-screen');
+
+// Handle splash screen dismissal
+let splashDismissed = false;
+
+function dismissSplash() {
+  if (!splashDismissed && splashScreen) {
+    splashDismissed = true;
+    splashScreen.classList.add('hidden');
+    renderer.domElement.focus();
+    if (startMessage) startMessage.classList.add('hidden');
+  }
+}
+
+// Dismiss splash on any key press
+window.addEventListener('keydown', () => {
+  if (!splashDismissed) {
+    dismissSplash();
+  }
+}, { once: false });
+
+// Dismiss splash on click (after splash is gone, normal click behavior resumes)
+document.addEventListener('click', () => {
+  if (!splashDismissed) {
+    dismissSplash();
+  }
+});
 
 renderer.domElement.addEventListener('click', () => {
   renderer.domElement.focus();
@@ -509,7 +536,7 @@ function setKey(code: string, down: boolean) {
         
         if (blackShip && !blackShipDamaged) {
           const distToExplosion = toKm(blackShip.position.distanceTo(explosionPos));
-          if (distToExplosion < 10000) {
+          if (distToExplosion < 25) {
             blackShipDamaged = true;
             showAlert("HOSTILE VESSEL DAMAGED! Enemy initiating emergency jump!");
             
@@ -522,7 +549,7 @@ function setKey(code: string, down: boolean) {
               showMissionComplete();
             }, 2000);
           } else {
-            showAlert(`Detonation too far! Distance: ${distToExplosion.toFixed(1)}km (need <10000km)`, 3000);
+            showAlert(`Detonation too far! Distance: ${distToExplosion.toFixed(1)}km (need <25km)`, 3000);
           }
         }
         
@@ -582,16 +609,16 @@ function animate() {
     }, 2000);
   }
 
-// Royal Yacht: 500 m/s
+  // Royal Yacht: 1 km/s
   if (royalYacht) {
-    const yachtSpeed = toRender(500);
+    const yachtSpeed = toRender(1000);
     royalYacht.position.x += yachtSpeed * dt;
     royalYacht.rotation.y += dt * 0.5;
   }
   
-  // Black Ship: 600 m/s
+  // Black Ship: 1.1 km/s
   if (blackShip && !blackShipDamaged) {
-    const chaseSpeed = toRender(600);
+    const chaseSpeed = toRender(1100);
     blackShip.position.x += chaseSpeed * dt;
     blackShip.rotation.y += dt * 0.3;
     
@@ -804,7 +831,7 @@ function drawShipMarkers() {
     }
   });
   
-if (royalYacht) {
+  if (royalYacht) {
     const yachtPos = royalYacht.position.clone();
     yachtPos.project(camera);
     
@@ -823,11 +850,9 @@ if (royalYacht) {
         
         ctx.fillStyle = '#4488ff';
         ctx.font = 'bold 16px Orbitron, monospace';
-        ctx.textAlign = 'right';
-        ctx.fillText('ROYAL FAVOR', x - 55, y - 10);
+        ctx.fillText('ROYAL FAVOR', x + 55, y - 10);
         ctx.font = '12px Share Tech Mono, monospace';
-        ctx.fillText(`${dist.toFixed(1)}km`, x - 55, y + 8);
-        ctx.textAlign = 'left'; // Reset to default
+        ctx.fillText(`${dist.toFixed(1)}km`, x + 55, y + 8);
       }
     }
   }
