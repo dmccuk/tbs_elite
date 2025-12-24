@@ -535,9 +535,6 @@
           <div class="help-row"><span class="help-key">F</span><span class="help-desc">Toggle Flight Assist</span></div>
           <div class="help-row"><span class="help-key">J</span><span class="help-desc">Toggle Supercruise</span></div>
           <div class="help-row"><span class="help-key">H</span><span class="help-desc">Toggle Help Menu</span></div>
-          <div class="help-row"><span class="help-key">D</span><span class="help-desc">Autopilot Dock</span></div>
-        </div>
-        <button class="help-close" id="help-close">CLOSE [H]</button>
         </div>
         <button class="help-close" id="help-close">CLOSE [H]</button>
       </div>
@@ -560,9 +557,9 @@
     <!-- Bottom Control Panel -->
     <div id="bottom-panel">
       <!-- Radar (left side) -->
-      <div class="panel-section" style="width: 190px; height: 140px; padding: 6px;">
-        <div class="panel-label" style="margin-bottom: 2px;">Proximity Radar</div>
-        <canvas id="radar-canvas" width="170" height="100" style="width: 100%; height: calc(100% - 15px); display: block;"></canvas>
+      <div class="panel-section" style="width: 200px; height: 140px; padding: 8px;">
+        <div class="panel-label">Proximity Radar</div>
+        <canvas id="radar-canvas" width="180" height="110" style="width: 100%; height: 100%;"></canvas>
       </div>
       
       <!-- Velocity -->
@@ -588,8 +585,7 @@
       
       <!-- Target Info (right side) -->
       <div class="panel-section panel-target">
-        <div class="target-name-large" id="target-name">VIGILANT RELAY</div>
-
+        <div class="target-name-large" id="target-name">NO TARGET</div>
         <div class="target-data-row">
           <span style="opacity: 0.6;">Distance:</span> <span id="target-dist">—</span>
         </div>
@@ -601,67 +597,6 @@
         </div>
       </div>
     </div>    
-    <!-- Cockpit Frame Overlay -->
-    <div id="cockpit-frame">
-      <!-- Top edge -->
-      <div class="cockpit-edge cockpit-top">
-        <div class="cockpit-panel-line" style="top: 30px; left: 100px; right: 100px;"></div>
-        <div class="cockpit-rivet" style="top: 28px; left: 90px;"></div>
-        <div class="cockpit-rivet" style="top: 28px; right: 90px;"></div>
-      </div>
-      
-      <!-- Bottom edge -->
-      <div class="cockpit-edge cockpit-bottom">
-        <div class="cockpit-panel-line" style="bottom: 100px; left: 150px; right: 150px;"></div>
-        <div class="cockpit-rivet" style="bottom: 98px; left: 140px;"></div>
-        <div class="cockpit-rivet" style="bottom: 98px; right: 140px;"></div>
-      </div>
-      
-      <!-- Left edge -->
-      <div class="cockpit-edge cockpit-left">
-        <div class="cockpit-panel-line" style="top: 100px; left: 20px; right: 0; width: 30px;"></div>
-        <div class="cockpit-rivet" style="top: 98px; left: 18px;"></div>
-        <div class="cockpit-rivet" style="top: 200px; left: 18px;"></div>
-        <div class="cockpit-rivet" style="top: 300px; left: 18px;"></div>
-      </div>
-      
-      <!-- Right edge -->
-      <div class="cockpit-edge cockpit-right">
-        <div class="cockpit-panel-line" style="top: 100px; right: 20px; left: 0; width: 30px;"></div>
-        <div class="cockpit-rivet" style="top: 98px; right: 18px;"></div>
-        <div class="cockpit-rivet" style="top: 200px; right: 18px;"></div>
-        <div class="cockpit-rivet" style="top: 300px; right: 18px;"></div>
-      </div>
-      
-      <!-- Corner braces (top left) -->
-      <svg style="position: absolute; top: 60px; left: 40px; width: 60px; height: 60px;">
-        <line x1="0" y1="60" x2="0" y2="20" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-        <line x1="0" y1="20" x2="20" y2="0" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-        <line x1="20" y1="0" x2="60" y2="0" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-      </svg>
-      
-      <!-- Corner braces (top right) -->
-      <svg style="position: absolute; top: 60px; right: 40px; width: 60px; height: 60px;">
-        <line x1="60" y1="60" x2="60" y2="20" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-        <line x1="60" y1="20" x2="40" y2="0" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-        <line x1="40" y1="0" x2="0" y2="0" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-      </svg>
-      
-      <!-- Corner braces (bottom left) -->
-      <svg style="position: absolute; bottom: 130px; left: 40px; width: 60px; height: 60px;">
-        <line x1="0" y1="0" x2="0" y2="40" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-        <line x1="0" y1="40" x2="20" y2="60" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-        <line x1="20" y1="60" x2="60" y2="60" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-      </svg>
-      
-      <!-- Corner braces (bottom right) -->
-      <svg style="position: absolute; bottom: 130px; right: 40px; width: 60px; height: 60px;">
-        <line x1="60" y1="0" x2="60" y2="40" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-        <line x1="60" y1="40" x2="40" y2="60" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-        <line x1="40" y1="60" x2="0" y2="60" stroke="rgba(0,255,136,0.3)" stroke-width="2"/>
-      </svg>
-    </div>
-    
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
