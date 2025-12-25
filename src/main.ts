@@ -579,9 +579,9 @@ let throttle = 0.2;
 let velocity = new THREE.Vector3(0, 0, 0);
 let speed = 0;
 
-const yawRate = 0.3;
-const pitchRate = 0.3;
-const rollRate = 0.65;
+const yawRate = 0.2;
+const pitchRate = 0.2;
+const rollRate = 0.45;
 const rotationDamping = 0.92;
 
 const speedValue = document.getElementById("speed-value")!;
