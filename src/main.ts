@@ -760,8 +760,8 @@ function updateRadar() {
     const rightDist = relPos.dot(shipRight);
     
     const radarScale = radarRadius / radarRange;
-    const x = 90 + (rightDist * radarScale * 100);
-    const y = 90 - (forwardDist * radarScale * 100);
+    const x = 90 + (rightDist * radarScale);
+    const y = 90 - (forwardDist * radarScale);
     
     radarCtx.fillStyle = obj.color;
     radarCtx.beginPath();
