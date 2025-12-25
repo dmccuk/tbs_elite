@@ -534,9 +534,10 @@ function setKey(code: string, down: boolean) {
         
         scene.remove(cargoContainer);
         
+        // Check damage
         if (blackShip && !blackShipDamaged) {
           const distToExplosion = toKm(blackShip.position.distanceTo(explosionPos));
-          if (distToExplosion < 25) {
+          if (distToExplosion < 10000) {
             blackShipDamaged = true;
             showAlert("HOSTILE VESSEL DAMAGED! Enemy initiating emergency jump!");
             
@@ -549,7 +550,7 @@ function setKey(code: string, down: boolean) {
               showMissionComplete();
             }, 2000);
           } else {
-            showAlert(`Detonation too far! Distance: ${distToExplosion.toFixed(1)}km (need <25km)`, 3000);
+            showAlert(`Detonation too far! Distance: ${distToExplosion.toFixed(1)}km (need <10000km)`, 3000);
           }
         }
         
