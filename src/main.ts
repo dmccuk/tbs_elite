@@ -343,7 +343,7 @@ function createBlackShip() {
   engine.position.set(-scale * 1.3, 0, 0);
   black.add(engine);
   
-  black.position.set(-toRender(55000), 0, toRender(5000));
+  black.position.set(-toRender(75000), 0, toRender(5000));
   return black;
 }
 
