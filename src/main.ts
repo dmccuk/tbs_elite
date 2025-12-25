@@ -14,8 +14,8 @@ type Inputs = {
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
 const SCALE = {
-  STATION_SIZE: 0.5,
-  MAX_SPEED: 3.0,  // 3 km/s (3000 m/s)
+  STATION_SIZE: 0.6,
+  MAX_SPEED: 5.0,  // 3 km/s (3000 m/s)
   RENDER_SCALE: 0.001,
 };
 
@@ -610,16 +610,16 @@ function animate() {
     }, 2000);
   }
 
-  // Royal Yacht: 1 km/s
+  // Royal Yacht: 500 m/s
   if (royalYacht) {
-    const yachtSpeed = toRender(1000);
+    const yachtSpeed = toRender(500);
     royalYacht.position.x += yachtSpeed * dt;
     royalYacht.rotation.y += dt * 0.5;
   }
   
-  // Black Ship: 1.1 km/s
+  // Black Ship: 600 m/s
   if (blackShip && !blackShipDamaged) {
-    const chaseSpeed = toRender(1100);
+    const chaseSpeed = toRender(600);
     blackShip.position.x += chaseSpeed * dt;
     blackShip.rotation.y += dt * 0.3;
     
