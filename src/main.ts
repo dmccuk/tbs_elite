@@ -922,6 +922,26 @@ function animate() {
     royalYacht = createRoyalYacht();
     scene.add(royalYacht);
     
+    // Show tutorial popup
+    setTimeout(() => {
+      const tutorialPopup = document.getElementById('tutorial-popup');
+      if (tutorialPopup) {
+        tutorialPopup.classList.add('visible');
+        
+        // Dismiss on click or keypress
+        const dismissTutorial = () => {
+          tutorialPopup.classList.remove('visible');
+          document.removeEventListener('click', dismissTutorial);
+          window.removeEventListener('keydown', dismissTutorial);
+        };
+        
+        setTimeout(() => {
+          document.addEventListener('click', dismissTutorial);
+          window.addEventListener('keydown', dismissTutorial);
+        }, 500);
+      }
+    }, 4000);
+    
     setTimeout(() => {
       blackShip = createBlackShip();
       scene.add(blackShip);
