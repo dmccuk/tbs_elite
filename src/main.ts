@@ -688,7 +688,11 @@ function setKey(code: string, down: boolean) {
               
               showMissionComplete();
             }, 2000);
+          } else {
+            showAlert(`Detonation too far! Distance: ${distToExplosion.toFixed(1)}km (need <10000km)`, 3000);
+            playRadioVoice('/voice_redford_failed.mp3');
           }
+        }
         
         let explosionTime = 0;
         const explosionInterval = setInterval(() => {
