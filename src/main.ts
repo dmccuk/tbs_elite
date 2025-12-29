@@ -374,8 +374,10 @@ let blackShipDamaged = false;
 let missionComplete = false;
 let missileTimer = 0;
 const missiles: THREE.Group[] = [];
-let rendezvousPoint: THREE.Group | null = null;  // ADD THIS
-let rendezvousReached = false;  // ADD THIS
+let rendezvousPoint: THREE.Group | null = null;
+let rendezvousReached = false;
+let playerIsTarget = false;
+let playerDeathTimer = 0;
 
 function createRoyalYacht() {
   const yacht = new THREE.Group();
@@ -385,11 +387,11 @@ function createRoyalYacht() {
   const body = new THREE.Mesh(
     new THREE.CylinderGeometry(scale * 0.2, scale * 0.35, scale * 4, 24),
     new THREE.MeshStandardMaterial({
-      color: 0xdddddd,
-      roughness: 0.1,
-      metalness: 1.0,
-      emissive: 0x222244,
-      emissiveIntensity: 0.1
+      color: 0x9999aa,
+      roughness: 0.2,
+      metalness: 0.9,
+      emissive: 0x111122,
+      emissiveIntensity: 0.15
     })
   );
   body.rotation.z = Math.PI / 2;
@@ -399,9 +401,9 @@ function createRoyalYacht() {
   const nose = new THREE.Mesh(
     new THREE.ConeGeometry(scale * 0.2, scale * 0.6, 24),
     new THREE.MeshStandardMaterial({
-      color: 0xeeeeee,
-      roughness: 0.05,
-      metalness: 1.0
+      color: 0xaaaaaa,
+      roughness: 0.1,
+      metalness: 0.95
     })
   );
   nose.rotation.z = -Math.PI / 2;
@@ -533,6 +535,73 @@ function fireMissileVolley() {
     missiles.push(missile);
     scene.add(missile);
   }
+}
+
+function firePlayerMissiles() {
+  if (!blackShip || !playerIsTarget) return;
+  
+  const volleySize = 5 + Math.floor(Math.random() * 5);  // More missiles!
+  for (let i = 0; i < volleySize; i++) {
+    const offset = new THREE.Vector3(
+      (Math.random() - 0.5) * 0.5,
+      (Math.random() - 0.5) * 0.5,
+      (Math.random() - 0.5) * 0.5
+    );
+    const targetPos = ship.position.clone().add(offset);
+    const missile = createMissile(blackShip.position.clone(), targetPos);
+    (missile as any).targetingPlayer = true;
+    missiles.push(missile);
+    scene.add(missile);
+  }
+}
+
+function destroyPlayer() {
+  // Create massive explosion on player
+  const playerExplosion = new THREE.Mesh(
+    new THREE.SphereGeometry(10, 32, 32),
+    new THREE.MeshBasicMaterial({
+      color: 0xff3300,
+      transparent: true,
+      opacity: 1.0,
+      fog: false
+    })
+  );
+  playerExplosion.position.copy(ship.position);
+  scene.add(playerExplosion);
+  
+  // Animate explosion
+  let explosionTime = 0;
+  const explosionInterval = setInterval(() => {
+    explosionTime += 0.016;
+    playerExplosion.scale.setScalar(1 + explosionTime * 8);
+    (playerExplosion.material as THREE.MeshBasicMaterial).opacity = 1.0 - explosionTime * 0.8;
+    
+    if (explosionTime > 1.5) {
+      scene.remove(playerExplosion);
+      clearInterval(explosionInterval);
+      
+      // Show final message
+      showAlert("HULL BREACH. SYSTEMS CRITICAL. ALL HANDS LOST.", 5000);
+      setTimeout(() => {
+        showAlert("GAME OVER. Press [R] to Retry Mission.", 10000);
+      }, 5000);
+    }
+  }, 16);
+  
+  // Screen shake on death
+  let shakeTime = 0;
+  const shakeInterval = setInterval(() => {
+    shakeTime += 0.016;
+    const intensity = 0.5 * (1 - shakeTime / 2);
+    camera.position.x = (Math.random() - 0.5) * intensity;
+    camera.position.y = 0.3 + (Math.random() - 0.5) * intensity;
+    camera.position.z = 0.8 + (Math.random() - 0.5) * intensity;
+    
+    if (shakeTime > 2) {
+      camera.position.set(0, 0.3, 0.8);
+      clearInterval(shakeInterval);
+    }
+  }, 16);
 }
 
 function showAlert(message: string, duration: number = 3000) {
@@ -773,6 +842,15 @@ function setKey(code: string, down: boolean) {
             showAlert(`Detonation too far! Distance: ${distToExplosion.toFixed(1)}km (need <10000km)`, 3000);
             playRadioVoice('/voice_redford_failed.mp3');
             
+            // Black Ship threatens player
+            setTimeout(() => {
+              showAlert("INCOMING TRANSMISSION FROM HOSTILE VESSEL", 2000);
+            }, 3000);
+            
+            setTimeout(() => {
+              showAlert("You just made a BIG mistake, garbage hauler. You're a traitor to House Cayston. Prepare to die.", 5000);
+            }, 5500);
+            
             // Show mission failed screen and destroy yacht
             setTimeout(() => {
               if (royalYacht) {
@@ -808,8 +886,13 @@ function setKey(code: string, down: boolean) {
               }
               
               missionComplete = true;
+              
+              // Black Ship now targets player
+              playerIsTarget = true;
+              playerDeathTimer = 0;
+              
               showMissionFailed();
-            }, 2000);
+            }, 11000);  // Changed from 2000 to 11000 (after all messages)
           }
         }
         
@@ -1041,14 +1124,43 @@ function animate() {
   
   // Black Ship: 600 m/s
   if (blackShip && !blackShipDamaged) {
-    const chaseSpeed = toRender(600);
-    blackShip.position.x += chaseSpeed * dt;
-    blackShip.rotation.y += dt * 0.3;
+    const chaseSpeed = toRender(800);
     
-    missileTimer += dt;
-    if (missileTimer > 3.5) {
-      fireMissileVolley();
-      missileTimer = 0;
+    // If player is target, chase them
+    if (playerIsTarget) {
+      const directionToPlayer = new THREE.Vector3()
+        .subVectors(ship.position, blackShip.position)
+        .normalize();
+      blackShip.position.addScaledVector(directionToPlayer, chaseSpeed * dt);
+      
+      // Point at player
+      blackShip.lookAt(ship.position);
+      
+      // Fire missiles at player
+      missileTimer += dt;
+      if (missileTimer > 1.5) {  // Faster firing
+        firePlayerMissiles();
+        missileTimer = 0;
+      }
+      
+      // Check if close enough to destroy player
+      const distToPlayer = toKm(blackShip.position.distanceTo(ship.position));
+      if (distToPlayer < 5) {
+        playerDeathTimer += dt;
+        if (playerDeathTimer > 2) {
+          destroyPlayer();
+        }
+      }
+    } else {
+      // Normal behavior - chase yacht
+      blackShip.position.x += chaseSpeed * dt;
+      blackShip.rotation.y += dt * 0.3;
+      
+      missileTimer += dt;
+      if (missileTimer > 3.5) {
+        fireMissileVolley();
+        missileTimer = 0;
+      }
     }
   }
 
@@ -1057,6 +1169,27 @@ function animate() {
     const vel = (missile as any).velocity;
     missile.position.addScaledVector(vel, dt);
     (missile as any).lifeTime += dt;
+    
+    // Check if missile hits player
+    if ((missile as any).targetingPlayer && missile.position.distanceTo(ship.position) < 0.3) {
+      const flash = new THREE.Mesh(
+        new THREE.SphereGeometry(0.3, 16, 16),
+        new THREE.MeshBasicMaterial({ color: 0xff3300, fog: false })
+      );
+      flash.position.copy(missile.position);
+      scene.add(flash);
+      setTimeout(() => scene.remove(flash), 100);
+      
+      scene.remove(missile);
+      missiles.splice(i, 1);
+      
+      // Screen shake on hit
+      camera.position.x += (Math.random() - 0.5) * 0.1;
+      camera.position.y += (Math.random() - 0.5) * 0.1;
+      setTimeout(() => camera.position.set(0, 0.3, 0.8), 50);
+      
+      continue;
+    }
     
     if (royalYacht && missile.position.distanceTo(royalYacht.position) < 0.5) {
       const flash = new THREE.Mesh(
