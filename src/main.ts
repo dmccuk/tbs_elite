@@ -131,63 +131,52 @@ function playRadioVoice(filename: string) {
 audio.play().catch(err => console.log("Radio voice failed:", err));
 }
 
-// Distance warning beep system
-let lastBeepDistance = Infinity;
-let beepInterval: NodeJS.Timeout | null = null;
-
-function updateDistanceBeeps() {
-  if (!blackShip || !cargoContainer || cargoDetonated || blackShipDamaged) {
-    if (beepInterval) {
-      clearInterval(beepInterval);
-      beepInterval = null;
-    }
-    lastBeepDistance = Infinity;
-    return;
-  }
-  
-  const distToTarget = toKm(cargoContainer.position.distanceTo(blackShip.position));
-  
-  // Start beeping when within 30km
-  if (distToTarget < 30000 && distToTarget > 1000) {
-    // Beep speed increases as you get closer
-    const beepDelay = Math.max(100, Math.min(1000, distToTarget / 20));
+// Sound effects using Web Audio API
+function playWhooshSound() {
+  try {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
     
-    if (!beepInterval || Math.abs(lastBeepDistance - distToTarget) > 2000) {
-      if (beepInterval) clearInterval(beepInterval);
-      
-      beepInterval = setInterval(() => {
-        // Create beep sound using Web Audio API
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        // Higher pitch as you get closer
-        oscillator.frequency.value = 800 + (30000 - distToTarget) / 50;
-        gainNode.gain.value = 0.15;
-        
-        oscillator.start();
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-        oscillator.stop(audioContext.currentTime + 0.1);
-        
-        // Flash alert box briefly
-        const alertBox = document.getElementById('alert-box');
-        if (alertBox && distToTarget < 10000) {
-          alertBox.style.opacity = '0.3';
-          setTimeout(() => alertBox.style.opacity = '0', 50);
-        }
-      }, beepDelay);
-      
-      lastBeepDistance = distToTarget;
-    }
-  } else {
-    if (beepInterval) {
-      clearInterval(beepInterval);
-      beepInterval = null;
-    }
-    lastBeepDistance = Infinity;
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Whoosh: sweep from low to high frequency
+    oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(800, audioContext.currentTime + 0.3);
+    
+    // Fade out
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+    
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.3);
+  } catch (err) {
+    console.log("Whoosh sound failed:", err);
+  }
+}
+
+function playLaserZapSound() {
+  try {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Laser zap: high pitch sweep down
+    oscillator.frequency.setValueAtTime(2000, audioContext.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.15);
+    
+    // Sharp attack, quick fade
+    gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+    
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.15);
+  } catch (err) {
+    console.log("Laser zap sound failed:", err);
   }
 }
 
@@ -660,6 +649,7 @@ function setKey(code: string, down: boolean) {
       case "KeyX":
         if (down && !cargoDetached && missionStarted && blackShip) {
           cargoDetached = true;
+          playWhooshSound();
           
           cargoContainer = new THREE.Group();
           const containerMesh = new THREE.Mesh(
@@ -715,6 +705,7 @@ function setKey(code: string, down: boolean) {
     case "KeyC":
       if (down && cargoDetached && !cargoDetonated && cargoContainer) {
         cargoDetonated = true;
+        playLaserZapSound();
         
         // Green laser
         const laserGeo = new THREE.BufferGeometry();
@@ -1087,7 +1078,6 @@ function animate() {
     cargoContainer.rotation.x += dt * 0.5;
     cargoContainer.rotation.y += dt * 0.3;
     updateCargoComputer();
-    updateDistanceBeeps();
   }
 
   if (inputs.throttleUp) throttle += dt * 0.4;
