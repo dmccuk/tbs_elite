@@ -758,20 +758,23 @@ function animate() {
     royalYacht.rotation.y += dt * 0.5;
   }
   
-  // Rendezvous beacon animation and Royal Yacht tracking
+  // Rendezvous beacon animation (stationary) and Royal Yacht moves toward it
   if (rendezvousPoint && royalYacht && !rendezvousReached) {
-    // Beacon follows Royal Yacht (5km ahead)
-    const yachtForward = new THREE.Vector3(1, 0, 0); // Yacht moves in +X direction
-    rendezvousPoint.position.copy(royalYacht.position).addScaledVector(yachtForward, toRender(5000));
-    
-    // Pulse animation
+    // Pulse animation (beacon stays in place)
     const pulseScale = 1 + Math.sin(Date.now() * 0.003) * 0.2;
     rendezvousPoint.scale.setScalar(pulseScale);
     rendezvousPoint.rotation.y += dt * 2;
     
-    // Check if player reached rendezvous (within 500 km)
+    // Royal Yacht moves toward rendezvous point
+    const directionToRendezvous = new THREE.Vector3()
+      .subVectors(rendezvousPoint.position, royalYacht.position)
+      .normalize();
+    const yachtSpeed = toRender(500); // Same 500 m/s speed
+    royalYacht.position.addScaledVector(directionToRendezvous, yachtSpeed * dt);
+    
+    // Check if player reached rendezvous (within 1000 km)
     const distToRendezvous = toKm(ship.position.distanceTo(rendezvousPoint.position));
-    if (distToRendezvous < 500) {
+    if (distToRendezvous < 1000) {
       rendezvousReached = true;
       showAlert("RENDEZVOUS COMPLETE. Welcome to the fleet, Warrant Officer.", 5000);
       
