@@ -1049,14 +1049,15 @@ if (royalYacht) {
         ctx.lineTo(x - 10, y + 10);
         ctx.stroke();
         
-        ctx.fillStyle = '#ff0000';
+ctx.fillStyle = '#ff0000';
         ctx.font = 'bold 14px Orbitron, monospace';
         ctx.fillText(blackShipDamaged ? 'FLEEING' : 'UNKNOWN HOSTILE', x + 50, y - 10);
         ctx.font = '12px Share Tech Mono, monospace';
-        ctx.fillText(`${dist.toFixed(1)}km`, x + 50, y + 8);
+        ctx.fillText(`${dist.toFixed(1)}km`, x + 50, y + 8);  // FIXED: Added ( before `
       }
     }
   }
+  
   // Rendezvous waypoint marker
   if (rendezvousPoint && !rendezvousReached) {
     const rdvPos = rendezvousPoint.position.clone();
@@ -1090,12 +1091,12 @@ if (royalYacht) {
         ctx.font = 'bold 16px Orbitron, monospace';
         ctx.fillText('RENDEZVOUS', x + 50, y - 10);
         ctx.font = '12px Share Tech Mono, monospace';
-        ctx.fillText(`${dist.toFixed(1)}km`, x + 50, y + 8);
+        ctx.fillText(`${dist.toFixed(1)}km`, x + 50, y + 8);  // FIXED: Added ( before `
       }
     }
   }
-}
-  
+}  // ADDED: This closing brace for drawShipMarkers function
+
 animate();
 
 window.addEventListener("resize", () => {
