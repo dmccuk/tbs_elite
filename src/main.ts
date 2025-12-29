@@ -563,7 +563,7 @@ function showMissionFailed() {
         missionFail.removeEventListener('click', closeHandler);
       };
       missionFail.addEventListener('click', closeHandler);
-    }, 3000);
+    }, 9000);
   }
 }
 
