@@ -755,28 +755,7 @@ function setKey(code: string, down: boolean) {
               showMissionFailed();
             }, 2000);
           }
-        
-        let explosionTime = 0;
-        const explosionInterval = setInterval(() => {
-          explosionTime += 0.016;
-          explosion.scale.setScalar(1 + explosionTime * 4);
-          (explosion.material as THREE.MeshBasicMaterial).opacity = 0.9 - explosionTime;
-          
-          if (explosionTime > 1.2) {
-            scene.remove(explosion);
-            clearInterval(explosionInterval);
-          }
-        }, 16);
-                
-                // Remove yacht
-                scene.remove(royalYacht);
-                royalYacht = null;
-              }
-              
-              missionComplete = true;
-              showMissionFailed();
-            }, 2000);
-          }
+        }
         
         let explosionTime = 0;
         const explosionInterval = setInterval(() => {
