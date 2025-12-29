@@ -688,6 +688,7 @@ function setKey(code: string, down: boolean) {
               
               showMissionComplete();
             }, 2000);
+          }
         
         let explosionTime = 0;
         const explosionInterval = setInterval(() => {
