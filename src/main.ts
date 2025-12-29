@@ -146,7 +146,7 @@ function playWhooshSound() {
     oscillator.frequency.exponentialRampToValueAtTime(800, audioContext.currentTime + 0.3);
     
     // Fade out
-    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.setValueAtTime(0.6, audioContext.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
     
     oscillator.start();
@@ -170,14 +170,36 @@ function playLaserZapSound() {
     oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.15);
     
     // Sharp attack, quick fade
-    gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+    gainNode.gain.setValueAtTime(0.7, audioContext.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
     
     oscillator.start();
     oscillator.stop(audioContext.currentTime + 0.15);
-  } catch (err) {
+} catch (err) {
     console.log("Laser zap sound failed:", err);
   }
+}
+
+// Screen shake effect
+function screenShake(intensity: number, duration: number) {
+  const startTime = Date.now();
+  const originalPos = camera.position.clone();
+  
+  const shakeInterval = setInterval(() => {
+    const elapsed = Date.now() - startTime;
+    const progress = elapsed / duration;
+    
+    if (progress >= 1) {
+      camera.position.copy(originalPos);
+      clearInterval(shakeInterval);
+      return;
+    }
+    
+    const currentIntensity = intensity * (1 - progress);
+    camera.position.x = originalPos.x + (Math.random() - 0.5) * currentIntensity;
+    camera.position.y = originalPos.y + (Math.random() - 0.5) * currentIntensity;
+    camera.position.z = originalPos.z + (Math.random() - 0.5) * currentIntensity;
+  }, 16);
 }
 
 // Stars
@@ -724,6 +746,7 @@ function setKey(code: string, down: boolean) {
         if (down && !cargoDetached && missionStarted && blackShip) {
           cargoDetached = true;
           playWhooshSound();
+          screenShake(0.03, 300);
           
           cargoContainer = new THREE.Group();
           const containerMesh = new THREE.Mesh(
