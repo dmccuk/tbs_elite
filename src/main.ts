@@ -325,6 +325,8 @@ let blackShipDamaged = false;
 let missionComplete = false;
 let missileTimer = 0;
 const missiles: THREE.Group[] = [];
+let rendezvousPoint: THREE.Group | null = null;  // ADD THIS
+let rendezvousReached = false;  // ADD THIS
 
 function createRoyalYacht() {
   const yacht = new THREE.Group();
@@ -368,6 +370,40 @@ function createRoyalYacht() {
   
   yacht.position.set(-toRender(50000), 0, toRender(5000));
   return yacht;
+}
+
+function createRendezvousBeacon() {
+  const beacon = new THREE.Group();
+  
+  // Pulsing green sphere
+  const sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(0.15, 16, 16),
+    new THREE.MeshBasicMaterial({ 
+      color: 0x00ff88,
+      transparent: true,
+      opacity: 0.8,
+      fog: false
+    })
+  );
+  beacon.add(sphere);
+  
+  // Outer ring
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.25, 0.03, 16, 32),
+    new THREE.MeshBasicMaterial({ 
+      color: 0x00ff88,
+      transparent: true,
+      opacity: 0.6,
+      fog: false
+    })
+  );
+  ring.rotation.x = Math.PI / 2;
+  beacon.add(ring);
+  
+  // Position near Royal Yacht (5000 km away from player)
+  beacon.position.set(toRender(5000), 0, 0);
+  
+  return beacon;
 }
 
 function createBlackShip() {
@@ -641,15 +677,17 @@ function setKey(code: string, down: boolean) {
               // Delay complete voice so damaged voice finishes first (8 second delay)
               setTimeout(() => {
                 playRadioVoice('/voice_redford_complete.mp3');
+                
+                // Spawn rendezvous point after voice starts
+                setTimeout(() => {
+                  rendezvousPoint = createRendezvousBeacon();
+                  scene.add(rendezvousPoint);
+                  showAlert("RENDEZVOUS COORDINATES RECEIVED: Set course for waypoint.", 5000);
+                }, 3000);
               }, 8000);
               
               showMissionComplete();
             }, 2000);
-          } else {
-            showAlert(`Detonation too far! Distance: ${distToExplosion.toFixed(1)}km (need <10000km)`, 3000);
-            playRadioVoice('/voice_redford_failed.mp3');
-          }
-        }
         
         let explosionTime = 0;
         const explosionInterval = setInterval(() => {
@@ -713,6 +751,30 @@ function animate() {
     const yachtSpeed = toRender(500);
     royalYacht.position.x += yachtSpeed * dt;
     royalYacht.rotation.y += dt * 0.5;
+  }
+  
+  // Rendezvous beacon animation and Royal Yacht tracking
+  if (rendezvousPoint && royalYacht && !rendezvousReached) {
+    // Beacon follows Royal Yacht (5km ahead)
+    const yachtForward = new THREE.Vector3(1, 0, 0); // Yacht moves in +X direction
+    rendezvousPoint.position.copy(royalYacht.position).addScaledVector(yachtForward, toRender(5000));
+    
+    // Pulse animation
+    const pulseScale = 1 + Math.sin(Date.now() * 0.003) * 0.2;
+    rendezvousPoint.scale.setScalar(pulseScale);
+    rendezvousPoint.rotation.y += dt * 2;
+    
+    // Check if player reached rendezvous (within 500 km)
+    const distToRendezvous = toKm(ship.position.distanceTo(rendezvousPoint.position));
+    if (distToRendezvous < 500) {
+      rendezvousReached = true;
+      showAlert("RENDEZVOUS COMPLETE. Welcome to the fleet, Warrant Officer.", 5000);
+      
+      // End game after 5 seconds
+      setTimeout(() => {
+        showAlert("Mission Complete. Press [R] to play again.", 10000);
+      }, 5000);
+    }
   }
   
   // Black Ship: 600 m/s
@@ -843,6 +905,9 @@ function updateRadar() {
   }
   if (cargoContainer && !cargoDetonated) {
     objectsToDraw.push({ name: "Cargo", ref: cargoContainer, color: "#ffaa00", label: "CRG" });
+  }
+  if (rendezvousPoint && !rendezvousReached) {
+    objectsToDraw.push({ name: "Rendezvous", ref: rendezvousPoint, color: "#00ff88", label: "RDV" });
   }
   
   objectsToDraw.forEach(obj => {
@@ -992,8 +1057,45 @@ if (royalYacht) {
       }
     }
   }
+  // Rendezvous waypoint marker
+  if (rendezvousPoint && !rendezvousReached) {
+    const rdvPos = rendezvousPoint.position.clone();
+    rdvPos.project(camera);
+    
+    if (rdvPos.z <= 1) {
+      const x = (rdvPos.x * 0.5 + 0.5) * canvas.clientWidth;
+      const y = (-rdvPos.y * 0.5 + 0.5) * canvas.clientHeight;
+      
+      if (x >= 0 && x <= canvas.clientWidth && y >= 0 && y <= canvas.clientHeight) {
+        const dist = toKm(ship.position.distanceTo(rendezvousPoint.position));
+        
+        // Pulsing green circle
+        const pulseSize = 35 + Math.sin(Date.now() * 0.005) * 5;
+        ctx.strokeStyle = '#00ff88';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(x, y, pulseSize, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Crosshair
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x - 15, y);
+        ctx.lineTo(x + 15, y);
+        ctx.moveTo(x, y - 15);
+        ctx.lineTo(x, y + 15);
+        ctx.stroke();
+        
+        ctx.fillStyle = '#00ff88';
+        ctx.font = 'bold 16px Orbitron, monospace';
+        ctx.fillText('RENDEZVOUS', x + 50, y - 10);
+        ctx.font = '12px Share Tech Mono, monospace';
+        ctx.fillText(`${dist.toFixed(1)}km`, x + 50, y + 8);
+      }
+    }
+  }
 }
-
+  
 animate();
 
 window.addEventListener("resize", () => {
