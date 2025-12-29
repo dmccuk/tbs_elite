@@ -755,7 +755,6 @@ function setKey(code: string, down: boolean) {
               showMissionFailed();
             }, 2000);
           }
-        }
         
         let explosionTime = 0;
         const explosionInterval = setInterval(() => {
