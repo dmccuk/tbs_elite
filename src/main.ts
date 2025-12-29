@@ -546,6 +546,27 @@ function showMissionComplete() {
   }
 }
 
+function showMissionFailed() {
+  const missionFail = document.getElementById('mission-failed');
+  if (missionFail) {
+    setTimeout(() => {
+      missionFail.classList.add('visible');
+      
+      // Auto-close after 10 seconds
+      setTimeout(() => {
+        missionFail.classList.remove('visible');
+      }, 10000);
+      
+      // Allow click to close immediately
+      const closeHandler = () => {
+        missionFail.classList.remove('visible');
+        missionFail.removeEventListener('click', closeHandler);
+      };
+      missionFail.addEventListener('click', closeHandler);
+    }, 3000);
+  }
+}
+
 const inputs: Inputs = {
   throttleUp: false, throttleDown: false, brake: false,
   yawL: false, yawR: false, pitchU: false, pitchD: false, rollL: false, rollR: false,
@@ -695,8 +716,68 @@ function setKey(code: string, down: boolean) {
           } else {
             showAlert(`Detonation too far! Distance: ${distToExplosion.toFixed(1)}km (need <10000km)`, 3000);
             playRadioVoice('/voice_redford_failed.mp3');
+            
+            // Show mission failed screen and destroy yacht
+            setTimeout(() => {
+              if (royalYacht) {
+                // Create explosion effect on yacht
+                const yachtExplosion = new THREE.Mesh(
+                  new THREE.SphereGeometry(3, 32, 32),
+                  new THREE.MeshBasicMaterial({
+                    color: 0xff3300,
+                    transparent: true,
+                    opacity: 0.9,
+                    fog: false
+                  })
+                );
+                yachtExplosion.position.copy(royalYacht.position);
+                scene.add(yachtExplosion);
+                
+                // Animate yacht explosion
+                let yachtExplosionTime = 0;
+                const yachtExplosionInterval = setInterval(() => {
+                  yachtExplosionTime += 0.016;
+                  yachtExplosion.scale.setScalar(1 + yachtExplosionTime * 5);
+                  (yachtExplosion.material as THREE.MeshBasicMaterial).opacity = 0.9 - yachtExplosionTime;
+                  
+                  if (yachtExplosionTime > 1.0) {
+                    scene.remove(yachtExplosion);
+                    clearInterval(yachtExplosionInterval);
+                  }
+                }, 16);
+                
+                // Remove yacht
+                scene.remove(royalYacht);
+                royalYacht = null;
+              }
+              
+              missionComplete = true;
+              showMissionFailed();
+            }, 2000);
           }
         }
+        
+        let explosionTime = 0;
+        const explosionInterval = setInterval(() => {
+          explosionTime += 0.016;
+          explosion.scale.setScalar(1 + explosionTime * 4);
+          (explosion.material as THREE.MeshBasicMaterial).opacity = 0.9 - explosionTime;
+          
+          if (explosionTime > 1.2) {
+            scene.remove(explosion);
+            clearInterval(explosionInterval);
+          }
+        }, 16);
+                
+                // Remove yacht
+                scene.remove(royalYacht);
+                royalYacht = null;
+              }
+              
+              missionComplete = true;
+              showMissionFailed();
+            }, 2000);
+          }
         
         let explosionTime = 0;
         const explosionInterval = setInterval(() => {
