@@ -719,6 +719,121 @@ function setKey(code: string, down: boolean) {
   }
 }
 
+// Mobile Controls Setup
+if ('ontouchstart' in window) {
+  console.log("Mobile device detected - setting up touch controls");
+  
+  // Joystick variables
+  let joystickActive = false;
+  let joystickStartX = 0;
+  let joystickStartY = 0;
+  
+  // Joystick touch handler
+  const joystickOuter = document.querySelector('.joystick-outer') as HTMLElement;
+  const joystickInner = document.getElementById('joystick-left-inner') as HTMLElement;
+  
+  if (joystickOuter && joystickInner) {
+    joystickOuter.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      joystickActive = true;
+      const touch = e.touches[0];
+      const rect = joystickOuter.getBoundingClientRect();
+      joystickStartX = rect.left + rect.width / 2;
+      joystickStartY = rect.top + rect.height / 2;
+    });
+    
+    joystickOuter.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (!joystickActive) return;
+      
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - joystickStartX;
+      const deltaY = touch.clientY - joystickStartY;
+      
+      // Limit joystick movement
+      const maxDistance = 35;
+      const distance = Math.min(maxDistance, Math.sqrt(deltaX * deltaX + deltaY * deltaY));
+      const angle = Math.atan2(deltaY, deltaX);
+      
+      const x = Math.cos(angle) * distance;
+      const y = Math.sin(angle) * distance;
+      
+      joystickInner.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+      
+      // Map to controls (normalized -1 to 1)
+      const normalizedX = deltaX / maxDistance;
+      const normalizedY = deltaY / maxDistance;
+      
+      // Yaw (left/right)
+      inputs.yawL = normalizedX < -0.3;
+      inputs.yawR = normalizedX > 0.3;
+      
+      // Pitch (up/down)
+      inputs.pitchU = normalizedY < -0.3;
+      inputs.pitchD = normalizedY > 0.3;
+    });
+    
+    const endJoystick = () => {
+      joystickActive = false;
+      joystickInner.style.transform = 'translate(-50%, -50%)';
+      inputs.yawL = false;
+      inputs.yawR = false;
+      inputs.pitchU = false;
+      inputs.pitchD = false;
+    };
+    
+    joystickOuter.addEventListener('touchend', endJoystick);
+    joystickOuter.addEventListener('touchcancel', endJoystick);
+  }
+  
+  // Button handlers
+  const btnThrottleUp = document.getElementById('btn-throttle-up');
+  const btnThrottleDown = document.getElementById('btn-throttle-down');
+  const btnBrake = document.getElementById('btn-brake');
+  const btnDetach = document.getElementById('btn-detach');
+  const btnDetonate = document.getElementById('btn-detonate');
+  
+  if (btnThrottleUp) {
+    btnThrottleUp.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      inputs.throttleUp = true;
+    });
+    btnThrottleUp.addEventListener('touchend', () => inputs.throttleUp = false);
+  }
+  
+  if (btnThrottleDown) {
+    btnThrottleDown.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      inputs.throttleDown = true;
+    });
+    btnThrottleDown.addEventListener('touchend', () => inputs.throttleDown = false);
+  }
+  
+  if (btnBrake) {
+    btnBrake.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      inputs.brake = true;
+    });
+    btnBrake.addEventListener('touchend', () => inputs.brake = false);
+  }
+  
+  if (btnDetach) {
+    btnDetach.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      setKey('KeyX', true);
+      setTimeout(() => setKey('KeyX', false), 100);
+    });
+  }
+  
+  if (btnDetonate) {
+    btnDetonate.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      setKey('KeyC', true);
+      setTimeout(() => setKey('KeyC', false), 100);
+    });
+  }
+}
+
 let throttle = 0.2;
 let velocity = new THREE.Vector3(0, 0, 0);
 let speed = 0;
