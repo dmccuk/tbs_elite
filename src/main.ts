@@ -357,9 +357,86 @@ const station2 = new THREE.Group();
   hub.rotation.z = Math.PI / 2;
   station2.add(hub);
   
-  station2.position.set(toRender(166000), 0, 0);
+station2.position.set(toRender(166000), 0, 0);
 }
 scene.add(station2);
+
+// Derelict Ship (50,000 km away)
+const derelictShip = new THREE.Group();
+{
+  const wreckBody = new THREE.Mesh(
+    new THREE.BoxGeometry(0.15, 0.08, 0.4),
+    new THREE.MeshStandardMaterial({
+      color: 0x554433,
+      roughness: 0.9,
+      metalness: 0.3,
+      emissive: 0x221100,
+      emissiveIntensity: 0.05
+    })
+  );
+  derelictShip.add(wreckBody);
+  
+  // Broken wing
+  const wing = new THREE.Mesh(
+    new THREE.BoxGeometry(0.3, 0.02, 0.15),
+    new THREE.MeshStandardMaterial({
+      color: 0x443322,
+      roughness: 0.95,
+      metalness: 0.2
+    })
+  );
+  wing.position.set(0.15, 0, 0.1);
+  wing.rotation.z = 0.3;
+  derelictShip.add(wing);
+  
+  derelictShip.position.set(toRender(50000), toRender(-8000), toRender(15000));
+  derelictShip.rotation.set(0.5, 1.2, 0.8);
+}
+scene.add(derelictShip);
+
+// Debris Field (80,000 km away)
+const debrisField = new THREE.Group();
+{
+  // Large damaged station piece
+  const mainDebris = new THREE.Mesh(
+    new THREE.TorusGeometry(toRender(200), toRender(50), 16, 32),
+    new THREE.MeshStandardMaterial({
+      color: 0x666677,
+      roughness: 0.8,
+      metalness: 0.6,
+      emissive: 0x111122,
+      emissiveIntensity: 0.05
+    })
+  );
+  mainDebris.rotation.set(0.5, 1.2, 0.3);
+  debrisField.add(mainDebris);
+  
+  // Small debris pieces (30 pieces in cluster)
+  for (let i = 0; i < 30; i++) {
+    const debrisPiece = new THREE.Mesh(
+      new THREE.BoxGeometry(
+        Math.random() * 0.05 + 0.02,
+        Math.random() * 0.05 + 0.02,
+        Math.random() * 0.05 + 0.02
+      ),
+      new THREE.MeshStandardMaterial({
+        color: 0x777788,
+        roughness: 0.9,
+        metalness: 0.4
+      })
+    );
+    debrisPiece.position.set(
+      (Math.random() - 0.5) * toRender(5000),
+      (Math.random() - 0.5) * toRender(5000),
+      (Math.random() - 0.5) * toRender(5000)
+    );
+    debrisPiece.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+    debrisField.add(debrisPiece);
+  }
+  
+  debrisField.position.set(toRender(-80000), toRender(12000), toRender(-25000));
+}
+scene.add(debrisField);
 
 // Ship
 const ship = new THREE.Group();
@@ -1151,6 +1228,11 @@ function animate() {
     royalYacht.rotation.y += dt * 0.5;
   }
   
+  // Derelict ship slow tumble
+  derelictShip.rotation.x += dt * 0.05;
+  derelictShip.rotation.y += dt * 0.08;
+  derelictShip.rotation.z += dt * 0.03;
+  
   // Rendezvous beacon animation (stationary) and Royal Yacht moves toward it
   if (rendezvousPoint && royalYacht && !rendezvousReached) {
     // Pulse animation (beacon stays in place)
@@ -1346,6 +1428,7 @@ function updateRadar() {
   const objectsToDraw: any[] = [
     { name: "Station 1", ref: station1, color: "#ff6600", label: "ST1" },
     { name: "Station 2", ref: station2, color: "#ff8800", label: "ST2" }
+    { name: "Derelict", ref: derelictShip, color: "#888888", label: "DRL" }
   ];
   
   if (royalYacht) {
@@ -1446,7 +1529,41 @@ function drawShipMarkers() {
     }
   });
   
-if (royalYacht) {
+  // Draw derelict ship
+  const derelictPos = derelictShip.position.clone();
+  derelictPos.project(camera);
+  
+  if (derelictPos.z <= 1) {
+    const x = (derelictPos.x * 0.5 + 0.5) * canvas.clientWidth;
+    const y = (-derelictPos.y * 0.5 + 0.5) * canvas.clientHeight;
+    
+    if (x >= 0 && x <= canvas.clientWidth && y >= 0 && y <= canvas.clientHeight) {
+      const dist = toKm(ship.position.distanceTo(derelictShip.position));
+      
+      ctx.strokeStyle = '#888888';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, 30, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // X marker for derelict
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x - 8, y - 8);
+      ctx.lineTo(x + 8, y + 8);
+      ctx.moveTo(x + 8, y - 8);
+      ctx.lineTo(x - 8, y + 8);
+      ctx.stroke();
+      
+      ctx.fillStyle = '#888888';
+      ctx.font = '12px Orbitron, monospace';
+      ctx.fillText('DERELICT SHIP', x + 40, y - 5);
+      ctx.font = '10px Share Tech Mono, monospace';
+      ctx.fillText(`${dist.toFixed(1)}km`, x + 40, y + 8);
+    }
+  }
+  
+  if (royalYacht) {
     const yachtPos = royalYacht.position.clone();
     yachtPos.project(camera);
     
