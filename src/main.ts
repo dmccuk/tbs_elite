@@ -1427,7 +1427,7 @@ function updateRadar() {
   
   const objectsToDraw: any[] = [
     { name: "Station 1", ref: station1, color: "#ff6600", label: "ST1" },
-    { name: "Station 2", ref: station2, color: "#ff8800", label: "ST2" }
+    { name: "Station 2", ref: station2, color: "#ff8800", label: "ST2" },
     { name: "Derelict", ref: derelictShip, color: "#888888", label: "DRL" }
   ];
   
