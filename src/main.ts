@@ -489,9 +489,14 @@ function createBlackShip() {
 function createMissile(fromPos: THREE.Vector3, toPos: THREE.Vector3) {
   const missile = new THREE.Group();
   
-  const body = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.01, 0.01, 0.08, 8),
-    new THREE.MeshBasicMaterial({ color: 0xff3300, fog: false })
+const body = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.015, 0.015, 0.12, 8),
+    new THREE.MeshBasicMaterial({ 
+      color: 0xff3300, 
+      fog: false,
+      emissive: 0xff3300,
+      emissiveIntensity: 0.8
+    })
   );
   body.rotation.z = Math.PI / 2;
   missile.add(body);
@@ -506,7 +511,7 @@ function createMissile(fromPos: THREE.Vector3, toPos: THREE.Vector3) {
   missile.position.copy(fromPos);
   
   const direction = new THREE.Vector3().subVectors(toPos, fromPos).normalize();
-  const speed = toRender(500);
+  const speed = toRender(3000);
   (missile as any).velocity = direction.multiplyScalar(speed);
   (missile as any).lifeTime = 0;
   
