@@ -566,6 +566,10 @@ function setKey(code: string, down: boolean) {
     case "ArrowDown": inputs.pitchD = down; break;
     case "KeyQ": inputs.rollL = down; break;
     case "KeyE": inputs.rollR = down; break;
+    case "KeyR":
+      if (down && missionComplete) {
+        location.reload();
+      }
     case "KeyH":
       if (down) {
         const helpMenu = document.getElementById("help-menu");
