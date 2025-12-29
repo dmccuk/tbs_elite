@@ -637,7 +637,12 @@ function setKey(code: string, down: boolean) {
                 blackShip = null;
               }
               missionComplete = true;
-              playRadioVoice('/voice_redford_complete.mp3');
+              
+              // Delay complete voice so damaged voice finishes first (8 second delay)
+              setTimeout(() => {
+                playRadioVoice('/voice_redford_complete.mp3');
+              }, 8000);
+              
               showMissionComplete();
             }, 2000);
           } else {
@@ -853,8 +858,8 @@ function updateRadar() {
     const rightDist = relPos.dot(shipRight);
     
     const radarScale = radarRadius / radarRange;
-    const x = 90 + (rightDist * radarScale);
-    const y = 90 - (forwardDist * radarScale);
+    const x = 90 + (rightDist * radarScale * 1000);
+    const y = 90 - (forwardDist * radarScale * 1000);
     
     radarCtx.fillStyle = obj.color;
     radarCtx.beginPath();
