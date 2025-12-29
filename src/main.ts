@@ -845,11 +845,11 @@ function setKey(code: string, down: boolean) {
             // Black Ship threatens player
             setTimeout(() => {
               showAlert("INCOMING TRANSMISSION FROM HOSTILE VESSEL", 2000);
-            }, 3000);
+            }, 9000);
             
             setTimeout(() => {
               showAlert("You just made a BIG mistake, garbage hauler. You're a traitor to House Cayston. Prepare to die.", 5000);
-            }, 5500);
+            }, 11000);
             
             // Show mission failed screen and destroy yacht
             setTimeout(() => {
@@ -892,7 +892,7 @@ function setKey(code: string, down: boolean) {
               playerDeathTimer = 0;
               
               showMissionFailed();
-            }, 11000);  // Changed from 2000 to 11000 (after all messages)
+            }, 17000);  // Changed from 2000 to 11000 (after all messages)
           }
         }
         
