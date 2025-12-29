@@ -96,6 +96,41 @@ window.addEventListener('keydown', startMusic, { once: true });
 window.addEventListener('click', startMusic, { once: true });
 // === END ADD ===
 
+// === ADD THIS: Radio Voice with Effect ===
+function playRadioVoice(filename: string) {
+  const audio = new Audio(filename);
+  audio.volume = 0.7;
+  
+  // Create radio effect using Web Audio API
+  try {
+    const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const source = context.createMediaElementSource(audio);
+    
+    // Add radio-like filtering
+    const lowpass = context.createBiquadFilter();
+    lowpass.type = 'lowpass';
+    lowpass.frequency.value = 3000; // Cut high frequencies
+    
+    const highpass = context.createBiquadFilter();
+    highpass.type = 'highpass';
+    highpass.frequency.value = 300; // Cut low frequencies
+    
+    // Add slight gain for radio effect
+    const gainNode = context.createGain();
+    gainNode.gain.value = 1.2;
+    
+    // Connect: source -> highpass -> lowpass -> gain -> output
+    source.connect(highpass);
+    highpass.connect(lowpass);
+    lowpass.connect(gainNode);
+    gainNode.connect(context.destination);
+  } catch (err) {
+    console.log("Radio effect not available, playing without effect");
+  }
+  
+  audio.play().catch(err => console.log("Radio voice failed:", err));
+}
+
 // Stars
 {
   const starGeo = new THREE.BufferGeometry();
@@ -594,6 +629,7 @@ function setKey(code: string, down: boolean) {
           if (distToExplosion < 10000) {
             blackShipDamaged = true;
             showAlert("HOSTILE VESSEL DAMAGED! Enemy initiating emergency jump!");
+            playRadioVoice('/voice_redford_damaged.mp3');
             
             setTimeout(() => {
               if (blackShip) {
@@ -601,10 +637,12 @@ function setKey(code: string, down: boolean) {
                 blackShip = null;
               }
               missionComplete = true;
+              playRadioVoice('/voice_redford_complete.mp3');
               showMissionComplete();
             }, 2000);
           } else {
             showAlert(`Detonation too far! Distance: ${distToExplosion.toFixed(1)}km (need <10000km)`, 3000);
+            playRadioVoice('/voice_redford_failed.mp3');
           }
         }
         
@@ -653,6 +691,7 @@ function animate() {
   if (!missionStarted && elapsed > 30) {
     missionStarted = true;
     showAlert("EMERGENCY: Warp signatures detected in Lingering Systems!", 3000);
+    playRadioVoice('/voice_redford_alert.mp3');
     
     royalYacht = createRoyalYacht();
     scene.add(royalYacht);
