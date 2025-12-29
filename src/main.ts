@@ -128,7 +128,67 @@ function playRadioVoice(filename: string) {
     console.log("Radio effect not available, playing without effect");
   }
   
-  audio.play().catch(err => console.log("Radio voice failed:", err));
+audio.play().catch(err => console.log("Radio voice failed:", err));
+}
+
+// Distance warning beep system
+let lastBeepDistance = Infinity;
+let beepInterval: NodeJS.Timeout | null = null;
+
+function updateDistanceBeeps() {
+  if (!blackShip || !cargoContainer || cargoDetonated || blackShipDamaged) {
+    if (beepInterval) {
+      clearInterval(beepInterval);
+      beepInterval = null;
+    }
+    lastBeepDistance = Infinity;
+    return;
+  }
+  
+  const distToTarget = toKm(cargoContainer.position.distanceTo(blackShip.position));
+  
+  // Start beeping when within 30km
+  if (distToTarget < 30000 && distToTarget > 1000) {
+    // Beep speed increases as you get closer
+    const beepDelay = Math.max(100, Math.min(1000, distToTarget / 20));
+    
+    if (!beepInterval || Math.abs(lastBeepDistance - distToTarget) > 2000) {
+      if (beepInterval) clearInterval(beepInterval);
+      
+      beepInterval = setInterval(() => {
+        // Create beep sound using Web Audio API
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        // Higher pitch as you get closer
+        oscillator.frequency.value = 800 + (30000 - distToTarget) / 50;
+        gainNode.gain.value = 0.15;
+        
+        oscillator.start();
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+        oscillator.stop(audioContext.currentTime + 0.1);
+        
+        // Flash alert box briefly
+        const alertBox = document.getElementById('alert-box');
+        if (alertBox && distToTarget < 10000) {
+          alertBox.style.opacity = '0.3';
+          setTimeout(() => alertBox.style.opacity = '0', 50);
+        }
+      }, beepDelay);
+      
+      lastBeepDistance = distToTarget;
+    }
+  } else {
+    if (beepInterval) {
+      clearInterval(beepInterval);
+      beepInterval = null;
+    }
+    lastBeepDistance = Infinity;
+  }
 }
 
 // Stars
@@ -1027,6 +1087,7 @@ function animate() {
     cargoContainer.rotation.x += dt * 0.5;
     cargoContainer.rotation.y += dt * 0.3;
     updateCargoComputer();
+    updateDistanceBeeps();
   }
 
   if (inputs.throttleUp) throttle += dt * 0.4;
