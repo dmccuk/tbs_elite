@@ -405,27 +405,29 @@ function createRoyalYacht() {
   const yacht = new THREE.Group();
   const scale = 0.08;
   
-  // Sleek elongated body - chrome silver
+  // Sleek elongated body - bright silver grey
   const body = new THREE.Mesh(
     new THREE.CylinderGeometry(scale * 0.2, scale * 0.35, scale * 4, 24),
     new THREE.MeshStandardMaterial({
-      color: 0x9999aa,
-      roughness: 0.2,
-      metalness: 0.9,
-      emissive: 0x111122,
-      emissiveIntensity: 0.15
+      color: 0xccccdd,
+      roughness: 0.15,
+      metalness: 0.95,
+      emissive: 0x6677aa,
+      emissiveIntensity: 0.3
     })
   );
   body.rotation.z = Math.PI / 2;
   yacht.add(body);
   
-  // Sleek nose cone
+  // Sleek nose cone - bright silver
   const nose = new THREE.Mesh(
     new THREE.ConeGeometry(scale * 0.2, scale * 0.6, 24),
     new THREE.MeshStandardMaterial({
-      color: 0xaaaaaa,
-      roughness: 0.1,
-      metalness: 0.95
+      color: 0xddddee,
+      roughness: 0.08,
+      metalness: 0.98,
+      emissive: 0x8899cc,
+      emissiveIntensity: 0.2
     })
   );
   nose.rotation.z = -Math.PI / 2;
@@ -440,6 +442,19 @@ function createRoyalYacht() {
   engine.rotation.z = Math.PI / 2;
   engine.position.set(-scale * 2, 0, 0);
   yacht.add(engine);
+  
+  // Engine trail
+  const trailGeo = new THREE.CylinderGeometry(scale * 0.08, scale * 0.02, scale * 1.5, 12);
+  const trailMat = new THREE.MeshBasicMaterial({
+    color: 0x3388ff,
+    transparent: true,
+    opacity: 0.5,
+    fog: false
+  });
+  const trail = new THREE.Mesh(trailGeo, trailMat);
+  trail.rotation.z = Math.PI / 2;
+  trail.position.set(-scale * 2.7, 0, 0);
+  yacht.add(trail);
   
   yacht.position.set(-toRender(50000), 0, toRender(5000));
   return yacht;
@@ -494,7 +509,7 @@ function createBlackShip() {
   hull.rotation.x = Math.PI / 2;
   black.add(hull);
   
-  const engine = new THREE.Mesh(
+const engine = new THREE.Mesh(
     new THREE.SphereGeometry(scale * 0.2, 16, 16),
     new THREE.MeshBasicMaterial({
       color: 0x440000,
@@ -505,6 +520,19 @@ function createBlackShip() {
   );
   engine.position.set(-scale * 1.3, 0, 0);
   black.add(engine);
+  
+  // Red engine trail
+  const trailGeo = new THREE.CylinderGeometry(scale * 0.1, scale * 0.02, scale * 1.2, 12);
+  const trailMat = new THREE.MeshBasicMaterial({
+    color: 0xff0000,
+    transparent: true,
+    opacity: 0.4,
+    fog: false
+  });
+  const trail = new THREE.Mesh(trailGeo, trailMat);
+  trail.rotation.z = Math.PI / 2;
+  trail.position.set(-scale * 1.9, 0, 0);
+  black.add(trail);
   
   black.position.set(-toRender(75000), 0, toRender(5000));
   return black;
@@ -756,10 +784,15 @@ function setKey(code: string, down: boolean) {
           cargoContainer.add(containerMesh);
           cargoContainer.position.copy(ship.position);
           
-          // ADD THIS: Visual launch effect - dark grey trail
+          // Visual launch effect - enhanced bright trail
           const launchTrail = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.01, 0.02, 0.3, 8),
-            new THREE.MeshBasicMaterial({ color: 0x444444, transparent: true, opacity: 0.8 })
+            new THREE.CylinderGeometry(0.02, 0.04, 0.8, 12),
+            new THREE.MeshBasicMaterial({ 
+              color: 0xffaa00, 
+              transparent: true, 
+              opacity: 0.9,
+              fog: false 
+            })
           );
           const launchDirection = new THREE.Vector3().subVectors(blackShip.position, ship.position).normalize();
           launchTrail.position.copy(ship.position).addScaledVector(launchDirection, 0.2);
