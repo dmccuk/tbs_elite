@@ -361,33 +361,118 @@ station2.position.set(toRender(166000), 0, 0);
 }
 scene.add(station2);
 
-// Derelict Ship (50,000 km away)
+// Derelict Ship (50,000 km away) - Star Destroyer style
 const derelictShip = new THREE.Group();
 {
-  const wreckBody = new THREE.Mesh(
-    new THREE.BoxGeometry(0.15, 0.08, 0.4),
-    new THREE.MeshStandardMaterial({
-      color: 0x554433,
-      roughness: 0.9,
-      metalness: 0.3,
-      emissive: 0x221100,
-      emissiveIntensity: 0.05
-    })
-  );
-  derelictShip.add(wreckBody);
+  const scale = 0.3;
   
-  // Broken wing
-  const wing = new THREE.Mesh(
-    new THREE.BoxGeometry(0.3, 0.02, 0.15),
-    new THREE.MeshStandardMaterial({
-      color: 0x443322,
+  // Main triangular hull (wedge shape)
+  const hullGeo = new THREE.ConeGeometry(scale * 0.8, scale * 2, 3);
+  const hullMat = new THREE.MeshStandardMaterial({
+    color: 0x445566,
+    roughness: 0.85,
+    metalness: 0.6,
+    emissive: 0x223344,
+    emissiveIntensity: 0.1
+  });
+  const hull = new THREE.Mesh(hullGeo, hullMat);
+  hull.rotation.x = Math.PI / 2;
+  hull.rotation.z = Math.PI / 2;
+  derelictShip.add(hull);
+  
+  // Command tower on top
+  const towerGeo = new THREE.BoxGeometry(scale * 0.15, scale * 0.3, scale * 0.2);
+  const towerMat = new THREE.MeshStandardMaterial({
+    color: 0x556677,
+    roughness: 0.8,
+    metalness: 0.7,
+    emissive: 0x334455,
+    emissiveIntensity: 0.15
+  });
+  const tower = new THREE.Mesh(towerGeo, towerMat);
+  tower.position.set(-scale * 0.4, scale * 0.15, 0);
+  derelictShip.add(tower);
+  
+  // Bridge dome
+  const bridgeGeo = new THREE.SphereGeometry(scale * 0.08, 16, 16);
+  const bridgeMat = new THREE.MeshStandardMaterial({
+    color: 0x667788,
+    roughness: 0.6,
+    metalness: 0.8,
+    emissive: 0x445566,
+    emissiveIntensity: 0.2
+  });
+  const bridge = new THREE.Mesh(bridgeGeo, bridgeMat);
+  bridge.position.set(-scale * 0.4, scale * 0.3, 0);
+  derelictShip.add(bridge);
+  
+  // Engine blocks (damaged, no glow)
+  for (let i = 0; i < 3; i++) {
+    const engineGeo = new THREE.BoxGeometry(scale * 0.1, scale * 0.15, scale * 0.1);
+    const engineMat = new THREE.MeshStandardMaterial({
+      color: 0x334455,
+      roughness: 0.9,
+      metalness: 0.4
+    });
+    const engine = new THREE.Mesh(engineGeo, engineMat);
+    engine.position.set(
+      scale * 0.9,
+      scale * 0.05,
+      (i - 1) * scale * 0.25
+    );
+    derelictShip.add(engine);
+  }
+  
+  // Damage effects - broken panels
+  for (let i = 0; i < 8; i++) {
+    const debrisGeo = new THREE.BoxGeometry(
+      scale * (0.05 + Math.random() * 0.1),
+      scale * (0.02 + Math.random() * 0.05),
+      scale * (0.05 + Math.random() * 0.1)
+    );
+    const debrisMat = new THREE.MeshStandardMaterial({
+      color: 0x334455,
       roughness: 0.95,
-      metalness: 0.2
+      metalness: 0.3
+    });
+    const debris = new THREE.Mesh(debrisGeo, debrisMat);
+    debris.position.set(
+      (Math.random() - 0.5) * scale * 1.5,
+      (Math.random() - 0.5) * scale * 0.3,
+      (Math.random() - 0.5) * scale * 0.8
+    );
+    debris.rotation.set(
+      Math.random() * Math.PI,
+      Math.random() * Math.PI,
+      Math.random() * Math.PI
+    );
+    derelictShip.add(debris);
+  }
+  
+  // Dim emergency lights (red/orange)
+  const emergencyLight1 = new THREE.Mesh(
+    new THREE.SphereGeometry(scale * 0.02, 8, 8),
+    new THREE.MeshBasicMaterial({
+      color: 0xff3300,
+      transparent: true,
+      opacity: 0.6,
+      fog: false
     })
   );
-  wing.position.set(0.15, 0, 0.1);
-  wing.rotation.z = 0.3;
-  derelictShip.add(wing);
+  emergencyLight1.position.set(-scale * 0.3, scale * 0.1, scale * 0.1);
+  derelictShip.add(emergencyLight1);
+  
+  const emergencyLight2 = new THREE.Mesh(
+    new THREE.SphereGeometry(scale * 0.02, 8, 8),
+    new THREE.MeshBasicMaterial({
+      color: 0xff6600,
+      transparent: true,
+      opacity: 0.4,
+      fog: false
+    })
+  );
+  emergencyLight2.position.set(scale * 0.2, scale * 0.05, -scale * 0.15);
+  derelictShip.add(emergencyLight2);
   
   derelictShip.position.set(toRender(50000), toRender(-8000), toRender(15000));
   derelictShip.rotation.set(0.5, 1.2, 0.8);
