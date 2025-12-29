@@ -732,7 +732,7 @@
         text-shadow: 0 0 15px rgba(255, 170, 0, 1);
       }
 
-      .splash-start {
+.splash-start {
         text-align: center;
         font-family: 'Orbitron', sans-serif;
         font-size: 18px;
@@ -740,6 +740,150 @@
         color: #00ff88;
         margin-top: 30px;
         animation: blink 1.5s infinite;
+      }
+
+      /* Mobile Controls */
+      #mobile-controls {
+        display: none;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 250px;
+        pointer-events: auto;
+        z-index: 200;
+      }
+      
+      @media (max-width: 768px), (pointer: coarse) {
+        #mobile-controls {
+          display: flex;
+          justify-content: space-between;
+          padding: 20px;
+          background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+        }
+        
+        #controls {
+          display: none;
+        }
+        
+        #status-panel {
+          font-size: 11px;
+          padding: 8px 10px;
+        }
+        
+        .instrument {
+          min-width: 90px;
+          padding: 8px;
+        }
+        
+        .instrument-value {
+          font-size: 18px;
+        }
+        
+        #radar-container {
+          width: 140px;
+          height: 140px;
+          bottom: 260px;
+        }
+        
+        #target-info {
+          font-size: 10px;
+          padding: 8px;
+          min-width: 150px;
+        }
+
+        #bottom-bar {
+          bottom: 260px;
+        }
+      }
+      
+      .joystick {
+        position: relative;
+        width: 150px;
+      }
+      
+      .joystick-outer {
+        width: 120px;
+        height: 120px;
+        border: 3px solid #00ff88;
+        border-radius: 50%;
+        background: rgba(0, 255, 136, 0.1);
+        position: relative;
+        box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+      }
+      
+      .joystick-inner {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: #00ff88;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 0 15px rgba(0, 255, 136, 0.8);
+        transition: all 0.1s;
+      }
+      
+      .joystick-label {
+        text-align: center;
+        margin-top: 10px;
+        font-size: 12px;
+        color: #00ff88;
+        font-family: 'Orbitron', sans-serif;
+        letter-spacing: 2px;
+      }
+      
+      #mobile-buttons {
+        display: grid;
+        grid-template-columns: repeat(2, 80px);
+        grid-gap: 10px;
+        align-content: center;
+      }
+      
+      .mobile-btn {
+        width: 80px;
+        height: 60px;
+        background: rgba(0, 255, 136, 0.2);
+        border: 2px solid #00ff88;
+        border-radius: 8px;
+        color: #00ff88;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        line-height: 1.2;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      .mobile-btn span {
+        font-size: 10px;
+        opacity: 0.7;
+        margin-top: 2px;
+      }
+      
+      .mobile-btn:active {
+        background: rgba(0, 255, 136, 0.4);
+        box-shadow: 0 0 20px rgba(0, 255, 136, 0.6);
+        transform: scale(0.95);
+      }
+      
+      .mobile-btn.btn-action {
+        background: rgba(255, 170, 0, 0.2);
+        border-color: #ffaa00;
+        color: #ffaa00;
+      }
+      
+      .mobile-btn.btn-action:active {
+        background: rgba(255, 170, 0, 0.4);
+        box-shadow: 0 0 20px rgba(255, 170, 0, 0.6);
       }
     </style>
   </head>
@@ -931,12 +1075,32 @@
         <span class="key">C</span> Detonate
       </div>
       
-      <div id="target-info">
+<div id="target-info">
         <div class="target-name" id="target-name">NEAREST STATION</div>
         <div class="target-data">
           <div>Distance: <span id="target-dist">0</span></div>
           <div>System: Lingering Systems</div>
           <div style="margin-top: 4px; color: #00ff88;">⬤ Deep Space Route</div>
+        </div>
+      </div>
+
+      <!-- Mobile Controls -->
+      <div id="mobile-controls">
+        <!-- Left side - Movement joystick -->
+        <div id="joystick-left" class="joystick">
+          <div class="joystick-outer">
+            <div class="joystick-inner" id="joystick-left-inner"></div>
+          </div>
+          <div class="joystick-label">MOVE</div>
+        </div>
+        
+        <!-- Right side - Action buttons -->
+        <div id="mobile-buttons">
+          <button class="mobile-btn" id="btn-throttle-up">W<br><span>+</span></button>
+          <button class="mobile-btn" id="btn-throttle-down">S<br><span>−</span></button>
+          <button class="mobile-btn btn-action" id="btn-detach">X<br><span>CARGO</span></button>
+          <button class="mobile-btn btn-action" id="btn-detonate">C<br><span>FIRE</span></button>
+          <button class="mobile-btn" id="btn-brake">SPC<br><span>BRAKE</span></button>
         </div>
       </div>
     </div>
