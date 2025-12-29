@@ -77,6 +77,25 @@ scene.fog = new THREE.FogExp2(0x000510, 0.000008);
 
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 50000);
 
+// === ADD THIS: Background Music ===
+const backgroundMusic = new Audio('/tbs_elite.mp3');
+backgroundMusic.volume = 0.3; // 20% volume (adjust 0.0 to 1.0)
+backgroundMusic.loop = true;
+
+// Start music when user interacts (browsers require user interaction first)
+let musicStarted = false;
+function startMusic() {
+  if (!musicStarted) {
+    backgroundMusic.play().catch(err => console.log("Music play failed:", err));
+    musicStarted = true;
+  }
+}
+
+// Start music on first keypress or click
+window.addEventListener('keydown', startMusic, { once: true });
+window.addEventListener('click', startMusic, { once: true });
+// === END ADD ===
+
 // Stars
 {
   const starGeo = new THREE.BufferGeometry();
