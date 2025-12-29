@@ -15,7 +15,7 @@ const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(ma
 
 const SCALE = {
   STATION_SIZE: 0.6,
-  MAX_SPEED: 5.0,  // 3 km/s (3000 m/s)
+  MAX_SPEED: 6.5,  // 3 km/s (3000 m/s)
   RENDER_SCALE: 0.001,
 };
 
@@ -440,6 +440,18 @@ function showMissionComplete() {
   if (missionComp) {
     setTimeout(() => {
       missionComp.classList.add('visible');
+      
+      // Auto-close after 5 seconds
+      setTimeout(() => {
+        missionComp.classList.remove('visible');
+      }, 5000);
+      
+      // Allow click to close immediately
+      const closeHandler = () => {
+        missionComp.classList.remove('visible');
+        missionComp.removeEventListener('click', closeHandler);
+      };
+      missionComp.addEventListener('click', closeHandler);
     }, 3000);
   }
 }
@@ -470,17 +482,40 @@ function setKey(code: string, down: boolean) {
         if (helpMenu) helpMenu.classList.toggle("visible");
       }
       break;
-    case "KeyX":
-      if (down && !cargoDetached && missionStarted && blackShip) {
-        cargoDetached = true;
-        
-        cargoContainer = new THREE.Group();
-        const containerMesh = new THREE.Mesh(
-          new THREE.BoxGeometry(0.04, 0.03, 0.06),
-          new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.8, metalness: 0.5 })
-        );
-        cargoContainer.add(containerMesh);
-        cargoContainer.position.copy(ship.position);
+      case "KeyX":
+        if (down && !cargoDetached && missionStarted && blackShip) {
+          cargoDetached = true;
+          
+          cargoContainer = new THREE.Group();
+          const containerMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(0.04, 0.03, 0.06),
+            new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.8, metalness: 0.5 })
+          );
+          cargoContainer.add(containerMesh);
+          cargoContainer.position.copy(ship.position);
+          
+          // ADD THIS: Visual launch effect - dark grey trail
+          const launchTrail = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.01, 0.02, 0.3, 8),
+            new THREE.MeshBasicMaterial({ color: 0x444444, transparent: true, opacity: 0.8 })
+          );
+          const launchDirection = new THREE.Vector3().subVectors(blackShip.position, ship.position).normalize();
+          launchTrail.position.copy(ship.position).addScaledVector(launchDirection, 0.2);
+          launchTrail.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), launchDirection);
+          scene.add(launchTrail);
+          
+          // Animate trail moving forward and fading
+          let trailTime = 0;
+          const trailInterval = setInterval(() => {
+            trailTime += 0.016;
+            launchTrail.position.addScaledVector(launchDirection, 0.05);
+            (launchTrail.material as THREE.MeshBasicMaterial).opacity = 0.8 - (trailTime * 2);
+            
+            if (trailTime > 0.4) {
+              scene.remove(launchTrail);
+              clearInterval(trailInterval);
+            }
+          }, 16);
         
         // Inherit ship velocity + boost toward target
         cargoVelocity.copy(velocity);
