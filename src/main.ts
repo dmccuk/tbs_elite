@@ -1,4 +1,7 @@
 import * as THREE from "three";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
 type Inputs = {
   throttleUp: boolean;
@@ -27,6 +30,9 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
 renderer.domElement.tabIndex = 1;
@@ -76,6 +82,18 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x000510, 0.000008);
 
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 50000);
+
+const composer = new EffectComposer(renderer);
+composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+composer.setSize(window.innerWidth, window.innerHeight);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.9,   // strength
+  0.6,   // radius
+  0.85   // threshold — only bright pixels bloom
+);
+composer.addPass(bloomPass);
 
 // === ADD THIS: Background Music ===
 const backgroundMusic = new Audio('/tbs_elite.mp3');
@@ -523,23 +541,148 @@ const debrisField = new THREE.Group();
 }
 scene.add(debrisField);
 
-// Ship
+// Ship — Space Refuse Collector MK-IV (visible chase-cam model)
 const ship = new THREE.Group();
 {
-  const shipScale = 0.03;
-  const body = new THREE.Mesh(
-    new THREE.ConeGeometry(shipScale * 0.4, shipScale * 2.5, 16),
-    new THREE.MeshStandardMaterial({ 
-      color: 0x1a1a2e,
-      roughness: 0.4,
-      metalness: 0.9
-    })
+  const s = 0.04;
+
+  const hullPaint = new THREE.MeshStandardMaterial({
+    color: 0x5a5040,         // dirty olive utility
+    roughness: 0.75,
+    metalness: 0.55,
+  });
+  const darkMetal = new THREE.MeshStandardMaterial({
+    color: 0x222428,
+    roughness: 0.6,
+    metalness: 0.85,
+  });
+  const hazard = new THREE.MeshStandardMaterial({
+    color: 0xd0a020,         // weathered hazard yellow
+    roughness: 0.6,
+    metalness: 0.4,
+    emissive: 0x553300,
+    emissiveIntensity: 0.2,
+  });
+  const cockpitGlass = new THREE.MeshBasicMaterial({ color: 0xffd070, fog: false });
+  const exhaust = new THREE.MeshBasicMaterial({ color: 0xff8833, fog: false });
+
+  // Main chassis — boxy industrial body
+  const chassis = new THREE.Mesh(
+    new THREE.BoxGeometry(s * 1.2, s * 0.5, s * 0.7),
+    hullPaint
   );
-  body.rotation.x = Math.PI / 2;
-  body.visible = false;
-  ship.add(body);
+  // The ship's forward direction is -Z (camera sits behind at +Z),
+  // so the long axis goes along Z.
+  chassis.rotation.y = Math.PI / 2;
+  ship.add(chassis);
+
+  // Cockpit pod jutting forward (cone)
+  const cockpit = new THREE.Mesh(
+    new THREE.CylinderGeometry(s * 0.18, s * 0.22, s * 0.45, 8),
+    hullPaint
+  );
+  cockpit.rotation.x = Math.PI / 2;
+  cockpit.position.set(0, s * 0.1, -s * 0.7);
+  ship.add(cockpit);
+
+  // Cockpit windshield (emissive warm glow)
+  const windshield = new THREE.Mesh(
+    new THREE.BoxGeometry(s * 0.28, s * 0.08, s * 0.18),
+    cockpitGlass
+  );
+  windshield.position.set(0, s * 0.18, -s * 0.78);
+  ship.add(windshield);
+
+  // Cargo clamp under the chassis (holds the bio-waste container)
+  const clamp = new THREE.Mesh(
+    new THREE.BoxGeometry(s * 0.9, s * 0.1, s * 0.5),
+    darkMetal
+  );
+  clamp.position.set(0, -s * 0.3, 0);
+  ship.add(clamp);
+
+  // Bio-waste container — visible while attached (hide via main mission flag)
+  const cargo = new THREE.Mesh(
+    new THREE.BoxGeometry(s * 0.7, s * 0.35, s * 0.45),
+    hazard
+  );
+  cargo.position.set(0, -s * 0.5, 0);
+  cargo.name = "attached-cargo";
+  ship.add(cargo);
+
+  // Hazard stripe on cargo
+  const stripe = new THREE.Mesh(
+    new THREE.BoxGeometry(s * 0.71, s * 0.06, s * 0.46),
+    darkMetal
+  );
+  stripe.position.set(0, -s * 0.5, 0);
+  stripe.name = "attached-cargo";
+  ship.add(stripe);
+
+  // Twin chunky engine nacelles at the back
+  for (const side of [1, -1]) {
+    const nacelle = new THREE.Mesh(
+      new THREE.CylinderGeometry(s * 0.13, s * 0.15, s * 0.55, 12),
+      darkMetal
+    );
+    nacelle.rotation.x = Math.PI / 2;
+    nacelle.position.set(side * s * 0.35, 0, s * 0.5);
+    ship.add(nacelle);
+
+    // Exhaust glow
+    const glow = new THREE.Mesh(
+      new THREE.SphereGeometry(s * 0.09, 12, 12),
+      exhaust
+    );
+    glow.position.set(side * s * 0.35, 0, s * 0.75);
+    ship.add(glow);
+
+    // Plume
+    const plume = new THREE.Mesh(
+      new THREE.ConeGeometry(s * 0.11, s * 0.9, 10),
+      new THREE.MeshBasicMaterial({
+        color: 0xff6622,
+        transparent: true,
+        opacity: 0.5,
+        fog: false,
+      })
+    );
+    plume.rotation.x = -Math.PI / 2;
+    plume.position.set(side * s * 0.35, 0, s * 1.2);
+    ship.add(plume);
+  }
+
+  // Antenna mast on top
+  const mast = new THREE.Mesh(
+    new THREE.CylinderGeometry(s * 0.015, s * 0.015, s * 0.5, 6),
+    darkMetal
+  );
+  mast.position.set(s * 0.3, s * 0.4, s * 0.2);
+  ship.add(mast);
+
+  // Wing-edge nav lights (red port, green starboard)
+  const navPort = new THREE.Mesh(
+    new THREE.SphereGeometry(s * 0.04, 8, 8),
+    new THREE.MeshBasicMaterial({ color: 0xff3344, fog: false })
+  );
+  navPort.position.set(-s * 0.6, 0, 0);
+  ship.add(navPort);
+
+  const navStbd = new THREE.Mesh(
+    new THREE.SphereGeometry(s * 0.04, 8, 8),
+    new THREE.MeshBasicMaterial({ color: 0x33ff66, fog: false })
+  );
+  navStbd.position.set(s * 0.6, 0, 0);
+  ship.add(navStbd);
 }
 scene.add(ship);
+
+// Hide the attached cargo meshes once the player launches it
+function hideAttachedCargo() {
+  ship.traverse((obj) => {
+    if (obj.name === "attached-cargo") obj.visible = false;
+  });
+}
 
 ship.position.set(0, 0, 0);
 
@@ -566,58 +709,171 @@ let playerDeathTimer = 0;
 function createRoyalYacht() {
   const yacht = new THREE.Group();
   const scale = 0.08;
-  
-  // Sleek elongated body - bright silver grey
-  const body = new THREE.Mesh(
-    new THREE.CylinderGeometry(scale * 0.2, scale * 0.35, scale * 4, 24),
-    new THREE.MeshStandardMaterial({
-      color: 0xccccdd,
-      roughness: 0.15,
-      metalness: 0.95,
-      emissive: 0x6677aa,
-      emissiveIntensity: 0.3
-    })
+
+  // Forward hull section — slimmer, polished royal silver
+  const hullMat = new THREE.MeshStandardMaterial({
+    color: 0xd8d8e8,
+    roughness: 0.18,
+    metalness: 0.95,
+    emissive: 0x223355,
+    emissiveIntensity: 0.15,
+  });
+  const accentMat = new THREE.MeshStandardMaterial({
+    color: 0x99aabb,
+    roughness: 0.25,
+    metalness: 0.9,
+  });
+  const goldMat = new THREE.MeshStandardMaterial({
+    color: 0xffd070,
+    roughness: 0.25,
+    metalness: 0.95,
+    emissive: 0xaa7722,
+    emissiveIntensity: 0.4,
+  });
+  const windowMat = new THREE.MeshBasicMaterial({ color: 0xffe9a0, fog: false });
+  const navRed = new THREE.MeshBasicMaterial({ color: 0xff3344, fog: false });
+  const navGreen = new THREE.MeshBasicMaterial({ color: 0x33ff66, fog: false });
+
+  // Aft hull (wider, holds engines)
+  const aftHull = new THREE.Mesh(
+    new THREE.CylinderGeometry(scale * 0.32, scale * 0.4, scale * 1.6, 20),
+    hullMat
   );
-  body.rotation.z = Math.PI / 2;
-  yacht.add(body);
-  
-  // Sleek nose cone - bright silver
+  aftHull.rotation.z = Math.PI / 2;
+  aftHull.position.set(-scale * 1.2, 0, 0);
+  yacht.add(aftHull);
+
+  // Mid hull (tapers)
+  const midHull = new THREE.Mesh(
+    new THREE.CylinderGeometry(scale * 0.22, scale * 0.32, scale * 1.8, 20),
+    hullMat
+  );
+  midHull.rotation.z = Math.PI / 2;
+  midHull.position.set(scale * 0.3, 0, 0);
+  yacht.add(midHull);
+
+  // Forward hull (slimmer)
+  const fwdHull = new THREE.Mesh(
+    new THREE.CylinderGeometry(scale * 0.15, scale * 0.22, scale * 1.0, 20),
+    hullMat
+  );
+  fwdHull.rotation.z = Math.PI / 2;
+  fwdHull.position.set(scale * 1.7, 0, 0);
+  yacht.add(fwdHull);
+
+  // Sleek nose cone
   const nose = new THREE.Mesh(
-    new THREE.ConeGeometry(scale * 0.2, scale * 0.6, 24),
-    new THREE.MeshStandardMaterial({
-      color: 0xddddee,
-      roughness: 0.08,
-      metalness: 0.98,
-      emissive: 0x8899cc,
-      emissiveIntensity: 0.2
-    })
+    new THREE.ConeGeometry(scale * 0.15, scale * 0.5, 20),
+    hullMat
   );
   nose.rotation.z = -Math.PI / 2;
-  nose.position.set(scale * 2.3, 0, 0);
+  nose.position.set(scale * 2.45, 0, 0);
   yacht.add(nose);
-  
-  // Blue engine glow
-  const engine = new THREE.Mesh(
-    new THREE.CylinderGeometry(scale * 0.15, scale * 0.18, scale * 0.4, 16),
-    new THREE.MeshBasicMaterial({ color: 0x3388ff, fog: false })
+
+  // Bridge tower on top (faceted with glowing window strip)
+  const bridge = new THREE.Mesh(
+    new THREE.BoxGeometry(scale * 0.5, scale * 0.18, scale * 0.28),
+    hullMat
   );
-  engine.rotation.z = Math.PI / 2;
-  engine.position.set(-scale * 2, 0, 0);
-  yacht.add(engine);
-  
-  // Engine trail
-  const trailGeo = new THREE.CylinderGeometry(scale * 0.08, scale * 0.02, scale * 1.5, 12);
-  const trailMat = new THREE.MeshBasicMaterial({
-    color: 0x3388ff,
-    transparent: true,
-    opacity: 0.5,
-    fog: false
-  });
-  const trail = new THREE.Mesh(trailGeo, trailMat);
-  trail.rotation.z = Math.PI / 2;
-  trail.position.set(-scale * 2.7, 0, 0);
-  yacht.add(trail);
-  
+  bridge.position.set(scale * 0.4, scale * 0.32, 0);
+  yacht.add(bridge);
+
+  const bridgeWindow = new THREE.Mesh(
+    new THREE.BoxGeometry(scale * 0.42, scale * 0.05, scale * 0.22),
+    windowMat
+  );
+  bridgeWindow.position.set(scale * 0.4, scale * 0.38, 0);
+  yacht.add(bridgeWindow);
+
+  // Hull window strips (rows of small emissive boxes along the side)
+  for (let i = 0; i < 8; i++) {
+    const winL = new THREE.Mesh(
+      new THREE.BoxGeometry(scale * 0.06, scale * 0.025, scale * 0.025),
+      windowMat
+    );
+    winL.position.set(scale * (-0.4 + i * 0.18), scale * 0.05, scale * 0.28);
+    yacht.add(winL);
+    const winR = winL.clone();
+    winR.position.z = -scale * 0.28;
+    yacht.add(winR);
+  }
+
+  // Swept wing fins (port and starboard)
+  for (const side of [1, -1]) {
+    const fin = new THREE.Mesh(
+      new THREE.BoxGeometry(scale * 0.9, scale * 0.04, scale * 0.4),
+      accentMat
+    );
+    fin.position.set(-scale * 0.8, 0, side * scale * 0.55);
+    yacht.add(fin);
+
+    // Nav light at wingtip
+    const navMat = side === 1 ? navGreen : navRed;
+    const navLight = new THREE.Mesh(
+      new THREE.SphereGeometry(scale * 0.05, 8, 8),
+      navMat
+    );
+    navLight.position.set(-scale * 0.4, 0, side * scale * 0.78);
+    yacht.add(navLight);
+  }
+
+  // Engine bells — 3 across the back, blue plasma glow
+  for (let i = -1; i <= 1; i++) {
+    const housing = new THREE.Mesh(
+      new THREE.CylinderGeometry(scale * 0.13, scale * 0.16, scale * 0.25, 16),
+      accentMat
+    );
+    housing.rotation.z = Math.PI / 2;
+    housing.position.set(-scale * 2.05, 0, i * scale * 0.22);
+    yacht.add(housing);
+
+    const glow = new THREE.Mesh(
+      new THREE.SphereGeometry(scale * 0.11, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0x66bbff, fog: false })
+    );
+    glow.position.set(-scale * 2.18, 0, i * scale * 0.22);
+    yacht.add(glow);
+
+    // Plasma cone
+    const plasma = new THREE.Mesh(
+      new THREE.ConeGeometry(scale * 0.1, scale * 0.9, 12),
+      new THREE.MeshBasicMaterial({
+        color: 0x3388ff,
+        transparent: true,
+        opacity: 0.55,
+        fog: false,
+      })
+    );
+    plasma.rotation.z = Math.PI / 2;
+    plasma.position.set(-scale * 2.7, 0, i * scale * 0.22);
+    yacht.add(plasma);
+  }
+
+  // Antenna mast forward of bridge
+  const antenna = new THREE.Mesh(
+    new THREE.CylinderGeometry(scale * 0.012, scale * 0.012, scale * 0.4, 8),
+    accentMat
+  );
+  antenna.position.set(scale * 1.2, scale * 0.4, 0);
+  yacht.add(antenna);
+
+  // Royal crest — small gold disc on the bridge front
+  const crest = new THREE.Mesh(
+    new THREE.CylinderGeometry(scale * 0.06, scale * 0.06, scale * 0.01, 16),
+    goldMat
+  );
+  crest.rotation.z = Math.PI / 2;
+  crest.position.set(scale * 0.66, scale * 0.32, 0);
+  yacht.add(crest);
+
+  // Ventral keel fin
+  const keel = new THREE.Mesh(
+    new THREE.BoxGeometry(scale * 1.0, scale * 0.18, scale * 0.04),
+    accentMat
+  );
+  keel.position.set(-scale * 0.2, -scale * 0.3, 0);
+  yacht.add(keel);
+
   yacht.position.set(-toRender(50000), 0, toRender(5000));
   return yacht;
 }
@@ -658,44 +914,143 @@ function createRendezvousBeacon() {
 
 function createBlackShip() {
   const black = new THREE.Group();
-  const scale = 0.06;
-  
-  const hull = new THREE.Mesh(
-    new THREE.ConeGeometry(scale * 0.4, scale * 2.5, 8),
-    new THREE.MeshStandardMaterial({
-      color: 0x0a0a0a,
-      roughness: 0.7,
-      metalness: 0.9
-    })
-  );
-  hull.rotation.x = Math.PI / 2;
-  black.add(hull);
-  
-const engine = new THREE.Mesh(
-    new THREE.SphereGeometry(scale * 0.2, 16, 16),
-    new THREE.MeshBasicMaterial({
-      color: 0x440000,
-      transparent: true,
-      opacity: 0.3,
-      fog: false
-    })
-  );
-  engine.position.set(-scale * 1.3, 0, 0);
-  black.add(engine);
-  
-  // Red engine trail
-  const trailGeo = new THREE.CylinderGeometry(scale * 0.1, scale * 0.02, scale * 1.2, 12);
-  const trailMat = new THREE.MeshBasicMaterial({
-    color: 0xff0000,
-    transparent: true,
-    opacity: 0.4,
-    fog: false
+  const scale = 0.07;
+
+  const darkHullMat = new THREE.MeshStandardMaterial({
+    color: 0x0c0d12,
+    roughness: 0.55,
+    metalness: 0.85,
   });
-  const trail = new THREE.Mesh(trailGeo, trailMat);
-  trail.rotation.z = Math.PI / 2;
-  trail.position.set(-scale * 1.9, 0, 0);
-  black.add(trail);
-  
+  const plateMat = new THREE.MeshStandardMaterial({
+    color: 0x1a1c24,
+    roughness: 0.45,
+    metalness: 0.9,
+    emissive: 0x220000,
+    emissiveIntensity: 0.15,
+  });
+  const redGlow = new THREE.MeshBasicMaterial({ color: 0xff2a00, fog: false });
+  const ember = new THREE.MeshBasicMaterial({ color: 0xff7733, fog: false });
+
+  // Long forward-swept main hull (faceted, low-poly menacing wedge)
+  const mainHull = new THREE.Mesh(
+    new THREE.CylinderGeometry(scale * 0.08, scale * 0.45, scale * 2.6, 6),
+    darkHullMat
+  );
+  mainHull.rotation.z = -Math.PI / 2;
+  black.add(mainHull);
+
+  // Upper spine plate (raised dorsal armour)
+  const dorsal = new THREE.Mesh(
+    new THREE.BoxGeometry(scale * 2.0, scale * 0.18, scale * 0.5),
+    plateMat
+  );
+  dorsal.position.set(-scale * 0.2, scale * 0.22, 0);
+  black.add(dorsal);
+
+  // Lower belly plate
+  const belly = new THREE.Mesh(
+    new THREE.BoxGeometry(scale * 1.6, scale * 0.14, scale * 0.7),
+    plateMat
+  );
+  belly.position.set(-scale * 0.3, -scale * 0.22, 0);
+  black.add(belly);
+
+  // Sensor / cockpit slit (thin red glowing line forward)
+  const slit = new THREE.Mesh(
+    new THREE.BoxGeometry(scale * 0.04, scale * 0.04, scale * 0.32),
+    redGlow
+  );
+  slit.position.set(scale * 0.95, scale * 0.05, 0);
+  black.add(slit);
+
+  // Twin forward weapon mounts (top + bottom)
+  for (const sign of [1, -1]) {
+    const mount = new THREE.Mesh(
+      new THREE.BoxGeometry(scale * 0.18, scale * 0.1, scale * 0.18),
+      plateMat
+    );
+    mount.position.set(scale * 0.55, sign * scale * 0.32, 0);
+    black.add(mount);
+
+    const barrel = new THREE.Mesh(
+      new THREE.CylinderGeometry(scale * 0.025, scale * 0.025, scale * 0.6, 8),
+      darkHullMat
+    );
+    barrel.rotation.z = Math.PI / 2;
+    barrel.position.set(scale * 0.85, sign * scale * 0.32, 0);
+    black.add(barrel);
+  }
+
+  // Port / starboard wings (swept back, angular)
+  for (const side of [1, -1]) {
+    const wing = new THREE.Mesh(
+      new THREE.BoxGeometry(scale * 0.9, scale * 0.06, scale * 0.55),
+      plateMat
+    );
+    wing.position.set(-scale * 0.5, 0, side * scale * 0.55);
+    wing.rotation.y = side * 0.25;
+    black.add(wing);
+
+    // Wingtip missile pod
+    const pod = new THREE.Mesh(
+      new THREE.BoxGeometry(scale * 0.45, scale * 0.12, scale * 0.16),
+      plateMat
+    );
+    pod.position.set(-scale * 0.55, scale * 0.02, side * scale * 0.85);
+    black.add(pod);
+
+    // Missile tube tips glowing faint red
+    for (let i = -1; i <= 1; i += 2) {
+      const tip = new THREE.Mesh(
+        new THREE.SphereGeometry(scale * 0.025, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0xff4422, fog: false })
+      );
+      tip.position.set(-scale * 0.3, scale * 0.02, side * scale * 0.85 + i * scale * 0.05);
+      black.add(tip);
+    }
+  }
+
+  // Twin engine pods at the back — fierce red glow
+  for (const side of [1, -1]) {
+    const housing = new THREE.Mesh(
+      new THREE.CylinderGeometry(scale * 0.16, scale * 0.2, scale * 0.5, 12),
+      plateMat
+    );
+    housing.rotation.z = Math.PI / 2;
+    housing.position.set(-scale * 1.45, 0, side * scale * 0.32);
+    black.add(housing);
+
+    const inner = new THREE.Mesh(
+      new THREE.CylinderGeometry(scale * 0.11, scale * 0.11, scale * 0.1, 12),
+      ember
+    );
+    inner.rotation.z = Math.PI / 2;
+    inner.position.set(-scale * 1.7, 0, side * scale * 0.32);
+    black.add(inner);
+
+    // Plume
+    const plume = new THREE.Mesh(
+      new THREE.ConeGeometry(scale * 0.13, scale * 1.4, 12),
+      new THREE.MeshBasicMaterial({
+        color: 0xff3300,
+        transparent: true,
+        opacity: 0.55,
+        fog: false,
+      })
+    );
+    plume.rotation.z = Math.PI / 2;
+    plume.position.set(-scale * 2.4, 0, side * scale * 0.32);
+    black.add(plume);
+  }
+
+  // Dorsal antenna spike
+  const spike = new THREE.Mesh(
+    new THREE.ConeGeometry(scale * 0.025, scale * 0.4, 6),
+    darkHullMat
+  );
+  spike.position.set(-scale * 0.2, scale * 0.55, 0);
+  black.add(spike);
+
   black.position.set(-toRender(75000), 0, toRender(5000));
   return black;
 }
@@ -935,6 +1290,7 @@ function setKey(code: string, down: boolean) {
       case "KeyX":
         if (down && !cargoDetached && missionStarted && blackShip) {
           cargoDetached = true;
+          hideAttachedCargo();
           playWhooshSound();
           screenShake(0.03, 300);
           
@@ -1483,7 +1839,7 @@ function animate() {
   updateRadar();
   drawShipMarkers();
 
-  renderer.render(scene, camera);
+  composer.render();
 }
 
 const radarCanvas = document.getElementById("radar-canvas") as HTMLCanvasElement | null;
@@ -1756,4 +2112,6 @@ window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  bloomPass.resolution.set(window.innerWidth, window.innerHeight);
 });
