@@ -1,26 +1,39 @@
 import * as THREE from "three";
 import type { ShipModel } from "./models";
+import type { ShuttleModel } from "./models-frontier";
 import type { Effects } from "./fx/effects";
 import type { World } from "./world";
+import type { ShipId } from "./config";
 
 // Shared game state. Logic lives in the other modules; this file only holds
 // the data they all read and write, so there are no circular imports.
 
+/** Playable missions, in story order. */
+export type MissionId = "prologue" | "chapter1";
+
 /**
- * Mission phases (a finite state machine). Legal transitions:
+ * Mission phases (a finite state machine), shared by every mission. Legal transitions:
  *
- *   splash ──any key──▶ practice ──timer / Enter──▶ ambush ──intro done──▶ combat
- *   combat ──corvette crippled──▶ victory ──corvette jumps away──▶ rendezvous
- *   rendezvous ──reach beacon──▶ complete
+ *   splash ──pick a mission──▶ practice ──timer / Enter──▶ ambush ──intro done──▶ combat
+ *   combat ──objective done──▶ victory ──outro──▶ rendezvous ──reach beacon──▶ complete
  *   practice | ambush | combat | victory | rendezvous ──player destroyed──▶ failed
- *   combat ──yacht destroyed──▶ failed
- *   complete | failed ──R──▶ practice (short, no tutorial)
+ *   combat ──mission-specific loss──▶ failed
+ *   complete | failed ──R──▶ practice (same mission, short, no tutorial)
+ *   complete ──NEXT MISSION──▶ practice (next mission)   any ──MISSION SELECT──▶ splash
+ *
+ * Chapter 1: ambush = yacht + corvette warp in; combat until the corvette is
+ *   crippled (loss: yacht destroyed); victory = corvette jumps away.
+ * Prologue: practice = patrol with Harren; ambush = distress call + burn to
+ *   Tessick-3; combat has sub-steps in G.step ("dogfight" → "runner" → "pursuit");
+ *   losses: shuttle destroyed or jumps away; victory = shuttle surrenders.
  *
  * Pausing is a separate flag (G.paused), not a phase.
  */
 export type Phase = "splash" | "practice" | "ambush" | "combat" | "victory" | "rendezvous" | "complete" | "failed";
 
-export type EntityKind = "player" | "yacht" | "corvette" | "drone" | "missile" | "drum";
+export type EntityKind =
+  | "player" | "yacht" | "corvette" | "drone" | "missile" | "drum"
+  | "fighter" | "wingman" | "shuttle" | "engines" | "relay";
 
 export interface Entity {
   kind: EntityKind;
@@ -40,9 +53,14 @@ export interface Player extends Entity {
   yawVel: number;
   pitchVel: number;
   bank: number;
+  aimYaw: number;         // mouse-aim circle; the ship turns to follow it
+  aimPitch: number;
   throttle: number;
   speed: number;
   shield: number;
+  maxShield: number;
+  /** Match speed with G.target (the Seagull's special). */
+  matchSpeed: boolean;
   lastHitTime: number;
   boostEnergy: number;
   boosting: boolean;
@@ -54,6 +72,7 @@ export interface Player extends Entity {
   strafe: THREE.Vector3;
   containers: number;
   reloadTimer: number;    // counts down while the compactor makes a container
+  missiles: number;       // wing missiles left (Seagull)
   forward: THREE.Vector3;
 }
 
@@ -104,6 +123,55 @@ export interface Drum extends Entity {
   spin: THREE.Vector3;
 }
 
+// --- Prologue entities ---------------------------------------------------------
+
+export interface Fighter extends Entity {
+  model: ShipModel;
+  state: "circle" | "attack" | "break" | "flee";
+  stateTimer: number;
+  fireTimer: number;
+  burstLeft: number;
+  forward: THREE.Vector3;
+  breakDir: THREE.Vector3;
+  aimAt: Entity | null;   // who it is shooting at (player or Harren)
+  orbit: number;          // angle around the relay while strafing it
+  smokeTimer: number;
+  fleeTime: number;
+}
+
+export interface Wingman extends Entity {
+  model: ShipModel;
+  forward: THREE.Vector3;
+  speed: number;
+  fireTimer: number;
+  gunSide: number;
+  chase: Fighter | null;
+}
+
+export interface Shuttle extends Entity {
+  model: ShuttleModel;
+  /** The engine block as its own hit zone (kind "engines"); obj is kept at the block's world position. */
+  engines: Entity;
+  state: "docked" | "fleeing" | "disabled";
+  forward: THREE.Vector3;
+  speed: number;
+  jumpTimer: number;
+  turretTimer: number;
+  smokeTimer: number;
+}
+
+/** A missile fired by the player (missiles.ts). */
+export interface PlayerMissile {
+  obj: THREE.Object3D;
+  vel: THREE.Vector3;
+  target: Entity;
+  age: number;
+  speed: number;
+  lit: boolean;           // motor ignited (after dropping clear of the wing)
+  evaded: boolean;        // the target has already tried its break turn
+  smokeTimer: number;
+}
+
 export interface Mine {
   obj: THREE.Object3D;
   light: THREE.Sprite;
@@ -128,9 +196,13 @@ export interface Stats {
   drums: number;
   minesLaunched: number;
   mineHits: number;
+  fighters: number;
+  missilesFired: number;
   shots: number;
   hits: number;
 }
+
+export const emptyStats = (): Stats => ({ drones: 0, missiles: 0, drums: 0, minesLaunched: 0, mineHits: 0, fighters: 0, missilesFired: 0, shots: 0, hits: 0 });
 
 interface Scheduled { at: number; fn: () => void; }
 
@@ -144,10 +216,23 @@ export type GameEvent =
   | { type: "droneKilled" }
   | { type: "drumKilled" }
   | { type: "armourPing" }
-  | { type: "containerReady" };
+  | { type: "containerReady" }
+  | { type: "fighterKilled"; byPlayer: boolean; runner: boolean }
+  | { type: "runnerEscaped" }
+  | { type: "shuttleHullHit"; hp: number }
+  | { type: "shuttleEnginesHit"; hp: number }
+  | { type: "shuttleDisabled" }
+  | { type: "shuttleDestroyed" }
+  | { type: "shuttleJumped" };
 
 export const G = {
+  missionId: "prologue" as MissionId,
+  shipId: "mk4" as ShipId,
   phase: "splash" as Phase,
+  /** Mission-specific sub-step within a phase (e.g. the prologue's "dogfight" / "runner" / "pursuit"). */
+  step: "",
+  /** Prologue free flight: the patrol never ends until the player presses Enter. */
+  freeFlight: false,
   paused: false,
   helpOpen: false,
   /** Seconds of simulated time since the page loaded (stops while paused). */
@@ -163,8 +248,11 @@ export const G = {
   /** Objective line and control hint shown at the top of the HUD. */
   objective: "",
   hint: "",
+  /** Next-step prompt under the crosshair during combat (walks through the cargo attack). */
+  guide: "",
+  guideTone: "" as "" | "info" | "wait" | "go",
   score: 0,
-  stats: { drones: 0, missiles: 0, drums: 0, minesLaunched: 0, mineHits: 0, shots: 0, hits: 0 } as Stats,
+  stats: emptyStats(),
   missFeedbackGiven: false,
 
   player: null as unknown as Player,
@@ -173,7 +261,15 @@ export const G = {
   drones: [] as Drone[],
   missiles: [] as Missile[],
   drums: [] as Drum[],
+  fighters: [] as Fighter[],
+  wingman: null as Wingman | null,
+  shuttle: null as Shuttle | null,
+  /** Tessick-3 relay (prologue): hp is its integrity in %. */
+  relay: null as Entity | null,
   mine: null as Mine | null,
+  playerMissiles: [] as PlayerMissile[],
+  /** Missile seeker: what it's locking, how far along (0–1), and whether it's locked. */
+  lock: { target: null as Entity | null, progress: 0, locked: false, refused: false },
   beacon: null as THREE.Object3D | null,
   target: null as Entity | null,
   /** Whatever the guns' aim assist is currently tracking, for the lead marker. */

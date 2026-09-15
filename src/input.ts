@@ -7,18 +7,25 @@ import { isTouch } from "./renderer";
 // One-shot actions (cargo, dodge, pause…) are queued and taken by the game
 // with input.take(), so a quick tap is never missed between frames.
 //
+// Mouse steering has two modes (toggled from the pause menu, saved in localStorage):
+//   "aim"       the mouse moves an aim circle and the ship turns to follow it,
+//               so it stops turning as soon as the mouse stops (default).
+//   "joystick"  the cursor's distance from screen centre sets the turn rate.
+// Mouse aim needs pointer lock; without it the mouse falls back to joystick.
+//
 // Default bindings — keep index.html (splash, help menu, #controls legend) in sync:
 //   Mouse / Arrows / A-D   steer          W / S       throttle
 //   Space / Left click     fire           Shift       boost
-//   X / C / Right click    cargo launch, then detonate
+//   X / C / Right click    the ship's special: cargo launch/detonate (MK-IV), match speed (Seagull)
 //   Q / E                  dodge roll     Tab / T     cycle target
 //   P / Esc                pause          H           help
 //   Enter                  skip practice  R           restart (when paused/over)
-//   M                      mute
+//   M                      mute           N           next mission (on the results screen)
+//   F / Middle click       fire a missile at a locked target (Seagull only)
 
 export type Action =
   | "cargo" | "dodgeLeft" | "dodgeRight" | "target" | "pause"
-  | "help" | "restart" | "skip" | "mute";
+  | "help" | "restart" | "skip" | "mute" | "next" | "missile";
 
 const KEY_ACTIONS: Record<string, Action> = {
   KeyX: "cargo",
@@ -33,13 +40,25 @@ const KEY_ACTIONS: Record<string, Action> = {
   KeyR: "restart",
   Enter: "skip",
   KeyM: "mute",
+  KeyN: "next",
+  KeyF: "missile",
 };
 
 const PREVENT = new Set(["Space", "Tab", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 
+export type SteeringMode = "aim" | "joystick";
+const STEERING_KEY = "tbs-steering";
+
+function loadSteering(): SteeringMode {
+  try { return localStorage.getItem(STEERING_KEY) === "joystick" ? "joystick" : "aim"; } catch { return "aim"; }
+}
+
 class Input {
-  steerX = 0;       // -1 left … +1 right
+  steerX = 0;       // -1 left … +1 right (keys, touch stick, joystick-mode mouse)
   steerY = 0;       // -1 down … +1 up
+  /** Arrow / A-D keys are held this frame. */
+  keySteering = false;
+  steering: SteeringMode = loadSteering();
   throttleUp = false;
   throttleDown = false;
   boost = false;
@@ -70,11 +89,35 @@ class Input {
     if (this.pointerLocked) document.exitPointerLock();
   }
 
+  /** True when the mouse is steering in aim mode right now. */
+  get mouseAim(): boolean {
+    return this.steering === "aim" && this.pointerLocked;
+  }
+
+  /** Mouse movement (px) since the last call, for aim-mode steering. */
+  takeAimDelta(out: { x: number; y: number }) {
+    out.x = this.aimDX;
+    out.y = this.aimDY;
+    this.aimDX = this.aimDY = 0;
+  }
+
+  toggleSteering(): SteeringMode {
+    this.steering = this.steering === "aim" ? "joystick" : "aim";
+    try { localStorage.setItem(STEERING_KEY, this.steering); } catch { /* ignore */ }
+    this.mouseSteering = false;
+    this.mouseX = window.innerWidth / 2;
+    this.mouseY = window.innerHeight / 2;
+    this.aimDX = this.aimDY = 0;
+    return this.steering;
+  }
+
   /** True while the touch joystick is held; the HUD uses it to draw the stick. */
   stick = { active: false, baseX: 0, baseY: 0, x: 0, y: 0 };
 
   private keys = new Set<string>();
   private queue = new Set<Action>();
+  private aimDX = 0;
+  private aimDY = 0;
   private mouseFire = false;
   private keyFire = false;
   private touchFire = false;
@@ -107,7 +150,11 @@ class Input {
       window.addEventListener("pointermove", (e) => {
         if (e.pointerType !== "mouse") return;
         if (this.pointerLocked) {
-          // Locked pointer: move a virtual cursor, kept inside the steering circle.
+          // Some browsers report a huge jump right after locking; ignore spikes.
+          this.aimDX += clamp(e.movementX, -150, 150);
+          this.aimDY += clamp(e.movementY, -150, 150);
+          if (this.steering === "aim") return;
+          // Joystick mode: move a virtual cursor, kept inside the steering circle.
           const cx = window.innerWidth / 2;
           const cy = window.innerHeight / 2;
           const range = Math.min(window.innerWidth, window.innerHeight) * 0.38;
@@ -132,6 +179,7 @@ class Input {
           // Start the virtual cursor dead centre so the ship doesn't lurch.
           this.mouseX = window.innerWidth / 2;
           this.mouseY = window.innerHeight / 2;
+          this.aimDX = this.aimDY = 0;
         } else {
           this.mouseSteering = false;
           this.lostFocus = true; // Esc releases the lock — treat it as a pause
@@ -141,6 +189,7 @@ class Input {
         if (e.pointerType !== "mouse") return;
         if ((e.target as HTMLElement).closest?.("a, button, .modal, #splash-screen")) return;
         if (e.button === 0) this.mouseFire = true;
+        if (e.button === 1) { e.preventDefault(); this.queue.add("missile"); }
         if (e.button === 2) this.queue.add("cargo");
       });
       window.addEventListener("pointerup", (e) => { if (e.pointerType === "mouse" && e.button === 0) this.mouseFire = false; });
@@ -174,12 +223,13 @@ class Input {
     if (k.has("ArrowRight") || k.has("KeyD")) sx += 1;
     if (k.has("ArrowUp")) sy += 1;
     if (k.has("ArrowDown")) sy -= 1;
+    this.keySteering = sx !== 0 || sy !== 0;
 
     if (this.stick.active) {
       const r = 55;
       sx += clamp((this.stick.x - this.stick.baseX) / r, -1, 1);
       sy += clamp(-(this.stick.y - this.stick.baseY) / r, -1, 1);
-    } else if (this.mouseSteering) {
+    } else if (this.mouseSteering && !this.mouseAim) {
       // Distance of the cursor from screen centre steers the ship.
       const cx = window.innerWidth / 2;
       const cy = window.innerHeight / 2;
@@ -270,6 +320,7 @@ class Input {
     hold("btn-fire", (v) => (this.touchFire = v));
     hold("btn-boost", (v) => (this.touchBoost = v));
     tap("btn-cargo", "cargo");
+    tap("btn-missile", "missile");
     tap("btn-dodge", () => (this.steerX < 0 ? "dodgeLeft" : "dodgeRight"));
     tap("btn-pause", "pause");
   }

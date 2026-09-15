@@ -190,7 +190,8 @@ export function volumeAt(pos: THREE.Vector3): number {
 export function damageDrone(d: Drone, amount: number, at: THREE.Vector3) {
   if (!d.alive) return;
   d.hp -= amount;
-  G.fx.sparksAt(at, 6, 0xffcc88, 0.2, 0.004, 0.25, d.vel);
+  G.fx.sparksAt(at, 12, 0xffcc88, 0.28, 0.005, 0.3, d.vel);
+  G.fx.flash(at, 0.03, 0xffdd88, 0.1);
   if (d.hp <= 0) destroyDrone(d, true);
 }
 
@@ -198,8 +199,8 @@ export function destroyDrone(d: Drone, byPlayer: boolean) {
   if (!d.alive) return;
   d.alive = false;
   scene.remove(d.obj);
-  G.fx.explosion(d.obj.position, 0.05, "fire", d.vel);
-  audio.explosion(0.1, volumeAt(d.obj.position));
+  G.fx.explosion(d.obj.position, 0.07, "fire", d.vel);
+  audio.explosion(0.12, volumeAt(d.obj.position));
   if (byPlayer) {
     G.stats.drones++;
     addScore(SCORE.drone, d.obj.position);

@@ -1,14 +1,16 @@
 import * as THREE from "three";
 import { G, emit, type Entity, type Player } from "./game";
-import { TUNING, clamp, damp, lerp, rand } from "./config";
-import { createPlayerShip } from "./models";
+import { SHIPS, TUNING, clamp, damp, lerp, rand, type ShipId, type ShipStats } from "./config";
+import { createPlayerShip, type ShipModel } from "./models";
+import { createSeagull } from "./models-frontier";
 import { input } from "./input";
 import { audio } from "./audio";
 import { BASE_FOV, camera, isTouch, scene } from "./renderer";
 import { bolts } from "./weapons";
 
-// The Space Refuse Collector MK-IV: arcade flight model, guns, dodge roll,
-// shields and the chase camera.
+// The player's ship — the MK-IV garbage hauler (Chapter 1) or a Seagull patrol
+// fighter (Prologue): arcade flight model, guns, dodge roll, shields, match
+// speed and the chase camera.
 //
 // Flight model: yaw turns around world "up" and pitch is clamped short of
 // vertical, so the horizon always stays level and there is no roll to manage.
@@ -19,9 +21,23 @@ const _v2 = new THREE.Vector3();
 const _e = new THREE.Euler(0, 0, 0, "YXZ");
 const _muzzle = new THREE.Vector3();
 const _right = new THREE.Vector3();
+const _aim = { x: 0, y: 0 };
+
+// Each ship's model is built once and swapped in when a mission starts.
+const models: Partial<Record<ShipId, ShipModel>> = {};
+let S: ShipStats = SHIPS.mk4;
+
+/** Stats of the ship the player is flying now. */
+export function shipStats(): ShipStats {
+  return S;
+}
+
+function modelFor(id: ShipId): ShipModel {
+  return (models[id] ??= id === "seagull" ? createSeagull() : createPlayerShip());
+}
 
 export function createPlayer(): Player {
-  const model = createPlayerShip();
+  const model = modelFor("mk4");
   scene.add(model.root);
   const p: Player = {
     kind: "player",
@@ -29,14 +45,16 @@ export function createPlayer(): Player {
     model,
     vel: new THREE.Vector3(),
     radius: P.collisionRadius,
-    hp: P.hull,
-    maxHp: P.hull,
+    hp: S.hull,
+    maxHp: S.hull,
     alive: true,
-    label: "MK-IV",
-    yaw: 0, pitch: 0, yawVel: 0, pitchVel: 0, bank: 0,
+    label: S.label,
+    yaw: 0, pitch: 0, yawVel: 0, pitchVel: 0, bank: 0, aimYaw: 0, aimPitch: 0,
     throttle: P.startThrottle,
     speed: 0,
-    shield: P.shield,
+    shield: S.shield,
+    maxShield: S.shield,
+    matchSpeed: false,
     lastHitTime: -100,
     boostEnergy: P.boostMax,
     boosting: false,
@@ -48,18 +66,37 @@ export function createPlayer(): Player {
     strafe: new THREE.Vector3(),
     containers: TUNING.mine.rackSize,
     reloadTimer: 0,
+    missiles: S.missiles,
     forward: new THREE.Vector3(0, 0, -1),
   };
   return p;
 }
 
-export function resetPlayer(p: Player) {
-  p.obj.position.set(0, 0, 0);
-  p.yaw = p.pitch = p.yawVel = p.pitchVel = p.bank = 0;
+/** Swap the player into another ship (on mission start). Call resetPlayer() after. */
+export function setPlayerShip(id: ShipId) {
+  const p = G.player;
+  G.shipId = id;
+  S = SHIPS[id];
+  const model = modelFor(id);
+  if (model !== p.model) {
+    scene.remove(p.model.root);
+    scene.add(model.root);
+    p.model = model;
+    p.obj = model.root;
+  }
+  p.label = S.label;
+}
+
+/** Start the player at `pos`, heading `yaw` (radians; 0 faces -Z). */
+export function resetPlayer(p: Player, pos = new THREE.Vector3(), yaw = 0) {
+  p.obj.position.copy(pos);
+  p.yaw = p.aimYaw = yaw;
+  p.pitch = p.yawVel = p.pitchVel = p.bank = p.aimPitch = 0;
   p.throttle = P.startThrottle;
-  p.speed = P.maxSpeed * P.startThrottle;
-  p.hp = P.hull;
-  p.shield = P.shield;
+  p.speed = S.maxSpeed * P.startThrottle;
+  p.hp = p.maxHp = S.hull;
+  p.shield = p.maxShield = S.shield;
+  p.matchSpeed = false;
   p.alive = true;
   p.lastHitTime = -100;
   p.boostEnergy = P.boostMax;
@@ -68,8 +105,20 @@ export function resetPlayer(p: Player) {
   p.strafe.set(0, 0, 0);
   p.containers = TUNING.mine.rackSize;
   p.reloadTimer = 0;
+  p.missiles = S.missiles;
   p.model.root.visible = true;
   setCargoVisible(true);
+  applyOrientation(p);
+  camQuat.copy(p.obj.quaternion);
+}
+
+/** Jump the player somewhere else mid-mission (the prologue's burn), keeping speed and state. */
+export function teleportPlayer(pos: THREE.Vector3, yaw: number) {
+  const p = G.player;
+  p.obj.position.copy(pos);
+  p.yaw = p.aimYaw = yaw;
+  p.pitch = p.aimPitch = p.yawVel = p.pitchVel = 0;
+  p.strafe.set(0, 0, 0);
   applyOrientation(p);
   camQuat.copy(p.obj.quaternion);
 }
@@ -127,31 +176,42 @@ function killPlayer() {
 
 // --- Aim assist -------------------------------------------------------------
 
+const ASSIST_COS = Math.cos(THREE.MathUtils.degToRad(P.aimAssistDeg));
+const ENGINE_ASSIST_COS = Math.cos(THREE.MathUtils.degToRad(TUNING.prologue.shuttle.engineAssistDeg));
+const _candidates: Entity[] = [];
+
 function aimCandidates(): Entity[] {
-  const list: Entity[] = [];
+  const list = _candidates;
+  list.length = 0;
   for (const d of G.drones) if (d.alive) list.push(d);
   for (const m of G.missiles) if (m.alive && m.doomed <= 0) list.push(m);
   for (const d of G.drums) if (d.alive) list.push(d);
+  for (const f of G.fighters) if (f.alive) list.push(f);
+  const s = G.shuttle;
+  if (s?.alive && s.state === "fleeing" && s.engines.alive) list.push(s.engines);
   return list;
 }
 
 /** Picks the target nearest the crosshair and computes where to lead it. */
 function updateAimAssist(p: Player) {
-  const cone = Math.cos(THREE.MathUtils.degToRad(P.aimAssistDeg));
-  const range = P.bulletSpeed * P.bulletLife;
+  const range = S.bulletSpeed * S.bulletLife;
   let best: Entity | null = null;
-  let bestDot = cone;
+  let bestScore = 0;
   for (const e of aimCandidates()) {
     _v.subVectors(e.obj.position, p.obj.position);
     const dist = _v.length();
     if (dist > range || dist < 0.02) continue;
     const dot = _v.dot(p.forward) / dist;
-    if (dot > bestDot) { bestDot = dot; best = e; }
+    // The shuttle's engines only pull shots from a narrow cone, so aim still matters.
+    const cone = e.kind === "engines" ? ENGINE_ASSIST_COS : ASSIST_COS;
+    if (dot <= cone) continue;
+    const score = (dot - cone) / (1 - cone);
+    if (score > bestScore) { bestScore = score; best = e; }
   }
   G.aimTarget = best;
   if (best) {
     // Two iterations of intercept time are plenty at these speeds.
-    const speed = P.bulletSpeed + p.speed;
+    const speed = S.bulletSpeed + p.speed;
     let t = best.obj.position.distanceTo(p.obj.position) / speed;
     for (let i = 0; i < 2; i++) {
       G.aimPoint.copy(best.obj.position).addScaledVector(best.vel, t).addScaledVector(p.vel, -t * 0.5);
@@ -163,37 +223,49 @@ function updateAimAssist(p: Player) {
 }
 
 function fireGuns(p: Player) {
-  p.gunCooldown = P.gunCooldown;
-  const gun = p.model.guns[p.gunSide];
+  p.gunCooldown = S.gunCooldown;
+  const gun = p.model.guns[p.gunSide % p.model.guns.length];
   p.gunSide = 1 - p.gunSide;
   gun.getWorldPosition(_muzzle);
   _v.subVectors(G.aimPoint, _muzzle).normalize();
   // Never bend a shot more than the assist cone allows.
   if (_v.dot(p.forward) < Math.cos(THREE.MathUtils.degToRad(P.aimAssistDeg + 1))) _v.copy(p.forward);
-  _v2.copy(_v).multiplyScalar(P.bulletSpeed).addScaledVector(p.forward, p.speed);
-  bolts.fire(_muzzle, _v2, "player", 1, P.bulletLife, 0x44ffaa, 0.06, 0.0018);
-  G.fx.flash(_muzzle, 0.018, 0x66ffbb, 0.06, 1.2);
+  _v2.copy(_v).multiplyScalar(S.bulletSpeed).addScaledVector(p.forward, p.speed);
+  bolts.fire(_muzzle, _v2, "player", S.gunDamage, S.bulletLife, S.boltColor, S.boltLength, S.boltWidth);
+  G.fx.flash(_muzzle, 0.028, S.flashColor, 0.07, 1.4);
   G.stats.shots++;
-  audio.laser();
+  if (S.gunSound === "coilgun") audio.coilgun();
+  else audio.laser();
 }
 
 // --- Per-frame update -------------------------------------------------------
 
 export function updatePlayer(dt: number, controls: boolean) {
   const p = G.player;
+  input.takeAimDelta(_aim); // always drain, so movement never banks up while dead
   if (!p.alive) {
     p.vel.multiplyScalar(Math.exp(-dt));
     p.obj.position.addScaledVector(p.vel, dt);
     return;
   }
 
-  const steerX = controls ? input.steerX : 0;
-  const steerY = controls ? input.steerY : 0;
+  // Steering. In mouse-aim mode the ship chases the aim circle, which the mouse
+  // pushes around; keys, the touch stick and joystick-mode mouse steer directly.
+  const aiming = controls && input.mouseAim && !input.keySteering;
+  let steerX = controls ? input.steerX : 0;
+  let steerY = controls ? input.steerY : 0;
+  if (aiming) {
+    p.aimYaw = p.yaw + clamp(p.aimYaw - _aim.x * P.mouseAimSensitivity - p.yaw, -P.mouseAimLead, P.mouseAimLead);
+    p.aimPitch = clamp(p.pitch + clamp(p.aimPitch - _aim.y * P.mouseAimSensitivity - p.pitch, -P.mouseAimLead, P.mouseAimLead), -P.maxPitch, P.maxPitch);
+    steerX = clamp((p.yaw - p.aimYaw) * P.mouseAimGain, -1, 1);
+    steerY = clamp((p.aimPitch - p.pitch) * P.mouseAimGain, -1, 1);
+  }
 
   // Throttle (touch players get a fixed cruise speed; boost is their accelerator).
   if (controls && !isTouch) {
     if (input.throttleUp) p.throttle += P.throttleRate * dt;
     if (input.throttleDown) p.throttle -= P.throttleRate * dt;
+    if (input.throttleUp || input.throttleDown) p.matchSpeed = false; // manual throttle takes over
   } else if (controls) {
     p.throttle = 0.7;
   } else {
@@ -214,15 +286,25 @@ export function updatePlayer(dt: number, controls: boolean) {
 
   // Turning
   const turnScale = p.boosting ? 0.8 : 1;
-  p.yawVel = lerp(p.yawVel, -steerX * P.yawRate * turnScale, damp(7, dt));
-  p.pitchVel = lerp(p.pitchVel, steerY * P.pitchRate * turnScale, damp(7, dt));
+  p.yawVel = lerp(p.yawVel, -steerX * S.yawRate * turnScale, damp(7, dt));
+  p.pitchVel = lerp(p.pitchVel, steerY * S.pitchRate * turnScale, damp(7, dt));
   p.yaw += p.yawVel * dt;
   p.pitch = clamp(p.pitch + p.pitchVel * dt, -P.maxPitch, P.maxPitch);
   applyOrientation(p);
+  // Whenever something else is steering, the aim circle rides on the nose.
+  if (!aiming) { p.aimYaw = p.yaw; p.aimPitch = p.pitch; }
 
-  // Speed
-  const targetSpeed = p.boosting ? P.boostSpeed : p.throttle * P.maxSpeed;
-  const accel = p.boosting ? P.accel * 2 : P.accel;
+  // Speed. Match speed closes on the target and settles a little behind it.
+  let targetSpeed = p.boosting ? S.boostSpeed : p.throttle * S.maxSpeed;
+  if (p.matchSpeed) {
+    const t = G.target;
+    if (!controls || !t || !t.alive || t === p) p.matchSpeed = false;
+    else if (!p.boosting) {
+      const gap = t.obj.position.distanceTo(p.obj.position) - P.matchGap;
+      targetSpeed = clamp(t.vel.length() + gap * 0.9, 0, S.maxSpeed);
+    }
+  }
+  const accel = p.boosting ? S.accel * 2 : S.accel;
   if (p.speed < targetSpeed) p.speed = Math.min(targetSpeed, p.speed + accel * dt);
   else p.speed = Math.max(targetSpeed, p.speed - accel * dt);
 
@@ -256,7 +338,7 @@ export function updatePlayer(dt: number, controls: boolean) {
   p.model.body.rotation.x = p.pitchVel * 0.08;
 
   // Engine glow and exhaust trail scale with thrust.
-  const thrust = p.boosting ? 1.6 : 0.5 + (p.speed / P.maxSpeed) * 0.6;
+  const thrust = p.boosting ? 1.6 : 0.5 + (p.speed / S.maxSpeed) * 0.6;
   for (const g of p.model.glows) g.scale.setScalar(0.014 * thrust * rand(0.9, 1.1));
   for (const e of p.model.engines) {
     e.getWorldPosition(_v);
@@ -266,10 +348,10 @@ export function updatePlayer(dt: number, controls: boolean) {
   }
 
   // Shields recharge after a quiet spell.
-  if (G.time - p.lastHitTime > P.shieldRegenDelay) p.shield = Math.min(P.shield, p.shield + P.shieldRegenRate * dt);
+  if (G.time - p.lastHitTime > P.shieldRegenDelay) p.shield = Math.min(p.maxShield, p.shield + P.shieldRegenRate * dt);
 
   // Container rack: the compactor slowly squeezes out replacements.
-  if (p.containers < TUNING.mine.rackSize) {
+  if (S.special === "cargo" && p.containers < TUNING.mine.rackSize) {
     p.reloadTimer -= dt;
     if (p.reloadTimer <= 0) {
       p.containers++;
@@ -317,6 +399,8 @@ function collide(p: Player, dt: number) {
   }
   if (G.yacht?.alive) test(G.yacht.obj.position, G.yacht.radius, 0); // the yacht's shields just nudge you off
   if (G.corvette?.alive) test(G.corvette.obj.position, G.corvette.radius, 6);
+  if (G.relay) test(G.relay.obj.position, G.relay.radius, 4);
+  if (G.shuttle?.alive) test(G.shuttle.obj.position, G.shuttle.radius, 4);
 }
 
 // --- Chase camera -----------------------------------------------------------
@@ -331,7 +415,7 @@ export function updateCamera(dt: number, realDt: number) {
   // Rotation lags a little behind the ship so turns feel weighty and the
   // ship swings visibly across the screen.
   if (p.alive) camQuat.slerp(p.obj.quaternion, damp(6.5, dt));
-  const speedFactor = clamp(p.speed / P.maxSpeed, 0, 2);
+  const speedFactor = clamp(p.speed / S.maxSpeed, 0, 2);
   const pull = p.alive ? 0.2 + speedFactor * 0.012 + (p.boosting ? 0.03 : 0) : 0.6;
   _offset.set(0, 0.045, pull).applyQuaternion(camQuat);
   camera.position.copy(p.obj.position).add(_offset);

@@ -4,12 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
     <meta name="theme-color" content="#000000" />
-    <title>The Black Ship — Lingering Systems</title>
-    <meta name="description" content="Chapter 1 of The Black Ship: a garbage hauler, a royal yacht, and a warship that really should have picked on someone else." />
+    <title>The Black Ship</title>
+    <meta name="description" content="The Black Ship, from Vox9 Studios: a frontier patrol pilot, a garbage hauler, a royal yacht, and a warship that really should have picked on someone else." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Big+Shoulders+Stencil+Display:wght@800&family=Big+Shoulders+Display:wght@700;800&family=Big+Shoulders+Text:wght@400;600&display=swap" rel="stylesheet" />
     <style>
       :root {
         --hud: #00ff88;
@@ -89,10 +89,36 @@
       #practice-timer { display: none; margin-top: 6px; font-size: 12px; letter-spacing: 2px; color: var(--hud-dim); }
       #practice-timer.visible { display: block; }
 
+      #guide {
+        position: absolute; top: 67%; left: 50%; transform: translateX(-50%); display: none; max-width: min(720px, 92vw);
+        padding: 8px 16px; font-family: 'Orbitron', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 1px; text-align: center;
+        color: #e8fff4; background: rgba(0, 12, 8, 0.72); border: 2px solid var(--hud-dim); border-radius: 4px;
+      }
+      #guide.visible { display: block; }
+      #guide.wait { border-color: var(--warn); }
+      #guide.go { border-color: #66ff66; color: #66ff66; box-shadow: 0 0 24px rgba(102, 255, 102, 0.45); animation: flash 0.6s infinite; }
+      #guide b { color: var(--warn); }
+      #guide b.go, #guide.go b { color: #66ff66; }
+      #guide b.red { color: #ff5555; }
+      #guide .dim { margin-left: 10px; font-size: 11px; opacity: 0.7; font-weight: 400; }
+      #guide .step {
+        display: inline-block; min-width: 22px; margin-right: 8px; padding: 0 5px; border-radius: 3px;
+        background: var(--hud-dim); color: #001a10; text-shadow: none;
+      }
+      #guide.go .step { background: #66ff66; }
+
       #mission-status { position: absolute; top: 78px; left: 50%; transform: translateX(-50%); display: none; gap: 18px; align-items: center; padding: 6px 12px; font-size: 11px; }
       #mission-status.visible { display: flex; }
       .ms-block { display: flex; align-items: center; gap: 8px; }
       .ms-label { letter-spacing: 1px; font-family: 'Orbitron', sans-serif; font-size: 10px; }
+      .ms-block.hidden { display: none; }
+      body:not([data-mission="chapter1"]) .ch1-only, body:not([data-mission="prologue"]) .pro-only { display: none !important; }
+      .bar.sbar { width: 90px; }
+      #relay-block { color: #c8c8c8; }
+      #pirates-block { color: #ff5555; text-shadow: 0 0 8px rgba(255, 60, 60, 0.7); }
+      #shuttle-block { color: #ffffff; }
+      #engine-fill { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+      #jump-time { color: var(--warn); font-family: 'Orbitron', sans-serif; font-size: 10px; letter-spacing: 1px; min-width: 70px; }
       .bar { width: 150px; height: 9px; border: 1px solid currentColor; background: rgba(0, 0, 0, 0.6); position: relative; overflow: hidden; }
       .bar .fill { height: 100%; width: 100%; background: currentColor; box-shadow: 0 0 8px currentColor; transition: width 0.2s ease-out; }
       .bar .fill.critical { animation: blink 0.5s infinite; }
@@ -122,6 +148,16 @@
       .pip-fill { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(255, 170, 0, 0.5); }
       #cargo-label { font-size: 10px; letter-spacing: 1px; font-family: 'Orbitron', sans-serif; }
       #cargo-label.armed { color: #66ff66; animation: blink 0.6s infinite; }
+      #missile-box { color: #ffcc88; text-align: center; min-width: 110px; }
+      #missile-pips { display: flex; gap: 5px; justify-content: center; margin-bottom: 4px; height: 16px; align-items: flex-end; }
+      .mpip { width: 7px; height: 16px; border: 1px solid #ffcc88; border-radius: 3px 3px 1px 1px; background: rgba(0, 0, 0, 0.5); }
+      .mpip.on { background: linear-gradient(#ff5533 0 22%, #d8dde2 22%); box-shadow: 0 0 6px rgba(255, 204, 136, 0.5); }
+      #missile-label { font-size: 10px; letter-spacing: 1px; font-family: 'Orbitron', sans-serif; }
+      #missile-box.locked #missile-label { color: #ff4455; animation: blink 0.4s infinite; }
+      body[data-missiles="0"] .missile-only, body[data-missiles="0"] #missile-box, body[data-missiles="0"] #btn-missile { display: none !important; }
+      #btn-missile { right: 36px; bottom: calc(228px + var(--safe-b)); width: 56px; height: 56px; font-size: 11px; border-color: #ff8866; color: #ff8866; background: rgba(255, 110, 80, 0.12); }
+      #btn-missile.armed { border-color: #ff3344; color: #fff; background: rgba(255, 50, 60, 0.45); animation: blink 0.4s infinite; }
+      #btn-missile.empty { opacity: 0.4; }
 
       #radar-wrap { position: absolute; left: 16px; bottom: calc(16px + var(--safe-b)); }
       #radar-label { font-size: 9px; letter-spacing: 1px; opacity: 0.8; margin-bottom: 3px; }
@@ -133,7 +169,9 @@
       #target-info .row { font-size: 12px; color: var(--hud-dim); line-height: 1.5; }
 
       #controls { position: absolute; right: 16px; top: 92px; font-size: 11px; line-height: 1.9; padding: 8px 10px; background: rgba(0, 0, 0, 0.55); border: 1px solid rgba(0, 255, 136, 0.3); display: none; }
-      body[data-phase="practice"] #controls { display: block; }
+      body[data-phase="practice"] #controls, body[data-phase="ambush"] #controls, body[data-phase="combat"] #controls,
+      body[data-phase="victory"] #controls, body[data-phase="rendezvous"] #controls { display: block; }
+      body:not([data-phase="practice"]) #controls .practice-only { display: none; }
       .key { display: inline-block; background: rgba(0, 255, 136, 0.18); border: 1px solid rgba(0, 255, 136, 0.4); padding: 0 5px; border-radius: 3px; font-weight: 700; margin: 0 1px; color: #fff; }
 
       #banner {
@@ -209,41 +247,129 @@
       .help-text { color: var(--hud-dim); font-size: 12px; line-height: 1.6; }
       #help-menu { z-index: 320; }
 
-      /* ---------- Splash ---------- */
+      /* ---------- Title screen ----------
+         The live 3D scene is the backdrop (the ship orbits right of centre);
+         a left-hand scrim carries the stencil title and the mission list. */
       #splash-screen {
-        position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center;
-        background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.85) 75%);
-        pointer-events: auto; cursor: pointer; transition: opacity 0.6s;
+        --t-amber: #f2b01e;   /* hull stencil / safety amber */
+        --t-ink: #e6efe9;     /* body copy */
+        --t-mute: #8ea39a;    /* secondary copy */
+        --t-line: rgba(230, 239, 233, 0.14);
+        --t-go: #00ff88;      /* anything you can press: the HUD's phosphor green */
+        --t-void: 2, 5, 9;
+        position: fixed; inset: 0; z-index: 400; pointer-events: auto; color: var(--t-ink);
+        font-family: 'Big Shoulders Text', 'Barlow Condensed', 'Arial Narrow', sans-serif; transition: opacity 0.6s;
       }
       #splash-screen.hidden { opacity: 0; pointer-events: none; }
-      .splash-content {
-        width: min(720px, 94vw); max-height: 94vh; overflow-y: auto; padding: 30px 36px;
-        background: rgba(0, 18, 14, 0.82); border: 3px solid var(--hud);
-        box-shadow: 0 0 60px rgba(0, 255, 136, 0.5); text-shadow: var(--glow);
-        animation: splashIn 1s ease-out; backdrop-filter: blur(3px);
+      .title-scrim {
+        position: absolute; inset: 0; pointer-events: none;
+        background:
+          linear-gradient(90deg, rgba(var(--t-void), 0.95) 0%, rgba(var(--t-void), 0.86) 32%, rgba(var(--t-void), 0.3) 58%, rgba(var(--t-void), 0) 78%),
+          linear-gradient(0deg, rgba(var(--t-void), 0.9) 0%, rgba(var(--t-void), 0) 26%);
       }
-      @keyframes splashIn { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
-      .splash-title { font-family: 'Orbitron', sans-serif; font-size: clamp(28px, 6vw, 46px); font-weight: 900; text-align: center; color: var(--warn); letter-spacing: 5px; text-shadow: 0 0 22px rgba(255, 170, 0, 1); }
-      .splash-subtitle { font-family: 'Orbitron', sans-serif; font-size: 16px; text-align: center; color: var(--hud-dim); font-style: italic; margin: 6px 0 18px; }
-      .splash-divider { border-top: 2px solid var(--hud); margin: 16px 0; opacity: 0.3; }
-      .splash-story { font-size: 14px; line-height: 1.75; color: var(--hud-dim); }
-      .splash-story strong { color: var(--hud); }
-      .splash-section-title { font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 700; color: var(--warn); margin-bottom: 10px; letter-spacing: 2px; }
-      .splash-controls { font-size: 13px; line-height: 1.9; color: var(--hud-dim); display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
-      .splash-controls b { color: #fff; }
+      .title-screen {
+        position: relative; height: 100%; overflow-y: auto; box-sizing: border-box;
+        display: flex; flex-direction: column; gap: clamp(16px, 3.5vh, 36px);
+        padding: clamp(18px, 5vh, 52px) clamp(20px, 6vw, 84px);
+      }
+      .studio { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; letter-spacing: 0.06em; color: var(--t-mute); }
+      .studio-mark {
+        font-family: 'Big Shoulders Stencil Display', 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 17px; letter-spacing: 0.08em;
+        color: var(--t-amber); border: 1px solid var(--t-amber); padding: 1px 6px 0; line-height: 1.2;
+      }
+      .title-block { margin-top: auto; max-width: 600px; }
+      .game-title {
+        margin: 0; font-family: 'Big Shoulders Stencil Display', 'Big Shoulders Display', Impact, sans-serif; font-weight: 800;
+        font-size: clamp(56px, min(11.5vw, 15vh), 148px); line-height: 0.84; letter-spacing: 0.015em; text-transform: uppercase;
+        color: var(--t-amber); text-shadow: 0 0 36px rgba(242, 176, 30, 0.22);
+      }
+      .game-title .line { display: block; }
+      /* Cargo-container hazard stripe, straight off the MK-IV's bio-waste pod. */
+      .hazard { width: 132px; height: 7px; margin: 18px 0 14px; background: repeating-linear-gradient(-45deg, var(--t-amber) 0 7px, #16130a 7px 14px); }
+      .tagline { margin: 0; max-width: 30em; font-size: 19px; line-height: 1.4; color: var(--t-ink); }
+
+      .manifest { list-style: none; margin: 0; padding: 0; max-width: 600px; border-bottom: 1px solid var(--t-line); }
+      .mission-card {
+        position: relative; padding: 14px 0 14px 20px; border-top: 1px solid var(--t-line); cursor: pointer;
+        transition: background-color 0.15s;
+      }
+      .mission-card::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; background: transparent; transition: background-color 0.15s; }
+      .mission-card.suggested::before { background: var(--t-amber); }
+      .mission-card:hover, .mission-card:focus-within { background: rgba(0, 255, 136, 0.045); }
+      .mission-card:hover::before, .mission-card:focus-within::before { background: var(--t-go); }
+      .m-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+      .m-title { margin: 0; font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; font-weight: 800; font-size: 30px; line-height: 1; letter-spacing: 0.02em; color: var(--t-ink); }
+      .m-tag { display: none; padding: 2px 8px 1px; font-weight: 600; font-size: 13px; letter-spacing: 0.04em; color: #1a1300; background: var(--t-amber); }
+      .m-tag.on { display: inline-block; }
+      .m-tag.done { color: var(--t-mute); background: transparent; box-shadow: inset 0 0 0 1px var(--t-line); }
+      .m-log { margin: 6px 0 0; max-width: 34em; font-size: 16px; line-height: 1.45; color: var(--t-mute); }
+      .m-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+      .m-play, .m-alt {
+        display: inline-flex; align-items: center; gap: 10px; padding: 7px 16px 6px; border-radius: 2px; cursor: pointer;
+        font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; font-weight: 800; font-size: 17px; letter-spacing: 0.06em;
+      }
+      .m-play { border: 1px solid var(--t-go); background: var(--t-go); color: #00140b; }
+      .m-alt { border: 1px solid rgba(0, 255, 136, 0.55); background: transparent; color: var(--t-go); }
+      .m-play:hover { filter: brightness(1.12); }
+      .m-alt:hover { background: rgba(0, 255, 136, 0.12); }
+      .m-play:focus-visible, .m-alt:focus-visible, .support:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+      #splash-screen kbd {
+        font: 600 12px 'Big Shoulders Text', sans-serif; padding: 0 5px; border-radius: 2px; line-height: 1.5;
+        border: 1px solid currentColor; opacity: 0.75;
+      }
+      .m-best { font-size: 15px; color: var(--t-mute); margin-left: 4px; }
+
+      .title-foot { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px 28px; font-size: 15px; color: var(--t-mute); }
+      .title-foot p { margin: 0; }
+      .start-hint { color: var(--t-go); font-weight: 600; letter-spacing: 0.03em; }
+      .tip { position: relative; margin-left: auto; }
+      .support { color: var(--t-amber); font-weight: 600; letter-spacing: 0.03em; text-decoration: none; border-bottom: 1px solid rgba(242, 176, 30, 0.45); padding-bottom: 1px; cursor: pointer; }
+      .support:hover { border-bottom-color: var(--t-amber); }
+      .tip-panel {
+        position: absolute; right: 0; bottom: calc(100% + 12px); width: min(320px, 86vw); padding: 14px 16px;
+        background: rgba(var(--t-void), 0.94); border: 1px solid rgba(242, 176, 30, 0.5); border-radius: 2px;
+      }
+      .tip-panel[hidden] { display: none; }
+      .tip-lead { margin: 0 0 12px; font-size: 15px; line-height: 1.4; color: var(--t-ink); }
+      .tip-amounts { display: flex; flex-wrap: wrap; gap: 8px; }
+      .tip-amount {
+        flex: 1 1 auto; min-width: 58px; padding: 7px 10px 6px; text-align: center; text-decoration: none; border-radius: 2px;
+        font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; font-weight: 800; font-size: 17px; letter-spacing: 0.04em;
+        color: #1a1300; background: var(--t-amber); border: 1px solid var(--t-amber);
+      }
+      .tip-amount:hover { filter: brightness(1.12); }
+      .tip-amount:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+      .tip-secure { margin: 10px 0 0; font-size: 13px; color: var(--t-mute); }
+
+      /* One orchestrated entrance: the stencil title lands, then the manifest follows. */
+      @keyframes titleIn { from { opacity: 0; letter-spacing: 0.12em; } to { opacity: 1; letter-spacing: 0.015em; } }
+      @keyframes manifestIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+      @keyframes hintPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+      .game-title { animation: titleIn 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+      .manifest, .title-foot { animation: manifestIn 0.7s 0.45s ease-out both; }
+      .start-hint { animation: hintPulse 2.4s 1.5s ease-in-out infinite; }
+      @media (prefers-reduced-motion: reduce) {
+        .game-title, .manifest, .title-foot, .start-hint { animation: none; }
+      }
+      @media (max-width: 760px) {
+        .title-scrim { background: rgba(var(--t-void), 0.84); }
+      }
+      /* Laptop-height screens: the title goes on one line so both missions fit. */
+      @media (max-height: 860px) {
+        .game-title { font-size: clamp(52px, min(8.4vw, 13vh), 120px); }
+        .game-title .line { display: inline; }
+        .hazard { margin: 14px 0 10px; }
+      }
+
+      /* Shown only on phones/tablets, or only with mouse + keyboard. */
       .touch-only { display: none; }
       body.touch .touch-only { display: block; }
       body.touch .desktop-only { display: none; }
-      .splash-kofi { text-align: center; margin: 18px 0 6px; padding: 12px; background: rgba(255, 170, 0, 0.08); border: 1px solid var(--warn); border-radius: 6px; }
-      .splash-kofi-text { font-size: 13px; color: var(--warn); margin-bottom: 4px; font-weight: 700; }
-      .splash-kofi-link { font-family: 'Orbitron', sans-serif; font-size: 14px; color: var(--hud); text-decoration: none; }
-      .splash-kofi-link:hover { color: var(--warn); }
-      .splash-start { text-align: center; font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 700; color: var(--hud); margin-top: 18px; animation: blink 1.5s infinite; }
-      #best-score { text-align: center; font-size: 12px; color: var(--warn); margin-top: 6px; }
 
       /* ---------- Touch controls ---------- */
       #touch-controls { display: none; }
       body.touch #touch-controls { display: block; }
+      body.touch[data-phase="splash"] #touch-controls { display: none; } /* not until a mission starts */
       #touch-stick-zone { position: fixed; left: 0; top: 30%; width: 45%; bottom: 0; z-index: 20; pointer-events: auto; }
       .tbtn {
         position: fixed; z-index: 21; pointer-events: auto; border-radius: 50%;
@@ -262,7 +388,10 @@
       /* Touch layout: stick on the left, buttons on the right, keep the middle clear. */
       body.touch #instruments { right: 70px; top: 10px; }
       body.touch #instruments .instrument:nth-child(2) { display: none; } /* throttle is automatic */
-      body.touch #player-bars { bottom: calc(6px + var(--safe-b)); transform: translateX(-50%) scale(0.72); transform-origin: bottom center; }
+      body.touch #player-bars { left: 42%; bottom: calc(6px + var(--safe-b)); transform: translateX(-50%) scale(0.72); transform-origin: bottom center; }
+      body.touch #cargo-box { display: none; } /* the CARGO button shows ready / countdown / BLOW! */
+      #btn-cargo.armed { border-color: #66ff66; color: #66ff66; background: rgba(102, 255, 102, 0.2); animation: blink 0.6s infinite; }
+      #btn-cargo.empty { opacity: 0.5; }
       body.touch #target-info, body.touch #controls { display: none !important; }
       body.touch #radar-wrap { left: 10px; top: 10px; bottom: auto; }
       body.touch #radar-label { display: none; }
@@ -273,8 +402,14 @@
       body.touch #mission-status { top: 58px; transform: translateX(-50%) scale(0.8); transform-origin: top center; white-space: nowrap; }
       body.touch #mission-status .bar { width: 100px; }
       body.touch #banner { top: 34%; font-size: 13px; }
-      body.touch #objective { width: 50vw; }
-      body.touch .splash-content { touch-action: pan-y; }
+      /* Touch: prompt sits just above the bars, left of the CARGO button, clear of the crosshair. */
+      body.touch #guide { top: auto; bottom: calc(58px + var(--safe-b)); left: 42%; font-size: 11px; max-width: 40vw; padding: 5px 10px; }
+      /* Objective fits between the radar and the instruments; in combat the prompt replaces the hint. */
+      body.touch #objective { left: 128px; right: 216px; width: auto; transform: none; }
+      body.touch #objective-title { font-size: 12px; letter-spacing: 2px; }
+      body.touch #objective-hint { font-size: 11px; }
+      body.touch[data-phase="combat"] #objective-hint { display: none; }
+      body.touch .title-screen { touch-action: pan-y; }
 
       #rotate-hint {
         display: none; position: fixed; inset: 0; z-index: 500; background: rgba(0, 0, 0, 0.92);
@@ -295,73 +430,72 @@
         .instrument-value { font-size: 15px; }
         #callout { font-size: 28px; }
         #banner { font-size: 13px; top: 18%; }
+        #guide { font-size: 12px; }
+        #controls { top: 122px; font-size: 10px; } /* clear of the centred status bar */
       }
       @media (max-height: 520px) {
         body:not(.touch) #comms { display: none; }
-        .splash-content { padding: 12px 20px; width: min(900px, 96vw); }
-        .splash-title { font-size: 24px; }
-        .splash-subtitle { font-size: 12px; margin: 0 0 6px; }
-        .splash-cols { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; }
-        .splash-cols .splash-divider:first-child { display: none; }
-        .splash-story { font-size: 11px; line-height: 1.5; }
-        .splash-controls { font-size: 11px; line-height: 1.6; grid-template-columns: 1fr; }
-        .splash-divider { margin: 6px 0; }
-        .splash-start { margin-top: 6px; font-size: 14px; }
-        .splash-kofi { margin: 6px 0 0; padding: 4px; }
-        .splash-kofi-text { display: inline; margin-right: 8px; }
+        .title-screen { padding: 12px 20px; gap: 10px; }
+        .studio { font-size: 12px; }
+        .studio-mark { font-size: 13px; }
+        .game-title { font-size: 46px; line-height: 0.9; }
+        .game-title .line { display: inline; }
+        .hazard, .tagline, .m-log, .title-foot .controls-line { display: none; }
+        .title-block { margin-top: 0; }
+        .mission-card { padding: 8px 0 8px 14px; }
+        .mission-card::before { top: 8px; bottom: 8px; }
+        .m-title { font-size: 22px; }
+        .m-actions { margin-top: 6px; }
+        .m-play, .m-alt { font-size: 14px; padding: 5px 12px 4px; }
       }
     </style>
   </head>
   <body data-phase="splash">
     <div id="splash-screen">
-      <div class="splash-content">
-        <div class="splash-title">THE BLACK SHIP</div>
-        <div class="splash-subtitle">Chapter 1: Lingering Systems</div>
-        <div class="splash-cols">
-        <div>
-        <div class="splash-divider"></div>
-        <div class="splash-story">
-          You are <strong>Warrant Officer Wyatt Staples</strong>, hauling bio-waste through hostile territory aboard the <strong>Space Refuse Collector MK-IV</strong>.
-          <br><br>
-          House Cayston has betrayed the Crown. Their forces hunt a Royal Yacht carrying a high-value VIP through the Lingering Systems.
-          <br><br>
-          You're just a garbage hauler with a black transponder. But sometimes, desperate times call for creative solutions…
+      <div class="title-scrim"></div>
+      <main class="title-screen">
+        <header class="studio"><span class="studio-mark">VOX9</span> Studios presents</header>
+
+        <div class="title-block">
+          <h1 class="game-title"><span class="line">The Black</span> <span class="line">Ship</span></h1>
+          <div class="hazard" aria-hidden="true"></div>
+          <p class="tagline">A patrol pilot, a garbage hauler, a royal yacht, and a warship that really should have picked on someone else.</p>
         </div>
-        </div>
-        <div>
-        <div class="splash-divider"></div>
-        <div class="splash-section-title">Mission Objective</div>
-        <div class="splash-story">
-          Protect the <strong>Royal Favor</strong>. Shoot down missiles and drones — then launch your cargo container at the corvette and blow it up when the ring turns <strong style="color:#66ff66">green</strong>.
-        </div>
-        <div class="splash-divider"></div>
-        <div class="splash-section-title">Controls</div>
-        <div class="splash-controls desktop-only">
-          <div><b>Mouse</b> — steer</div>
-          <div><b>Space / Left-click</b> — fire</div>
-          <div><b>W / S</b> — speed up / slow down</div>
-          <div><b>Shift</b> — boost</div>
-          <div><b>X / Right-click</b> — launch &amp; detonate cargo</div>
-          <div><b>Q / E</b> — dodge roll</div>
-          <div><b>Arrows / A D</b> — steer (keyboard)</div>
-          <div><b>P / Esc</b> — pause · <b>H</b> help · <b>M</b> mute</div>
-        </div>
-        <div class="splash-controls touch-only">
-          <div><b>Drag left side</b> — steer</div>
-          <div><b>FIRE</b> — hold to shoot</div>
-          <div><b>CARGO</b> — launch, tap again to detonate</div>
-          <div><b>BOOST / ROLL</b> — speed &amp; dodge</div>
-        </div>
-        </div>
-        </div>
-        <div class="splash-kofi">
-          <div class="splash-kofi-text">☕ Support Game Development</div>
-          <a href="https://ko-fi.com/scifistories1977" target="_blank" rel="noopener" class="splash-kofi-link">ko-fi.com/scifistories1977</a>
-        </div>
-        <div class="splash-start desktop-only">[ PRESS ANY KEY OR CLICK TO BEGIN ]</div>
-        <div class="splash-start touch-only">[ TAP TO BEGIN ]</div>
-        <div id="best-score"></div>
-      </div>
+
+        <ol class="manifest">
+          <li class="mission-card" data-mission="prologue">
+            <div class="m-head"><h2 class="m-title">Prologue</h2><span class="m-tag" id="badge-prologue"></span></div>
+            <p class="m-log">Before the waste hauler, Wyatt Staples flew patrol on the Tessick-Varn Frontier. Pirates have hit the Tessick-3 relay, and they've taken people.</p>
+            <div class="m-actions">
+              <button class="m-play">Play <kbd class="desktop-only">1</kbd></button>
+              <button class="m-alt" data-free="prologue">Free flight <kbd class="desktop-only">F</kbd></button>
+              <span class="m-best" id="best-prologue"></span>
+            </div>
+          </li>
+          <li class="mission-card" data-mission="chapter1">
+            <div class="m-head"><h2 class="m-title">Chapter 1: Lingering Systems</h2><span class="m-tag" id="badge-chapter1"></span></div>
+            <p class="m-log">Now a Warrant Officer hauling bio-waste, Wyatt finds a royal yacht running from a House Cayston warship. His guns can't scratch it. His cargo might.</p>
+            <div class="m-actions">
+              <button class="m-play">Play <kbd class="desktop-only">2</kbd></button>
+              <span class="m-best" id="best-chapter1"></span>
+            </div>
+          </li>
+        </ol>
+
+        <footer class="title-foot">
+          <p class="controls-line desktop-only">Mouse steers, <kbd>Space</kbd> fires, <kbd>F</kbd> launches a missile, <kbd>X</kbd> is your ship's special, <kbd>H</kbd> lists every control.</p>
+          <p class="controls-line touch-only">Drag the left side to steer. Hold Fire to shoot.</p>
+          <p class="start-hint desktop-only">Press any key to start <span id="start-name">the prologue</span></p>
+          <div class="tip">
+            <a class="support" id="tip-link" href="https://ko-fi.com/scifistories1977" target="_blank" rel="noopener">Support Vox9 Studios</a>
+            <div class="tip-panel" id="tip-panel" hidden>
+              <p class="tip-lead">Tips go straight into building more Vox9 games and stories. A tip is a thank-you, not a purchase: it doesn't unlock anything, and the game stays free.</p>
+              <div class="tip-amounts" id="tip-amounts"></div>
+              <p class="tip-secure">Payments are handled by Stripe. Vox9 never sees your card details.</p>
+            </div>
+          </div>
+        </footer>
+      </main>
     </div>
 
     <div id="rotate-hint" onclick="this.classList.add('dismissed')">
@@ -389,15 +523,31 @@
       </div>
 
       <div id="mission-status" class="panel">
-        <div class="ms-block" id="yacht-block">
+        <div class="ms-block ch1-only" id="yacht-block">
           <span class="ms-label">ROYAL FAVOR</span>
           <div class="bar"><div class="fill" id="yacht-fill"></div></div>
           <span id="yacht-pct">100%</span>
         </div>
-        <div class="ms-block" id="corvette-block">
+        <div class="ms-block ch1-only" id="corvette-block">
           <span class="ms-label">CORVETTE</span>
           <span id="corvette-pips"></span>
           <span id="corvette-state"></span>
+        </div>
+        <div class="ms-block pro-only" id="relay-block">
+          <span class="ms-label">TESSICK-3</span>
+          <div class="bar sbar"><div class="fill" id="relay-fill"></div></div>
+          <span id="relay-pct">100%</span>
+        </div>
+        <div class="ms-block pro-only" id="pirates-block">
+          <span class="ms-label">PIRATES</span>
+          <span id="pirate-pips"></span>
+        </div>
+        <div class="ms-block pro-only hidden" id="shuttle-block">
+          <span class="ms-label">ENGINES</span>
+          <div class="bar sbar"><div class="fill" id="engine-fill"></div></div>
+          <span class="ms-label">HULL</span>
+          <div class="bar sbar"><div class="fill" id="shull-fill"></div></div>
+          <span id="jump-time"></span>
         </div>
       </div>
 
@@ -422,18 +572,22 @@
       <div id="controls" class="desktop-only">
         <span class="key">Mouse</span> steer <span class="key">Space</span> fire<br>
         <span class="key">W</span>/<span class="key">S</span> throttle <span class="key">Shift</span> boost<br>
-        <span class="key">X</span> cargo <span class="key">Q</span>/<span class="key">E</span> dodge<br>
-        <span class="key">P</span> pause <span class="key">H</span> help <span class="key">Enter</span> skip
+        <span class="key">X</span> <span id="legend-special">launch / detonate cargo</span><br>
+        <span class="key">Q</span>/<span class="key">E</span> dodge <span class="key">Tab</span> target<br>
+        <span class="missile-only"><span class="key">F</span> fire missile (hold nose on target to lock)<br></span>
+        <span class="key">P</span> pause <span class="key">H</span> help<span class="practice-only"> <span class="key">Enter</span> skip</span>
       </div>
 
       <div id="banner"></div>
       <div id="callout"></div>
+      <div id="guide"></div>
 
       <div id="player-bars" class="panel">
         <div class="pbar" id="shield-bar"><div class="lbl">SHIELD</div><div class="bar"><div class="fill" id="shield-fill"></div></div></div>
         <div class="pbar" id="hull-bar"><div class="lbl">HULL</div><div class="bar"><div class="fill" id="hull-fill"></div></div></div>
         <div class="pbar" id="boost-bar"><div class="lbl">BOOST</div><div class="bar"><div class="fill" id="boost-fill"></div></div></div>
         <div id="cargo-box"><div id="cargo-pips"></div><div id="cargo-label">CARGO READY</div></div>
+        <div id="missile-box"><div id="missile-pips"></div><div id="missile-label">MISSILES</div></div>
       </div>
 
       <div id="radar-wrap">
@@ -453,6 +607,7 @@
       <div id="touch-stick-zone"></div>
       <div class="tbtn" id="btn-fire">FIRE</div>
       <div class="tbtn" id="btn-cargo">CARGO</div>
+      <div class="tbtn" id="btn-missile">MSL</div>
       <div class="tbtn" id="btn-boost">BOOST</div>
       <div class="tbtn" id="btn-dodge">ROLL</div>
       <div class="tbtn" id="btn-pause">II</div>
@@ -467,6 +622,11 @@
           <button class="btn ghost" id="btn-restart">RESTART</button>
           <button class="btn ghost" id="btn-help">CONTROLS</button>
           <button class="btn ghost" id="btn-mute">SOUND</button>
+          <button class="btn ghost" id="btn-menu-pause">MISSIONS</button>
+        </div>
+        <div class="btn-row desktop-only" style="margin-top:4px">
+          <button class="btn ghost" id="btn-steering">MOUSE: AIM</button>
+          <div class="help-text" id="steering-desc" style="text-align:center"></div>
         </div>
       </div>
     </div>
@@ -475,7 +635,7 @@
       <h2>═══ CONTROLS &amp; MISSION ═══</h2>
       <div class="help-section desktop-only">
         <h3>Flight</h3>
-        <div class="help-row"><span class="help-key">Mouse</span><span class="help-desc">Steer — the ship turns toward the cursor</span></div>
+        <div class="help-row"><span class="help-key">Mouse</span><span class="help-desc">Steer — move the white circle and the ship follows it (switch to classic joystick in the pause menu)</span></div>
         <div class="help-row"><span class="help-key">Arrows / A D</span><span class="help-desc">Steer with the keyboard</span></div>
         <div class="help-row"><span class="help-key">W / S</span><span class="help-desc">Throttle up / down</span></div>
         <div class="help-row"><span class="help-key">Shift</span><span class="help-desc">Boost (uses boost energy)</span></div>
@@ -484,7 +644,8 @@
       <div class="help-section desktop-only">
         <h3>Combat</h3>
         <div class="help-row"><span class="help-key">Space / Left-click</span><span class="help-desc">Fire guns (they auto-aim near the crosshair)</span></div>
-        <div class="help-row"><span class="help-key">X / C / Right-click</span><span class="help-desc">Launch cargo, press again to detonate</span></div>
+        <div class="help-row"><span class="help-key">X / C / Right-click</span><span class="help-desc" id="help-special">Launch cargo, press again to detonate</span></div>
+        <div class="help-row missile-only"><span class="help-key">F / Middle-click</span><span class="help-desc">Fire a missile — hold your nose on a pirate until it shows LOCK</span></div>
         <div class="help-row"><span class="help-key">Tab / T</span><span class="help-desc">Cycle target</span></div>
         <div class="help-row"><span class="help-key">P / Esc</span><span class="help-desc">Pause</span></div>
         <div class="help-row"><span class="help-key">M</span><span class="help-desc">Mute sound</span></div>
@@ -494,16 +655,13 @@
         <h3>Touch controls</h3>
         <div class="help-row"><span class="help-key">Left side</span><span class="help-desc">Drag to steer</span></div>
         <div class="help-row"><span class="help-key">FIRE</span><span class="help-desc">Hold to shoot (auto-aims near the crosshair)</span></div>
-        <div class="help-row"><span class="help-key">CARGO</span><span class="help-desc">Launch the container, tap again to detonate</span></div>
+        <div class="help-row"><span class="help-key" id="help-special-touch-key">CARGO</span><span class="help-desc" id="help-special-touch">Launch the container, tap again to detonate</span></div>
         <div class="help-row"><span class="help-key">BOOST / ROLL</span><span class="help-desc">Burst of speed / dodge</span></div>
+        <div class="help-row missile-only"><span class="help-key">MSL</span><span class="help-desc">Fire a missile once the target shows LOCK</span></div>
       </div>
       <div class="help-section">
         <h3>Mission Briefing</h3>
-        <div class="help-text">
-          A House Cayston corvette is hunting the Royal Yacht <i>Royal Favor</i>. Your guns can't dent its armour — but they can shoot down its missiles and drones.
-          Launch your bio-waste container at the corvette. When the ring around it turns <b style="color:#66ff66">green</b>, time slows down: detonate!
-          Three hits cripples it. Your compactor squeezes out a new container every 15 seconds — keep the yacht alive in between.
-        </div>
+        <div class="help-text" id="help-briefing"></div>
       </div>
       <div class="btn-row"><button class="btn" id="btn-help-close">BACK</button></div>
     </div>
@@ -515,11 +673,15 @@
       <div id="results-rows"></div>
       <div class="results-total">
         <div><div class="t-label">TOTAL SCORE</div><div id="results-total">0</div></div>
-        <div class="grade-box"><div class="g-label">REFUSE RATING</div><div id="results-grade">-</div></div>
+        <div class="grade-box"><div class="g-label" id="results-rating">REFUSE RATING</div><div id="results-grade">-</div></div>
       </div>
       <div id="results-best"></div>
       <div id="results-status"></div>
-      <div class="btn-row"><button class="btn" id="btn-retry">[R] RETRY MISSION</button></div>
+      <div class="btn-row">
+        <button class="btn" id="btn-next" style="display:none">NEXT MISSION ▶</button>
+        <button class="btn" id="btn-retry">[R] RETRY MISSION</button>
+        <button class="btn ghost" id="btn-menu">MISSION SELECT</button>
+      </div>
     </div>
 
     <script type="module" src="/src/main.ts"></script>

@@ -4,6 +4,7 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { Pass } from "three/examples/jsm/postprocessing/Pass.js";
+import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 
 // Two scenes are rendered each frame:
 //  - backScene: sky, stars, planet, sun. Drawn with its own camera that only
@@ -60,6 +61,29 @@ const mainPass = new RenderPass(scene, camera);
 mainPass.clear = false;
 composer.addPass(mainPass);
 
+// Some GPUs occasionally produce a NaN or infinite pixel (pow() of a tiny negative
+// number, a half-float overflow…). Bloom's blur smears a single bad pixel into
+// flashing black blocks, so scrub the frame before bloom sees it.
+composer.addPass(new ShaderPass({
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: /* glsl */ `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: /* glsl */ `
+    uniform sampler2D tDiffuse;
+    varying vec2 vUv;
+    void main() {
+      vec4 c = texture2D(tDiffuse, vUv);
+      if (any(isnan(c)) || any(isinf(c))) c = vec4(0.0, 0.0, 0.0, 1.0);
+      gl_FragColor = clamp(c, 0.0, 60000.0);
+    }
+  `,
+}));
+
 // Bloom is soft anyway, so it runs at reduced resolution to save fill rate.
 const bloomScale = isTouch ? 0.4 : 0.6;
 export const bloomPass = new UnrealBloomPass(
@@ -70,6 +94,8 @@ export const bloomPass = new UnrealBloomPass(
 );
 composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
+// Diagnostic: ?nobloom turns the glow off (useful when chasing GPU-specific artefacts).
+if (new URLSearchParams(location.search).has("nobloom")) bloomPass.enabled = false;
 
 // addPass()/setSize() size every pass to full resolution; shrink bloom afterwards.
 function sizeBloom() {

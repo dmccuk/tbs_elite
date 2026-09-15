@@ -1,21 +1,56 @@
 // All game audio runs through ONE shared AudioContext (browsers cap how many
 // can exist). It is created on the first user gesture, as browsers require.
-// Sound effects are synthesised, so the only audio files are the music and
-// Commander Kalon's radio lines.
+// Sound effects are synthesised; the only audio files are the music and the
+// recorded voice lines (public/voice/<id>.mp3, see docs/voice-lines.md).
 
 type Ctx = AudioContext;
 
 const MUTE_KEY = "tbs-muted";
+
+// Mix levels. Sound effects (guns, engines, explosions, alarms) all go through
+// the sfx bus; music ducks to MUSIC_DUCKED while a voice line plays.
+const SFX_VOLUME = 0.88;
+const MUSIC_VOLUME = 0.256;
+const MUSIC_DUCKED = 0.096;
+const VOICE_VOLUME = 1.6;   // voices sit clearly above guns, engines and music
+const SFX_DUCKED = 0.55;    // the sfx bus drops to this share while someone talks
+
+/** How a recorded line is processed, by who is speaking and from where. */
+export type VoiceFx = "radio" | "radioFar" | "interference" | "pirate" | "computer" | "cockpit";
+
+interface FxSpec {
+  hp: number;        // band-pass: high-pass Hz…
+  lp: number;        // …and low-pass Hz
+  drive: number;     // soft-clip distortion (1 = clean)
+  static: number;    // hiss bed under the line
+  dropouts: number;  // chance per 0.1 s of the signal cutting out
+  comb: boolean;     // short metallic comb filter (the ship computers)
+  squelch: boolean;  // radio clicks at the start and end
+}
+
+const VOICE_FX: Record<VoiceFx, FxSpec> = {
+  radio:        { hp: 320, lp: 3400, drive: 1.8, static: 0,     dropouts: 0,    comb: false, squelch: true },  // squad radio (Harren)
+  radioFar:     { hp: 380, lp: 3000, drive: 2.2, static: 0.035, dropouts: 0.04, comb: false, squelch: true },  // long range (Caldwell via the Kessler, Kalon)
+  interference: { hp: 450, lp: 2600, drive: 3.0, static: 0.09,  dropouts: 0.3,  comb: false, squelch: true },  // a relay under attack
+  pirate:       { hp: 550, lp: 2300, drive: 4.0, static: 0.05,  dropouts: 0.08, comb: false, squelch: true },  // cheap, dirty pirate kit
+  computer:     { hp: 180, lp: 6500, drive: 1.2, static: 0,     dropouts: 0,    comb: true,  squelch: false }, // ship computer
+  cockpit:      { hp: 90,  lp: 9000, drive: 1.0, static: 0,     dropouts: 0,    comb: false, squelch: false }, // Staples in his own cockpit
+};
+
+interface VoiceLine { el: HTMLAudioElement; mod: GainNode; spec: FxSpec; missing: boolean; }
 
 class AudioSystem {
   private ctx: Ctx | null = null;
   private master!: GainNode;
   private sfx!: GainNode;
   private musicGain!: GainNode;
+  private voiceBus!: GainNode;
   private noise!: AudioBuffer;
   private music: HTMLAudioElement | null = null;
-  private voices = new Map<string, HTMLAudioElement>();
-  private currentVoice: HTMLAudioElement | null = null;
+  private lines = new Map<string, VoiceLine>();
+  private voiceQueue: { src: string; fx: VoiceFx; at: number }[] = [];
+  private current: VoiceLine | null = null;
+  private staticNode: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
   private engine: { gain: GainNode; filter: BiquadFilterNode; osc: OscillatorNode; hiss: GainNode; hissFilter: BiquadFilterNode } | null = null;
   private lastLaser = 0;
   muted = false;
@@ -47,11 +82,14 @@ class AudioSystem {
     comp.ratio.value = 4;
     this.master.connect(comp).connect(ctx.destination);
     this.sfx = ctx.createGain();
-    this.sfx.gain.value = 0.8;
+    this.sfx.gain.value = SFX_VOLUME;
     this.sfx.connect(this.master);
     this.musicGain = ctx.createGain();
-    this.musicGain.gain.value = 0.32;
+    this.musicGain.gain.value = MUSIC_VOLUME;
     this.musicGain.connect(this.master);
+    this.voiceBus = ctx.createGain();
+    this.voiceBus.gain.value = VOICE_VOLUME;
+    this.voiceBus.connect(this.master);
 
     this.noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     const data = this.noise.getChannelData(0);
@@ -79,11 +117,11 @@ class AudioSystem {
     if (paused) {
       void this.ctx.suspend();
       this.music?.pause();
-      this.currentVoice?.pause();
+      this.current?.el.pause();
     } else {
       void this.ctx.resume();
       this.music?.play().catch(() => {});
-      this.currentVoice?.play().catch(() => {});
+      this.current?.el.play().catch(() => {});
     }
   }
 
@@ -139,6 +177,42 @@ class AudioSystem {
     const f = 1300 + Math.random() * 200;
     this.tone("square", f, 260, 0.08, 0.035);
     this.tone("sine", f * 0.5, 120, 0.06, 0.05);
+    this.tone("sawtooth", 240, 70, 0.07, 0.03); // low thump so the guns feel heavier
+    this.noiseBurst(0.05, 0.04, "bandpass", 2600, 900, 1.2);
+  }
+
+  /** The Seagull's uprated coilgun: a heavy magnetic thunk rather than a zap. */
+  coilgun() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    if (now - this.lastLaser < 0.05) return;
+    this.lastLaser = now;
+    this.tone("sine", 190 + Math.random() * 20, 45, 0.14, 0.16);
+    this.tone("square", 900, 180, 0.05, 0.03);
+    this.noiseBurst(0.09, 0.1, "lowpass", 2200, 300, 0.8);
+  }
+
+  /** Seeker acquiring: short chirps that rise in pitch as the lock builds (0–1). */
+  lockChirp(progress: number) {
+    this.tone("square", 900 + progress * 500, 900 + progress * 500, 0.035, 0.035);
+  }
+
+  /** Seeker locked: a clean, higher two-note tone. */
+  lockTone() {
+    this.tone("sine", 1560, 1560, 0.07, 0.06);
+    this.tone("sine", 1860, 1860, 0.07, 0.05, 0.08);
+  }
+
+  /** Missile drops off the rail: a heavy clunk… */
+  missileRelease() {
+    this.tone("sawtooth", 150, 55, 0.14, 0.18);
+    this.noiseBurst(0.12, 0.12, "lowpass", 900, 200, 1);
+  }
+
+  /** …then the motor lights with a rising roar. */
+  missileIgnite(vol = 1) {
+    this.noiseBurst(0.9, 0.22 * vol, "bandpass", 400, 3200, 1.6);
+    this.tone("sawtooth", 90, 260, 0.5, 0.05 * vol);
   }
 
   enemyShot(vol = 0.5) {
@@ -214,53 +288,161 @@ class AudioSystem {
     this.tone("triangle", 600, 900, 0.1, 0.12, 0.1);
   }
 
-  /** Plays one of Commander Kalon's lines through a radio filter, ducking the music. */
+  // --- Voice lines ------------------------------------------------------------
+  // Lines queue up rather than talking over each other, and ones that waited
+  // too long are dropped. A line whose file doesn't exist is skipped silently
+  // (the comms text still shows), so recordings can be added a few at a time.
+
+  /** Queue a recorded line: public/voice/<id>.mp3, processed as `fx`. */
+  voice(id: string, fx: VoiceFx) {
+    this.enqueue(`/voice/${id}.mp3`, fx);
+  }
+
+  /** Queue a radio clip by path (Chapter 1's Redford cues). */
   radio(file: string) {
-    const ctx = this.ctx;
-    if (!ctx) return;
-    let el = this.voices.get(file);
-    if (!el) {
-      el = new Audio(file);
-      el.volume = 1;
-      try {
-        const src = ctx.createMediaElementSource(el);
-        const hp = ctx.createBiquadFilter();
-        hp.type = "highpass";
-        hp.frequency.value = 320;
-        const lp = ctx.createBiquadFilter();
-        lp.type = "lowpass";
-        lp.frequency.value = 3200;
-        const shaper = ctx.createWaveShaper();
-        const curve = new Float32Array(256);
-        for (let i = 0; i < 256; i++) {
-          const x = (i / 128) - 1;
-          curve[i] = Math.tanh(x * 1.8);
-        }
-        shaper.curve = curve;
-        const g = ctx.createGain();
-        g.gain.value = 1.1;
-        src.connect(hp).connect(lp).connect(shaper).connect(g).connect(this.master);
-      } catch { /* play unfiltered */ }
-      el.addEventListener("ended", () => {
-        if (this.currentVoice === el) this.currentVoice = null;
-        this.musicGain.gain.setTargetAtTime(0.32, ctx.currentTime, 0.4);
-        this.noiseBurst(0.12, 0.1, "bandpass", 2500, 1800, 2);
-      });
-      this.voices.set(file, el);
-    }
-    this.currentVoice?.pause();
-    this.currentVoice = el;
-    el.currentTime = 0;
-    this.musicGain.gain.setTargetAtTime(0.12, ctx.currentTime, 0.2);
-    this.noiseBurst(0.15, 0.12, "bandpass", 2000, 2600, 2);
-    el.play().catch(() => {});
+    this.enqueue(file, "radio");
   }
 
   stopVoice() {
-    if (this.currentVoice) {
-      this.currentVoice.pause();
-      this.currentVoice = null;
-      if (this.ctx) this.musicGain.gain.setTargetAtTime(0.32, this.ctx.currentTime, 0.3);
+    this.voiceQueue = [];
+    if (this.current) {
+      this.current.el.pause();
+      this.current = null;
+    }
+    this.stopStatic();
+    this.duck(false);
+  }
+
+  private enqueue(src: string, fx: VoiceFx) {
+    const ctx = this.ctx;
+    if (!ctx || this.lines.get(src)?.missing) return;
+    this.voiceQueue.push({ src, fx, at: ctx.currentTime });
+    if (!this.current) this.playNext();
+  }
+
+  private playNext() {
+    const ctx = this.ctx!;
+    // A line that waited more than a few seconds has missed its moment.
+    while (this.voiceQueue.length && ctx.currentTime - this.voiceQueue[0].at > 8) this.voiceQueue.shift();
+    const next = this.voiceQueue.shift();
+    if (!next) { this.duck(false); return; }
+    const line = this.lineFor(next.src, next.fx);
+    if (line.missing) { this.playNext(); return; }
+    this.current = line;
+    line.el.currentTime = 0;
+    this.duck(true);
+    if (line.spec.squelch) this.noiseBurst(0.15, 0.12, "bandpass", 2000, 2600, 2);
+    else if (line.spec.comb) this.tone("sine", 1320, 1320, 0.07, 0.05);
+    this.startStatic(line.spec);
+    this.scheduleDropouts(line);
+    line.el.play().catch(() => this.finish(line));
+  }
+
+  private finish(line: VoiceLine) {
+    if (this.current !== line) return;
+    this.current = null;
+    this.stopStatic();
+    if (line.spec.squelch) this.noiseBurst(0.12, 0.1, "bandpass", 2500, 1800, 2);
+    this.playNext();
+  }
+
+  /** Build (once per file) the element and its effect chain. */
+  private lineFor(src: string, fx: VoiceFx): VoiceLine {
+    const known = this.lines.get(src);
+    if (known) return known;
+    const ctx = this.ctx!;
+    const spec = VOICE_FX[fx];
+    const el = new Audio(src);
+    el.preload = "auto";
+    const mod = ctx.createGain(); // dropouts are automated on this
+    const line: VoiceLine = { el, mod, spec, missing: false };
+    try {
+      const source = ctx.createMediaElementSource(el);
+      const hp = ctx.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.value = spec.hp;
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = spec.lp;
+      const shaper = ctx.createWaveShaper();
+      const curve = new Float32Array(256);
+      const norm = Math.tanh(spec.drive);
+      for (let i = 0; i < 256; i++) curve[i] = Math.tanh(((i / 128) - 1) * spec.drive) / norm;
+      shaper.curve = curve;
+      source.connect(hp).connect(lp).connect(shaper).connect(mod);
+      if (spec.comb) {
+        const delay = ctx.createDelay(0.05);
+        delay.delayTime.value = 0.009;
+        const feedback = ctx.createGain();
+        feedback.gain.value = 0.45;
+        shaper.connect(delay);
+        delay.connect(feedback).connect(delay);
+        delay.connect(mod);
+      }
+      mod.connect(this.voiceBus);
+    } catch { /* play unprocessed */ }
+    el.addEventListener("ended", () => this.finish(line));
+    el.addEventListener("error", () => {
+      line.missing = true; // not recorded yet: the text alone will do
+      this.finish(line);
+    });
+    this.lines.set(src, line);
+    return line;
+  }
+
+  /** Music and effects dip while someone is talking. */
+  private duck(on: boolean) {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.musicGain.gain.setTargetAtTime(on ? MUSIC_DUCKED : MUSIC_VOLUME, t, on ? 0.15 : 0.4);
+    this.sfx.gain.setTargetAtTime(on ? SFX_VOLUME * SFX_DUCKED : SFX_VOLUME, t, on ? 0.15 : 0.4);
+  }
+
+  /** A hiss bed under long-range and pirate transmissions. */
+  private startStatic(spec: FxSpec) {
+    this.stopStatic();
+    if (spec.static <= 0) return;
+    const ctx = this.ctx!;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = 1900;
+    filter.Q.value = 0.6;
+    const gain = ctx.createGain();
+    gain.gain.value = spec.static;
+    src.connect(filter).connect(gain).connect(this.voiceBus);
+    src.start(0, Math.random() * 1.5);
+    this.staticNode = { src, gain };
+  }
+
+  private stopStatic() {
+    if (!this.staticNode) return;
+    try { this.staticNode.src.stop(); } catch { /* already stopped */ }
+    this.staticNode = null;
+  }
+
+  /** Random signal dropouts (with a crackle of static) across the line. */
+  private scheduleDropouts(line: VoiceLine) {
+    const ctx = this.ctx!;
+    const g = line.mod.gain;
+    const t0 = ctx.currentTime;
+    g.cancelScheduledValues(t0);
+    g.setValueAtTime(1, t0);
+    if (line.spec.dropouts <= 0) return;
+    const dur = Number.isFinite(line.el.duration) && line.el.duration > 0 ? line.el.duration : 4;
+    for (let t = 0.25; t < dur - 0.1; t += 0.1) {
+      if (Math.random() >= line.spec.dropouts) continue;
+      const len = 0.04 + Math.random() * 0.1;
+      g.setValueAtTime(0.1, t0 + t);
+      g.setValueAtTime(1, t0 + t + len);
+      const st = this.staticNode?.gain.gain;
+      if (st) {
+        st.setValueAtTime(line.spec.static * 4, t0 + t);
+        st.setValueAtTime(line.spec.static, t0 + t + len);
+      }
     }
   }
 

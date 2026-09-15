@@ -4,8 +4,8 @@ import * as THREE from "three";
 // along the segment travelled each frame, so fast bolts never tunnel through
 // small targets.
 
-/** "fx" bolts are purely visual (point-defence tracers) and never collide. */
-export type BoltOwner = "player" | "enemy" | "fx";
+/** "fx" bolts are purely visual (point-defence tracers) and never collide; "ally" is the wingman. */
+export type BoltOwner = "player" | "enemy" | "ally" | "fx";
 
 export interface Bolt {
   pos: THREE.Vector3;
