@@ -3,6 +3,7 @@ import { SHIPS, TUNING, formatDistance, type ShipStats } from "./config";
 import { isTouch } from "./renderer";
 import { drawRadar } from "./radar";
 import { clearOverlay, drawOverlay, initOverlay } from "./overlay";
+import { input } from "./input";
 
 // Heads-up display. DOM panels are updated only when their values change;
 // everything that tracks 3D positions is drawn on the overlay canvas (overlay.ts).
@@ -157,10 +158,23 @@ export function updateHud(realDt: number) {
   if (bannerUntil && now > bannerUntil) { $("banner")?.classList.remove("visible"); bannerUntil = 0; }
   if (calloutUntil && now > calloutUntil) { $("callout")?.classList.remove("visible"); calloutUntil = 0; }
 
-  if (document.body.dataset.phase !== G.phase) document.body.dataset.phase = G.phase;
+  if (document.body.dataset.phase !== G.phase) {
+    document.body.dataset.phase = G.phase;
+    if (G.phase === "cruise") showCruiseCaption();
+  }
   const playing = G.phase !== "splash";
   setClass("hud", "active", playing);
   if (!playing) { clearOverlay(); return; }
+  if (captionUntil && now > captionUntil) { $("cruise-caption")?.classList.remove("visible"); captionUntil = 0; }
+  if (G.phase === "cruise") {
+    // The ride: just the comms and the caption, over a clean picture.
+    updateComms();
+    clearOverlay();
+    return;
+  }
+  if (isTouch && document.body.classList.contains("manual-throttle") !== input.touchThrottle) {
+    document.body.classList.toggle("manual-throttle", input.touchThrottle); // show the throttle readout once it's theirs
+  }
 
   const p = G.player;
   setText("speed-value", Math.round(p.speed * 1000).toString());
@@ -193,13 +207,7 @@ export function updateHud(realDt: number) {
   if (G.missionId === "prologue") updatePrologueStatus();
   else updateChapter1Status();
 
-  // Comms log (newest last), each line fades after a while.
-  const lines = G.comms.filter((l) => G.time - l.time < 14);
-  setHtml("comms", lines.map((l) => {
-    const age = G.time - l.time;
-    const op = age > 11 ? Math.max(0, 1 - (age - 11) / 3) : 1;
-    return `<div class="comm" style="opacity:${op.toFixed(2)}"><span class="who" style="color:${l.color}">${l.speaker}:</span> ${l.text}</div>`;
-  }).join(""));
+  updateComms();
 
   // Target info panel
   const t = G.target;
@@ -224,6 +232,39 @@ export function updateHud(realDt: number) {
 
   drawOverlay(realDt);
   drawRadar();
+}
+
+/** Comms log (newest last); each line fades after a while. */
+function updateComms() {
+  const lines = G.comms.filter((l) => G.time - l.time < 14);
+  setHtml("comms", lines.map((l) => {
+    const age = G.time - l.time;
+    const op = age > 11 ? Math.max(0, 1 - (age - 11) / 3) : 1;
+    return `<div class="comm" style="opacity:${op.toFixed(2)}"><span class="who" style="color:${l.color}">${l.speaker}:</span> ${l.text}</div>`;
+  }).join(""));
+}
+
+// --- Sound icon ------------------------------------------------------------------------
+
+/** Every speaker icon (title screen, HUD): red with a line through it while the sound is off. */
+export function showSoundState(muted: boolean) {
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>(".sound-toggle"))) {
+    el.classList.toggle("muted", muted);
+    el.setAttribute("aria-label", muted ? "Sound is off. Turn sound on" : "Sound is on. Turn sound off");
+    el.title = muted ? "Sound off (M)" : "Sound on (M)";
+    const label = el.querySelector(".sound-label");
+    if (label) label.textContent = muted ? "Sound off" : "Sound on";
+  }
+}
+
+// --- Cruise caption ------------------------------------------------------------------
+
+let captionUntil = 0;
+
+/** The Cruise's title card (bottom left), shown at the start and whenever the view changes (cinematic.ts writes the view name). */
+export function showCruiseCaption() {
+  $("cruise-caption")?.classList.add("visible");
+  captionUntil = performance.now() + 7000;
 }
 
 // --- Special-ability box (right of the player bars) -----------------------------------

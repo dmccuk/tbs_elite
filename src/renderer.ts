@@ -43,8 +43,8 @@ export const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget
 composer.setPixelRatio(pr);
 composer.setSize(window.innerWidth, window.innerHeight);
 
-/** Clears depth between the backdrop and the main scene. */
-class ClearDepthPass extends Pass {
+/** Clears depth between the backdrop and the main scene (and before the cockpit, cockpit.ts). */
+export class ClearDepthPass extends Pass {
   constructor() {
     super();
     this.needsSwap = false;

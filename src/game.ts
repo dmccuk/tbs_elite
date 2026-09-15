@@ -8,8 +8,8 @@ import type { ShipId } from "./config";
 // Shared game state. Logic lives in the other modules; this file only holds
 // the data they all read and write, so there are no circular imports.
 
-/** Playable missions, in story order. */
-export type MissionId = "prologue" | "chapter1";
+/** Playable missions (story order is MISSION_ORDER in mission.ts; "cruise" is the screensaver ride). */
+export type MissionId = "prologue" | "chapter1" | "cruise";
 
 /**
  * Mission phases (a finite state machine), shared by every mission. Legal transitions:
@@ -26,10 +26,12 @@ export type MissionId = "prologue" | "chapter1";
  * Prologue: practice = patrol with Harren; ambush = distress call + burn to
  *   Tessick-3; combat has sub-steps in G.step ("dogfight" → "runner" → "pursuit");
  *   losses: shuttle destroyed or jumps away; victory = shuttle surrenders.
+ * Cruise: splash ──Cruise──▶ cruise, which never ends (MISSION SELECT leaves it).
+ *   No player controls: the autopilot flies laps out of and back into the Kessler.
  *
  * Pausing is a separate flag (G.paused), not a phase.
  */
-export type Phase = "splash" | "practice" | "ambush" | "combat" | "victory" | "rendezvous" | "complete" | "failed";
+export type Phase = "splash" | "practice" | "ambush" | "combat" | "victory" | "rendezvous" | "complete" | "failed" | "cruise";
 
 export type EntityKind =
   | "player" | "yacht" | "corvette" | "drone" | "missile" | "drum"
@@ -245,6 +247,8 @@ export const G = {
   landingDrill: false,
   /** Cruise throttle for touch players (who have no W/S); eased off on a carrier approach. */
   touchThrottle: 0.7,
+  /** The Cruise's autopilot is flying the ship (missions/cruise.ts), not the player. */
+  autopilot: false,
   paused: false,
   helpOpen: false,
   /** Seconds of simulated time since the page loaded (stops while paused). */

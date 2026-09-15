@@ -22,10 +22,14 @@ import { isTouch } from "./renderer";
 //   Enter                  skip practice  R           restart (when paused/over)
 //   M                      mute           N           next mission (on the results screen)
 //   F / Middle click       fire a missile at a locked target (Seagull only)
+//   V                      cockpit / chase view (the Cruise also has a cinematic camera)
+//   1 / 2 / 3              pick a view: behind / cinematic (Cruise only) / cockpit
+// Touch: floating stick, FIRE / CARGO / MSL / BOOST / ROLL, ▲ ▼ speed, VIEW, pause.
+// Touch throttle is automatic until the player first presses ▲ or ▼.
 
 export type Action =
   | "cargo" | "dodgeLeft" | "dodgeRight" | "target" | "pause"
-  | "help" | "restart" | "skip" | "mute" | "next" | "missile";
+  | "help" | "restart" | "skip" | "mute" | "next" | "missile" | "view" | "view1" | "view2" | "view3";
 
 const KEY_ACTIONS: Record<string, Action> = {
   KeyX: "cargo",
@@ -42,6 +46,13 @@ const KEY_ACTIONS: Record<string, Action> = {
   KeyM: "mute",
   KeyN: "next",
   KeyF: "missile",
+  KeyV: "view",
+  Digit1: "view1",
+  Numpad1: "view1",
+  Digit2: "view2",
+  Numpad2: "view2",
+  Digit3: "view3",
+  Numpad3: "view3",
 };
 
 const PREVENT = new Set(["Space", "Tab", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
@@ -122,6 +133,10 @@ class Input {
   private keyFire = false;
   private touchFire = false;
   private touchBoost = false;
+  private touchUp = false;
+  private touchDown = false;
+  /** A touch player has pressed ▲ / ▼: from then on they set the throttle themselves. */
+  touchThrottle = false;
   private stickId: number | null = null;
 
   constructor() {
@@ -211,8 +226,8 @@ class Input {
 
   update() {
     const k = this.keys;
-    this.throttleUp = k.has("KeyW");
-    this.throttleDown = k.has("KeyS");
+    this.throttleUp = k.has("KeyW") || this.touchUp;
+    this.throttleDown = k.has("KeyS") || this.touchDown;
     this.keyFire = k.has("Space");
     this.boost = k.has("ShiftLeft") || k.has("ShiftRight") || this.touchBoost;
     this.fire = this.keyFire || this.mouseFire || this.touchFire;
@@ -319,6 +334,9 @@ class Input {
     };
     hold("btn-fire", (v) => (this.touchFire = v));
     hold("btn-boost", (v) => (this.touchBoost = v));
+    hold("btn-faster", (v) => { this.touchUp = v; this.touchThrottle = true; });
+    hold("btn-slower", (v) => { this.touchDown = v; this.touchThrottle = true; });
+    tap("btn-view", "view");
     tap("btn-cargo", "cargo");
     tap("btn-missile", "missile");
     tap("btn-dodge", () => (this.steerX < 0 ? "dodgeLeft" : "dodgeRight"));

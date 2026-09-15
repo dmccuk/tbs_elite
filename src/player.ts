@@ -7,6 +7,7 @@ import { input } from "./input";
 import { audio } from "./audio";
 import { BASE_FOV, camera, isTouch, scene } from "./renderer";
 import { bolts } from "./weapons";
+import { eyeOffset, inCockpit } from "./cockpit";
 
 // The player's ship — the MK-IV garbage hauler (Chapter 1) or a Seagull patrol
 // fighter (Prologue): arcade flight model, guns, dodge roll, shields, match
@@ -270,6 +271,7 @@ export function updatePlayer(dt: number, controls: boolean) {
     for (const g of p.model.glows) g.scale.setScalar(0.008);
     return;
   }
+  if (G.autopilot) return; // the Cruise flies the ship with driveShip()
 
   // Steering. In mouse-aim mode the ship chases the aim circle, which the mouse
   // pushes around; keys, the touch stick and joystick-mode mouse steer directly.
@@ -283,8 +285,9 @@ export function updatePlayer(dt: number, controls: boolean) {
     steerY = clamp((p.aimPitch - p.pitch) * P.mouseAimGain, -1, 1);
   }
 
-  // Throttle (touch players get a fixed cruise speed; boost is their accelerator).
-  if (controls && !isTouch) {
+  // Throttle. Touch players get an automatic cruise speed (eased off on a carrier
+  // approach) until they first press ▲ / ▼; after that it works like W / S.
+  if (controls && (!isTouch || input.touchThrottle)) {
     if (input.throttleUp) p.throttle += P.throttleRate * dt;
     if (input.throttleDown) p.throttle -= P.throttleRate * dt;
     if (input.throttleUp || input.throttleDown) p.matchSpeed = false; // manual throttle takes over
@@ -359,15 +362,7 @@ export function updatePlayer(dt: number, controls: boolean) {
   p.model.body.rotation.z = p.bank - p.dodgeDir * rollEase * Math.PI * 2;
   p.model.body.rotation.x = p.pitchVel * 0.08;
 
-  // Engine glow and exhaust trail scale with thrust.
-  const thrust = p.boosting ? 1.6 : 0.5 + (p.speed / S.maxSpeed) * 0.6;
-  for (const g of p.model.glows) g.scale.setScalar(0.014 * thrust * rand(0.9, 1.1));
-  for (const e of p.model.engines) {
-    e.getWorldPosition(_v);
-    const color = p.boosting ? 0xffcc66 : 0xff8833;
-    G.fx.fire.emit(_v.x, _v.y, _v.z, p.vel.x * 0.6, p.vel.y * 0.6, p.vel.z * 0.6,
-      p.boosting ? 0.3 : 0.16, 0.005 * thrust, 0.001, color, 0xff3300, 0.55);
-  }
+  engineFx(p);
 
   // Shields recharge after a quiet spell.
   if (G.time - p.lastHitTime > P.shieldRegenDelay) p.shield = Math.min(p.maxShield, p.shield + P.shieldRegenRate * dt);
@@ -390,6 +385,44 @@ export function updatePlayer(dt: number, controls: boolean) {
   if (controls && input.fire && p.gunCooldown <= 0) fireGuns(p);
 
   collide(p, dt);
+}
+
+/** Engine glow and exhaust trail, scaled with thrust. */
+function engineFx(p: Player) {
+  const thrust = p.boosting ? 1.6 : 0.5 + (p.speed / S.maxSpeed) * 0.6;
+  for (const g of p.model.glows) g.scale.setScalar(0.014 * thrust * rand(0.9, 1.1));
+  for (const e of p.model.engines) {
+    e.getWorldPosition(_v);
+    const color = p.boosting ? 0xffcc66 : 0xff8833;
+    G.fx.fire.emit(_v.x, _v.y, _v.z, p.vel.x * 0.6, p.vel.y * 0.6, p.vel.z * 0.6,
+      p.boosting ? 0.3 : 0.16, 0.005 * thrust, 0.001, color, 0xff3300, 0.55);
+  }
+}
+
+/**
+ * The Cruise's autopilot: put the ship at `pos` facing yaw/pitch at `speed`,
+ * leaning `bank` radians into the turn (plus `roll` on top, for an aileron
+ * roll), with the engines lit (boost flames when `boosting`).
+ */
+export function driveShip(pos: THREE.Vector3, yaw: number, pitch: number, speed: number, bank: number, dt: number, roll = 0, boosting = false) {
+  const p = G.player;
+  if (dt <= 0) return;
+  // Keep yaw continuous (the Kessler's arrestor levels the ship out to the nearest whole turn).
+  const dYaw = Math.atan2(Math.sin(yaw - p.yaw), Math.cos(yaw - p.yaw));
+  p.yawVel = dYaw / dt;
+  p.pitchVel = (pitch - p.pitch) / dt;
+  p.yaw = p.aimYaw = p.yaw + dYaw;
+  p.pitch = p.aimPitch = pitch;
+  p.obj.position.copy(pos);
+  applyOrientation(p);
+  p.speed = speed;
+  p.throttle = clamp(speed / S.maxSpeed, 0, 1);
+  p.boosting = boosting;
+  p.matchSpeed = false;
+  p.vel.copy(p.forward).multiplyScalar(speed);
+  p.bank = lerp(p.bank, bank, damp(3, dt));
+  p.model.body.rotation.set(0, 0, p.bank + roll);
+  engineFx(p);
 }
 
 // --- Collisions with rocks and big ships -----------------------------------
@@ -439,6 +472,10 @@ export function updateCamera(dt: number, realDt: number) {
   // ship swings visibly across the screen.
   if (p.alive) camQuat.slerp(p.obj.quaternion, damp(6.5, dt));
   const speedFactor = clamp(p.speed / S.maxSpeed, 0, 2);
+  if (inCockpit()) {
+    cockpitCamera(dt, realDt, speedFactor);
+    return;
+  }
   // Inside the Kessler's bay the camera tucks in close so it stays in the tunnel.
   const inBay = G.dock.inTunnel || p.captured;
   bayBlend = lerp(bayBlend, inBay ? 1 : 0, damp(4, realDt));
@@ -455,5 +492,29 @@ export function updateCamera(dt: number, realDt: number) {
     camera.updateProjectionMatrix();
   }
   // The HUD projects markers with this camera before the render updates it.
+  camera.updateMatrixWorld();
+}
+
+/** Line the chase camera straight up behind the ship (after another camera has had the view). */
+export function snapChaseCamera() {
+  camQuat.copy(G.player.obj.quaternion);
+}
+
+const _eyeQ = new THREE.Quaternion();
+
+/** Cockpit view: the pilot's eye, locked to the ship (bank and dodge rolls included). */
+function cockpitCamera(dt: number, realDt: number, speedFactor: number) {
+  const p = G.player;
+  _eyeQ.copy(p.obj.quaternion).multiply(p.model.body.quaternion);
+  camera.position.copy(eyeOffset(_offset).applyQuaternion(_eyeQ)).add(p.obj.position);
+  camera.quaternion.copy(_eyeQ);
+  if (dt > 0) camera.position.add(G.fx.shakeOffset(_shake).multiplyScalar(0.25).applyQuaternion(_eyeQ));
+  bayBlend = 0;
+  const targetFov = BASE_FOV + (p.boosting ? 8 : 0) + speedFactor * 2;
+  fov = lerp(fov, targetFov, damp(4, realDt));
+  if (Math.abs(camera.fov - fov) > 0.01) {
+    camera.fov = fov;
+    camera.updateProjectionMatrix();
+  }
   camera.updateMatrixWorld();
 }

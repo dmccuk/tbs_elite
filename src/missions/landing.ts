@@ -24,7 +24,7 @@ export function beginLandingDrill() {
   p.speed = shipStats().maxSpeed * 0.5;
   G.objective = "CARRIER LANDING · THE KESSLER";
   G.hint = k("Fly through the rings · hold <b>S</b> to slow below 350 m/s · fly into the bay",
-    "Fly through the rings and into the bay · the throttle eases off on approach");
+    "Fly through the rings and into the bay · hold <b>▼</b> to slow below 350 m/s");
   talk(DECK, "Seagull, Kessler deck. You're cleared to land. Bay's hot, mind the paint.", "pro_deck_cleared");
 }
 
@@ -100,7 +100,7 @@ export function landingGuide() {
     G.guideTone = "info";
   } else if (fast) {
     G.guide = `<span class="step">2</span> Slow down — <b class="red">${ms} m/s</b>, land under ${Math.round(CAPTURE_MAX * 1000)} m/s` +
-      k(" · hold <b>S</b>", " · easing off");
+      k(" · hold <b>S</b>", " · hold <b>▼</b>");
     G.guideTone = "wait";
   } else {
     G.guide = `<span class="step">3</span> Line up and fly into the bay — ${ms} m/s`;

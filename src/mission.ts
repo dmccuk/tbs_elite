@@ -14,14 +14,16 @@ import { hideBanners, hideResults, setMissionHud } from "./hud";
 import { isCompleted, readBest, talk, type Mission } from "./missions/common";
 import { chapter1 } from "./missions/chapter1";
 import { prologue } from "./missions/prologue";
+import { cruise } from "./missions/cruise";
+import { resetDirector } from "./cinematic";
 
 // Runs whichever mission is active. Each mission script lives in src/missions/
 // and implements the Mission interface (missions/common.ts); this module owns
 // starting, restarting and switching missions, plus the bits every mission
 // shares (hull alarms, the special button, target locking).
 
-export const MISSIONS: Record<MissionId, Mission> = { prologue, chapter1 };
-/** Story order: the prologue comes before Chapter 1. */
+export const MISSIONS: Record<MissionId, Mission> = { prologue, chapter1, cruise };
+/** Story order: the prologue comes before Chapter 1. (The Cruise isn't a story mission.) */
 export const MISSION_ORDER: MissionId[] = ["prologue", "chapter1"];
 
 const LAST_KEY = "tbs-last-mission";
@@ -58,7 +60,9 @@ function clearAll() {
   G.guide = "";
   G.guideTone = "";
   G.failReason = "";
+  G.autopilot = false;
   hullWarned = false;
+  resetDirector();
   audio.stopVoice();
   hideResults();
   hideBanners();
@@ -86,7 +90,9 @@ export function startMission(id: MissionId, short = false, variant: Variant = "m
   resetPlayer(G.player, m.start.pos, m.start.yaw);
   rearmMissiles();
   setMissionHud({ id, statusHtml: m.statusHtml, briefingHtml: m.briefingHtml(), special: SHIPS[m.ship].special, missiles: SHIPS[m.ship].missiles });
-  try { localStorage.setItem(LAST_KEY, id); } catch { /* ignore */ }
+  if (MISSION_ORDER.includes(id)) {
+    try { localStorage.setItem(LAST_KEY, id); } catch { /* ignore */ }
+  }
   m.begin(short);
 }
 
@@ -112,7 +118,7 @@ export function suggestedMission(): MissionId {
   if (unfinished) return unfinished;
   try {
     const last = localStorage.getItem(LAST_KEY) as MissionId | null;
-    if (last && last in MISSIONS) return last;
+    if (last && MISSION_ORDER.includes(last)) return last;
   } catch { /* ignore */ }
   return MISSION_ORDER[0];
 }

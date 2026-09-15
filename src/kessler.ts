@@ -317,7 +317,29 @@ export function launchFromKessler() {
   emit({ type: "dockLaunched" });
 }
 
-const landingsActive = () => G.freeFlight || G.landingDrill;
+const landingsActive = () => G.freeFlight || G.landingDrill || G.phase === "cruise";
+/** The approach rings are a practice aid: the Cruise's autopilot doesn't need them (and they'd glare on camera). */
+const ringsActive = () => G.freeFlight || G.landingDrill;
+
+/** The bay's centreline in world space: the cradle's x/z at mid-tunnel height, and the two doors' z. */
+export const BAY_LINE = {
+  centre: new THREE.Vector3(KESSLER_POS.x, KESSLER_POS.y + BAY_Y, KESSLER_POS.z + CRADLE.z),
+  sternZ: KESSLER_POS.z + BAY.zStern,
+  bowZ: KESSLER_POS.z + BAY.zBow,
+};
+
+/** Put the ship straight onto the cradle, clamped (the Cruise starts here). */
+export function dockAtCradle() {
+  const d = G.dock;
+  const p = G.player;
+  d.state = "landed";
+  d.inTunnel = true;
+  p.captured = true;
+  p.speed = 0;
+  p.vel.set(0, 0, 0);
+  setPlayerPose(_w.copy(CRADLE).add(KESSLER_POS), 0, 0);
+  prevZ = CRADLE.z;
+}
 
 function scrape(at: THREE.Vector3) {
   if (bumpCooldown > 0) return;
@@ -382,7 +404,7 @@ export function updateKessler(dt: number) {
   });
   k.field.visible = d.state === "captured" || d.state === "landed" || d.state === "launching";
   if (k.field.visible) (k.field.material as THREE.MeshBasicMaterial).opacity = 0.025 + Math.sin(G.time * 6) * 0.012;
-  k.rings.visible = landingsActive() && d.state === "free";
+  k.rings.visible = ringsActive() && d.state === "free";
 
   _q.subVectors(p.obj.position, KESSLER_POS);
   const q = _q;
@@ -397,7 +419,7 @@ export function updateKessler(dt: number) {
       waveOffWarned = true;
       emit({ type: "dockWaveOff" });
     }
-    if (landingsActive()) {
+    if (ringsActive()) {
       RING_DIST.forEach((rd, i) => {
         if (ringsPassed[i] || Math.abs(q.z - (BAY.zStern + rd)) > 0.04) return;
         if (Math.hypot(q.x, q.y - BAY_Y) < RING_R) {

@@ -17,8 +17,11 @@ import {
   startMission, suggestedMission, updateMission, type Variant,
 } from "./mission";
 import { readBest } from "./missions/common";
-import { currentResults, initHud, setHelpVisible, setPauseVisible, showCallout, updateHud } from "./hud";
+import { currentResults, initHud, setHelpVisible, setPauseVisible, showCallout, showCruiseCaption, showSoundState, updateHud } from "./hud";
 import { input } from "./input";
+import { forceCockpit, initCockpit, setView, toggleView, updateCockpit } from "./cockpit";
+import { cruiseCameraVelocity, currentShot, cycleCruiseView, setCruiseView, updateCruiseCamera } from "./cinematic";
+import { harrenShip } from "./missions/cruise-harren";
 import { initTip } from "./tip";
 import { audio } from "./audio";
 
@@ -33,6 +36,7 @@ scene.add(bolts.mesh);
 G.world = createWorld();
 G.player = createPlayer();
 resetPlayer(G.player);
+initCockpit();
 initHud();
 if (isTouch) input.bindTouch();
 
@@ -82,6 +86,7 @@ function missionFromEvent(e: Event): { id: MissionId; variant: Variant } {
   if (e instanceof KeyboardEvent) {
     if (e.code === "KeyF") return { id: "prologue", variant: "free" };
     if (e.code === "KeyL") return { id: "prologue", variant: "landing" };
+    if (e.code === "KeyC") return { id: "cruise", variant: "mission" };
     if (e.code === "Digit1" || e.code === "Numpad1") return { id: MISSION_ORDER[0], variant: "mission" };
     if (e.code === "Digit2" || e.code === "Numpad2") return { id: MISSION_ORDER[1], variant: "mission" };
   }
@@ -95,7 +100,7 @@ function dismissSplash(e: Event) {
   if (G.phase !== "splash") return;
   const target = e.target as HTMLElement;
   if (target?.closest?.("a")) return; // let the support link work
-  if (e instanceof KeyboardEvent && NAV_KEYS.has(e.key)) return;
+  if (e instanceof KeyboardEvent && (NAV_KEYS.has(e.key) || e.code === "KeyM")) return; // M mutes, it doesn't start a mission
   // Clicks start a mission only from its row or buttons; any other key starts the suggested one.
   if (e.type === "click" && !target?.closest?.("[data-mission], [data-variant]")) return;
   splash?.classList.add("hidden");
@@ -103,9 +108,9 @@ function dismissSplash(e: Event) {
   input.clearQueue();
   input.mouseSteering = false; // don't steer toward wherever the start click happened
   input.lostFocus = false;     // an alt-tab while on the splash shouldn't pause the new game
-  input.lockPointer();
-  if (isTouch) enterFullscreen();
   const pick = missionFromEvent(e);
+  if (pick.id !== "cruise") input.lockPointer(); // the Cruise leaves the mouse free
+  if (isTouch) enterFullscreen();
   startMission(pick.id, false, pick.variant);
 }
 
@@ -156,7 +161,7 @@ function setPaused(v: boolean) {
   audio.setPaused(v);
   setPauseVisible(v && !G.helpOpen);
   if (v) input.unlockPointer();
-  else if (!over()) input.lockPointer();
+  else if (wantsMouse()) input.lockPointer();
 }
 
 function setHelp(v: boolean) {
@@ -170,22 +175,28 @@ function doRestart() {
   setHelp(false);
   setPaused(false);
   restart();
-  input.lockPointer();
+  if (wantsMouse()) input.lockPointer();
 }
 
 const over = () => G.phase === "complete" || G.phase === "failed";
+/** Does the game want the mouse captured? Not on the results screen, and never in the Cruise (it runs hands-off, e.g. on a second display). */
+const wantsMouse = () => !over() && G.phase !== "cruise";
 
 function handleGlobalActions() {
-  if (input.take("mute")) showCallout(audio.toggleMute() ? "SOUND OFF" : "SOUND ON", "#88ffcc", 0.8);
+  if (input.take("mute")) toggleSound(true);
   if (G.phase === "splash") { input.clearQueue(); return; }
 
   if (input.lostFocus) {
     // Losing focus (or Esc releasing the mouse) pauses. Drop any Esc "pause"
     // press from the same moment so it doesn't immediately unpause again.
+    // The Cruise keeps running: clicking over to another window is the point of it.
     input.lostFocus = false;
-    input.take("pause");
-    if (!G.paused && !over()) setPaused(true);
+    if (G.phase !== "cruise") {
+      input.take("pause");
+      if (!G.paused && !over()) setPaused(true);
+    }
   }
+  handleViewKeys();
   if (input.take("help")) setHelp(!G.helpOpen);
   if (input.take("pause")) {
     if (G.helpOpen) setHelp(false);
@@ -194,6 +205,23 @@ function handleGlobalActions() {
   if (input.take("restart") && (G.paused || over())) doRestart();
   if (input.take("next") && over()) startNextMission();
   if (G.paused) input.clearQueue();
+}
+
+/** V cycles the views; 1 / 2 / 3 pick one (behind / cinematic / cockpit; missions have no cinematic view). */
+function handleViewKeys() {
+  const cruise = G.phase === "cruise";
+  const pick = input.take("view1") ? "chase" : input.take("view2") ? "cinematic" : input.take("view3") ? "cockpit" : null;
+  if (cruise) {
+    if (input.take("view")) cycleCruiseView();
+    else if (pick) setCruiseView(pick);
+    else return;
+    showCruiseCaption();
+    return;
+  }
+  let v: "chase" | "cockpit" | null = null;
+  if (input.take("view")) v = toggleView();
+  else if (pick === "chase" || pick === "cockpit") v = setView(pick);
+  if (v) showCallout(v === "cockpit" ? "COCKPIT VIEW" : "CHASE VIEW", "#88ffcc", 0.9);
 }
 
 const click = (id: string, fn: () => void) => document.getElementById(id)?.addEventListener("click", fn);
@@ -205,7 +233,23 @@ click("btn-menu", openMissionSelect);
 click("btn-menu-pause", openMissionSelect);
 click("btn-help", () => setHelp(true));
 click("btn-help-close", () => setHelp(false));
-click("btn-mute", () => showCallout(audio.toggleMute() ? "SOUND OFF" : "SOUND ON", "#88ffcc", 0.8));
+click("btn-mute", () => toggleSound(true));
+
+/** M, the pause menu's SOUND button and the speaker icons all switch sound on and off. */
+function toggleSound(callout: boolean) {
+  audio.unlock(); // a click on the icon counts as the gesture that starts audio
+  const muted = audio.toggleMute();
+  showSoundState(muted);
+  if (callout && G.phase !== "splash" && G.phase !== "cruise") showCallout(muted ? "SOUND OFF" : "SOUND ON", "#88ffcc", 0.8);
+}
+for (const el of Array.from(document.querySelectorAll<HTMLElement>(".sound-toggle"))) {
+  el.addEventListener("click", (e) => {
+    e.stopPropagation(); // not a mission pick on the title screen
+    toggleSound(false);
+    el.blur();          // so Space / Enter don't press it again
+  });
+}
+showSoundState(audio.muted);
 
 function showSteeringMode() {
   const aim = input.steering === "aim";
@@ -223,7 +267,13 @@ click("btn-steering", () => { input.toggleSteering(); showSteeringMode(); });
 window.addEventListener("pointerdown", (e) => {
   if (G.phase === "splash" || G.paused) return;
   audio.unlock();
-  if (e.target === renderer.domElement && !over()) input.lockPointer();
+  if (e.target === renderer.domElement && wantsMouse()) input.lockPointer();
+});
+// The Cruise leaves the mouse free, and hides the cursor over the game when it stops moving.
+let lastMouseMove = performance.now();
+window.addEventListener("pointermove", () => {
+  lastMouseMove = performance.now();
+  if (document.body.classList.contains("idle-cursor")) document.body.classList.remove("idle-cursor");
 });
 // Keys count too — e.g. a player who started from the splash with Esc (not a
 // gesture as far as audio is concerned) gets sound on their next key press.
@@ -247,6 +297,16 @@ function splashCamera(dt: number) {
   const shift = window.innerWidth > 760 ? 0.075 : 0;
   camera.lookAt(p.x - Math.cos(splashAngle) * shift, p.y + 0.01, p.z + Math.sin(splashAngle) * shift);
   camera.updateMatrixWorld();
+}
+
+/** The Cruise films itself; everything else uses the chase / cockpit camera. */
+function placeCamera(dt: number, realDt: number) {
+  if (G.phase === "cruise") {
+    updateCruiseCamera(dt, realDt);
+  } else {
+    forceCockpit(null);
+    updateCamera(dt, realDt);
+  }
 }
 
 /** Advances the game by one real-time step. Returns the simulated dt (0 while paused). */
@@ -285,15 +345,18 @@ function frame() {
     G.world.update(realDt, clock.elapsedTime, G.player.vel);
   } else {
     const dt = simulate(realDt);
-    updateCamera(dt, realDt);
+    placeCamera(dt, realDt);
     syncBackCamera();
-    G.world.update(dt, G.time, G.player.vel);
+    G.world.update(dt, G.time, G.phase === "cruise" ? cruiseCameraVelocity() : G.player.vel);
   }
+  updateCockpit(realDt);
   updateHud(realDt);
   renderFrame();
 
-  // Free the mouse for the results screen's buttons.
-  if (over() && input.pointerLocked) input.unlockPointer();
+  // Free the mouse for the results screen's buttons (and always in the Cruise).
+  if (!wantsMouse() && G.phase !== "splash" && input.pointerLocked) input.unlockPointer();
+  const idle = G.phase === "cruise" && !G.paused && performance.now() - lastMouseMove > 2500;
+  if (idle !== document.body.classList.contains("idle-cursor")) document.body.classList.toggle("idle-cursor", idle);
   // One-shot presses that nothing used this frame are dropped, so a stray key
   // can't fire off an action much later.
   input.clearQueue();
@@ -306,12 +369,13 @@ frame();
 if (import.meta.env.DEV) {
   (window as unknown as { __game: unknown }).__game = {
     G, input, audio, renderer, startMission, scene, backScene, camera, backCamera, composer, updateCamera, syncBackCamera,
+    placeCamera, updateCockpit, cycleCruiseView, toggleView, currentShot, harrenShip,
     tick(seconds: number, beforeStep?: () => void) {
       for (let t = 0; t < seconds; t += 1 / 60) {
         input.update();
         beforeStep?.();
         simulate(1 / 60);
-        updateCamera(1 / 60, 1 / 60);
+        placeCamera(1 / 60, 1 / 60);
       }
     },
   };

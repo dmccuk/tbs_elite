@@ -81,6 +81,27 @@ The Kessler's deck officer: a dry, unimpressed voice. Treatment: radio.
 | 42 | `pro_deck_scrape.mp3` | That's coming out of your pay. | You scrape the bay walls |
 | 43 | `pro_deck_launch.mp3` | Catapult's charged. Go. | Launching after a free-flight landing |
 
+## Cruise (the screensaver ride)
+
+Wyatt and Harren fly a loop out of the Kessler and back, with a joyride in the middle (boost, a roll, a slalom round the rocks). The deck lines above play here too (cleared, captured, landed, launch). Lines are spaced out, several only play some laps, and the four musings rotate so they don't repeat back to back.
+
+| # | File | Speaker | Line | When | Treatment |
+|---|---|---|---|---|---|
+| 1 | `cruise_staples_launch.mp3` | Staples | No pirates, no paperwork. Just me and the rocks. | Off the catapult (first ride, then now and then) | cockpit |
+| 2 | `cruise_harren_launch.mp3` | Harren | Harren, on your wing. Try not to fall asleep, Staples. | Follows 1 | radio |
+| 3 | `cruise_staples_view.mp3` | Staples | Say what you like about the Tessick-Varn. The view's free. | Out in the belt (musing) | cockpit |
+| 4 | `cruise_staples_quiet.mp3` | Staples | Quiet out here. I could get used to quiet. | Out in the belt (musing) | cockpit |
+| 5 | `cruise_staples_harren.mp3` | Staples | Harren's gone quiet. That's either peace or a prank. | Out in the belt (musing) | cockpit |
+| 6 | `cruise_staples_flask.mp3` | Staples | Should have brought a flask. Rookie mistake. | Out in the belt (musing) | cockpit |
+| 7 | `cruise_staples_lairy.mp3` | Staples | Nobody's watching. Let's see what she's got. | The joyride starts | cockpit |
+| 8 | `cruise_harren_race.mp3` | Harren | Oh, it's like that, is it? Race you! | Follows 7 | radio |
+| 9 | `cruise_staples_whoop.mp3` | Staples | Ha! Threaded it! | Through the first rocks, on the boost | cockpit |
+| 10 | `cruise_computer_proximity.mp3` | Seagull computer | Proximity alert. Proximity alert. Rock. | Late in the slalom | computer |
+| 11 | `cruise_staples_sensible.mp3` | Staples | Right. Sensible flying from here on. Nobody saw that. | The joyride ends | cockpit |
+| 12 | `cruise_harren_show_off.mp3` | Harren | Show-off. I'm telling Caldwell. | Follows 11 | radio |
+| 13 | `cruise_harren_home.mp3` | Harren | I'll go first. Last one down buys the coffee. | 9 km out, as he pulls ahead to land first | radio |
+| 14 | `cruise_staples_home.mp3` | Staples | Kessler, Seagull. Coming home. | 7 km out (the deck answers with `pro_deck_cleared`) | cockpit |
+
 ## Chapter 1: Lingering Systems
 
 **Already recorded (Redford, in `public/`):** `voice_redford_alert.mp3` (the ambush), `voice_redford_failed.mp3` (first missed container), `voice_redford_damaged.mp3` (corvette crippled), `voice_redford_complete.mp3` (victory).
@@ -124,4 +145,5 @@ The Kessler's deck officer: a dry, unimpressed voice. Treatment: radio.
 
 - **Prologue:** 27 lines. Harren 12, Seagull computer 6, Staples 4, Caldwell 2, Tessick-3 control 1, pirate 1, shuttle pilot 1.
 - **Chapter 1:** 26 lines, plus 2 optional. MK-IV computer 13, Kalon 7, Staples 3, Hostile 3.
+- **Cruise:** 14 new lines. Staples 9, Harren 4, Seagull computer 1 (plus the Kessler deck lines).
 - **Voices needed:** Staples, Harren, Caldwell, Kalon, two ship computers (one voice with different filters works), a pirate or hostile voice (can double as the shuttle pilot), and Tessick-3 control.

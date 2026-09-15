@@ -134,6 +134,20 @@
       .instrument-unit { font-size: 9px; opacity: 0.7; }
       #score-inst { border-color: var(--warn); color: var(--warn); }
 
+      /* Speaker icons (title screen + HUD): click or press M. Red with a line through it while muted. */
+      .sound-toggle { cursor: pointer; pointer-events: auto; font: inherit; }
+      .sound-toggle svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
+      .sound-toggle .spk { fill: currentColor; stroke-width: 1.5; }
+      .sound-toggle .slash { display: none; stroke-width: 2.6; }
+      .sound-toggle.muted .waves { display: none; }
+      .sound-toggle.muted .slash { display: inline; }
+      .sound-toggle:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+      .hud-sound { align-self: flex-start; width: 40px; height: 40px; padding: 0; display: flex; align-items: center; justify-content: center; color: var(--hud-dim); opacity: 0.75; }
+      .hud-sound:hover { opacity: 1; }
+      .hud-sound.muted { color: var(--danger); border-color: var(--danger); opacity: 1; box-shadow: 0 0 14px rgba(255, 60, 60, 0.45); }
+      body[data-phase="cruise"] .hud-sound { opacity: 0.45; }
+      body[data-phase="cruise"] .hud-sound.muted { opacity: 1; }
+
       #player-bars { position: absolute; bottom: calc(18px + var(--safe-b)); left: 50%; transform: translateX(-50%); display: flex; gap: 16px; align-items: flex-end; padding: 8px 14px; }
       .pbar { text-align: left; }
       .pbar .lbl { font-size: 9px; letter-spacing: 1px; opacity: 0.85; margin-bottom: 3px; font-family: 'Orbitron', sans-serif; }
@@ -273,6 +287,14 @@
         padding: clamp(18px, 5vh, 52px) clamp(20px, 6vw, 84px);
       }
       .studio { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; letter-spacing: 0.06em; color: var(--t-mute); }
+      .title-sound {
+        margin-left: auto; display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px 4px; border-radius: 2px;
+        border: 1px solid var(--t-line); background: transparent; color: var(--t-mute);
+        font-family: 'Big Shoulders Text', sans-serif; font-weight: 600; font-size: 15px; letter-spacing: 0.04em;
+      }
+      .title-sound:hover { color: var(--t-ink); border-color: rgba(230, 239, 233, 0.35); }
+      .title-sound.muted { color: #ff5a4a; border-color: rgba(255, 90, 74, 0.7); }
+      .title-sound svg { width: 18px; height: 18px; }
       .studio-mark {
         font-family: 'Big Shoulders Stencil Display', 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 17px; letter-spacing: 0.08em;
         color: var(--t-amber); border: 1px solid var(--t-amber); padding: 1px 6px 0; line-height: 1.2;
@@ -354,11 +376,17 @@
       @media (max-width: 760px) {
         .title-scrim { background: rgba(var(--t-void), 0.84); }
       }
-      /* Laptop-height screens: the title goes on one line so both missions fit. */
+      .m-head .m-alt { align-self: center; padding: 4px 12px 3px; font-size: 15px; }
+      /* Laptop-height screens: the title goes on one line and the rows tighten so everything fits. */
       @media (max-height: 860px) {
-        .game-title { font-size: clamp(52px, min(8.4vw, 13vh), 120px); }
+        .title-screen { gap: clamp(12px, 2vh, 24px); }
+        .game-title { font-size: clamp(52px, min(8.4vw, 11vh), 120px); }
         .game-title .line { display: inline; }
-        .hazard { margin: 14px 0 10px; }
+        .hazard { margin: 12px 0 8px; }
+        .mission-card { padding: 10px 0 10px 20px; }
+        .mission-card::before { top: 10px; bottom: 10px; }
+        .m-log { margin-top: 4px; font-size: 15px; }
+        .m-actions { margin-top: 8px; }
       }
 
       /* Shown only on phones/tablets, or only with mouse + keyboard. */
@@ -384,6 +412,12 @@
       #btn-boost { right: 30px; bottom: calc(152px + var(--safe-b)); width: 64px; height: 64px; font-size: 11px; }
       #btn-dodge { right: 120px; bottom: calc(120px + var(--safe-b)); width: 58px; height: 58px; font-size: 10px; }
       #btn-pause { right: 16px; top: 16px; width: 42px; height: 42px; font-size: 14px; border-radius: 8px; }
+      #btn-view { right: 16px; top: 66px; width: 42px; height: 42px; font-size: 9px; border-radius: 8px; }
+      /* Speed: automatic until one of these is pressed, then it's the player's (like W / S). */
+      #btn-faster, #btn-slower { right: 216px; width: 46px; height: 46px; font-size: 17px; border-radius: 10px; }
+      #btn-faster { bottom: calc(132px + var(--safe-b)); }
+      #btn-slower { bottom: calc(78px + var(--safe-b)); }
+      body.touch.manual-throttle #instruments .instrument:nth-child(2) { display: block; }
 
       /* Touch layout: stick on the left, buttons on the right, keep the middle clear. */
       body.touch #instruments { right: 70px; top: 10px; }
@@ -410,6 +444,42 @@
       body.touch #objective-hint { font-size: 11px; }
       body.touch[data-phase="combat"] #objective-hint { display: none; }
       body.touch .title-screen { touch-action: pan-y; }
+
+      /* Cockpit view (V): the dash screens show the bars and scanner. */
+      body.cockpit #player-bars, body.cockpit #radar-wrap { display: none; }
+
+      /* ---------- Cruise: the screensaver ride ----------
+         A clean picture: comms and a title card only, letterbox bars in the cinematic view. */
+      body[data-phase="cruise"].idle-cursor { cursor: none; } /* the mouse stays free; the cursor just hides when idle */
+      body[data-phase="cruise"] #status-panel, body[data-phase="cruise"] #objective, body[data-phase="cruise"] #mission-status,
+      body[data-phase="cruise"] #instruments .instrument, body[data-phase="cruise"] #player-bars, body[data-phase="cruise"] #radar-wrap,
+      body[data-phase="cruise"] #target-info, body[data-phase="cruise"] #guide, body[data-phase="cruise"] #scanlines,
+      body[data-phase="cruise"] #touch-stick-zone,
+      body[data-phase="cruise"] .tbtn:not(#btn-pause):not(#btn-view) { display: none !important; }
+      #letterbox::before, #letterbox::after {
+        content: ""; position: fixed; left: 0; right: 0; height: 0; background: #000; z-index: 8; pointer-events: none;
+        transition: height 1.4s ease-in-out;
+      }
+      #letterbox::before { top: 0; }
+      #letterbox::after { bottom: 0; }
+      body.letterbox #letterbox::before, body.letterbox #letterbox::after { height: 8vh; }
+      #cut-fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 9; }
+      #cut-fade.dip { animation: dip 0.8s ease-out; }
+      @keyframes dip { from { opacity: 0.85; } to { opacity: 0; } }
+      #cruise-caption {
+        position: absolute; left: clamp(16px, 5vw, 64px); bottom: calc(8vh + 18px + var(--safe-b));
+        font-family: 'Big Shoulders Text', 'Arial Narrow', sans-serif; color: #e6efe9; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+        opacity: 0; transition: opacity 1.6s ease;
+      }
+      #cruise-caption.visible { opacity: 1; }
+      body:not([data-phase="cruise"]) #cruise-caption { display: none; }
+      .cc-title {
+        font-family: 'Big Shoulders Stencil Display', 'Big Shoulders Display', Impact, sans-serif; font-weight: 800;
+        font-size: 40px; line-height: 1; letter-spacing: 0.02em; text-transform: uppercase; color: #f2b01e;
+      }
+      .cc-line { margin-top: 4px; font-size: 17px; color: #c9d6cf; }
+      .cc-keys { margin-top: 6px; font-size: 15px; color: #8ea39a; }
+      .cc-keys kbd { font: 600 12px 'Big Shoulders Text', sans-serif; padding: 0 5px; border: 1px solid currentColor; border-radius: 2px; }
 
       #rotate-hint {
         display: none; position: fixed; inset: 0; z-index: 500; background: rgba(0, 0, 0, 0.92);
@@ -454,7 +524,12 @@
     <div id="splash-screen">
       <div class="title-scrim"></div>
       <main class="title-screen">
-        <header class="studio"><span class="studio-mark">VOX9</span> Studios presents</header>
+        <header class="studio"><span class="studio-mark">VOX9</span> Studios presents
+          <button class="sound-toggle title-sound" type="button" aria-label="Sound is on. Turn sound off">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path class="spk" d="M3 9h4l5-4v14l-5-4H3z"/><path class="waves" d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/><path class="slash" d="M2.5 3.5l19 17"/></svg>
+            <span class="sound-label">Sound on</span>
+          </button>
+        </header>
 
         <div class="title-block">
           <h1 class="game-title"><span class="line">The Black</span> <span class="line">Ship</span></h1>
@@ -481,6 +556,10 @@
               <span class="m-best" id="best-chapter1"></span>
             </div>
           </li>
+          <li class="mission-card" data-mission="cruise">
+            <div class="m-head"><h2 class="m-title">Cruise</h2><button class="m-alt">Watch <kbd class="desktop-only">C</kbd></button></div>
+            <p class="m-log">No pirates, no paperwork. The Seagull launches off the Kessler, loops out through the asteroid belt and comes home, then goes round again.</p>
+          </li>
         </ol>
 
         <footer class="title-foot">
@@ -505,6 +584,8 @@
 
     <div id="scanlines"></div>
     <div id="vignette"></div>
+    <div id="letterbox"></div>
+    <div id="cut-fade"></div>
     <div id="damage-vignette"></div>
     <div id="lowhull-vignette"></div>
 
@@ -568,6 +649,9 @@
           <div class="instrument-value" id="score-value">0</div>
           <div class="instrument-unit">pts</div>
         </div>
+        <button class="panel sound-toggle hud-sound" type="button" aria-label="Sound is on. Turn sound off">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path class="spk" d="M3 9h4l5-4v14l-5-4H3z"/><path class="waves" d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/><path class="slash" d="M2.5 3.5l19 17"/></svg>
+        </button>
       </div>
 
       <div id="controls" class="desktop-only">
@@ -576,12 +660,19 @@
         <span class="key">X</span> <span id="legend-special">launch / detonate cargo</span><br>
         <span class="key">Q</span>/<span class="key">E</span> dodge <span class="key">Tab</span> target<br>
         <span class="missile-only"><span class="key">F</span> fire missile (hold nose on target to lock)<br></span>
-        <span class="key">P</span> pause <span class="key">H</span> help<span class="practice-only"> <span class="key">Enter</span> skip</span>
+        <span class="key">V</span> cockpit view <span class="key">P</span> pause <span class="key">H</span> help<span class="practice-only"> <span class="key">Enter</span> skip</span>
       </div>
 
       <div id="banner"></div>
       <div id="callout"></div>
       <div id="guide"></div>
+
+      <div id="cruise-caption">
+        <div class="cc-title">Cruise</div>
+        <div class="cc-line">Tessick-Varn Frontier, off duty · <span id="cc-view">Cinematic cameras</span></div>
+        <div class="cc-keys desktop-only"><kbd>1</kbd> behind · <kbd>2</kbd> cinematic · <kbd>3</kbd> cockpit · <kbd>Esc</kbd> for the menu</div>
+        <div class="cc-keys touch-only">VIEW changes the camera · II for the menu</div>
+      </div>
 
       <div id="player-bars" class="panel">
         <div class="pbar" id="shield-bar"><div class="lbl">SHIELD</div><div class="bar"><div class="fill" id="shield-fill"></div></div></div>
@@ -611,7 +702,10 @@
       <div class="tbtn" id="btn-missile">MSL</div>
       <div class="tbtn" id="btn-boost">BOOST</div>
       <div class="tbtn" id="btn-dodge">ROLL</div>
+      <div class="tbtn" id="btn-faster" aria-label="Speed up">▲</div>
+      <div class="tbtn" id="btn-slower" aria-label="Slow down">▼</div>
       <div class="tbtn" id="btn-pause">II</div>
+      <div class="tbtn" id="btn-view">VIEW</div>
     </div>
 
     <div id="pause-overlay">
@@ -641,6 +735,8 @@
         <div class="help-row"><span class="help-key">W / S</span><span class="help-desc">Throttle up / down</span></div>
         <div class="help-row"><span class="help-key">Shift</span><span class="help-desc">Boost (uses boost energy)</span></div>
         <div class="help-row"><span class="help-key">Q / E</span><span class="help-desc">Dodge roll — untouchable while rolling</span></div>
+        <div class="help-row"><span class="help-key">V</span><span class="help-desc">Cockpit or chase view (in the Cruise, the cinematic cameras too)</span></div>
+        <div class="help-row"><span class="help-key">1 / 2 / 3</span><span class="help-desc">Pick a view: behind the ship / cinematic (Cruise only) / cockpit</span></div>
       </div>
       <div class="help-section desktop-only">
         <h3>Combat</h3>
@@ -658,6 +754,8 @@
         <div class="help-row"><span class="help-key">FIRE</span><span class="help-desc">Hold to shoot (auto-aims near the crosshair)</span></div>
         <div class="help-row"><span class="help-key" id="help-special-touch-key">CARGO</span><span class="help-desc" id="help-special-touch">Launch the container, tap again to detonate</span></div>
         <div class="help-row"><span class="help-key">BOOST / ROLL</span><span class="help-desc">Burst of speed / dodge</span></div>
+        <div class="help-row"><span class="help-key">▲ / ▼</span><span class="help-desc">Speed up / slow down (speed is automatic until you press one)</span></div>
+        <div class="help-row"><span class="help-key">VIEW</span><span class="help-desc">Cockpit or chase view</span></div>
         <div class="help-row missile-only"><span class="help-key">MSL</span><span class="help-desc">Fire a missile once the target shows LOCK</span></div>
       </div>
       <div class="help-section">

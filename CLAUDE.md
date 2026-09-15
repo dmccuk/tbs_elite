@@ -4,10 +4,14 @@ Guidance for Claude (and other contributors) working in this repo.
 
 ## What this project is
 
-A narrative **browser space-combat game** from **Vox9 Studios** (the author's audiobook platform and game studio), built with Three.js + TypeScript + Vite, with two playable missions picked from the title screen (story order, nothing locked):
+A narrative **browser space-combat game** from **Vox9 Studios** (the author's audiobook platform and game studio), built with Three.js + TypeScript + Vite, with two story missions and a screensaver ride picked from the title screen (story order, nothing locked):
 
 1. **Prologue.** Before Wyatt piloted the waste hauler, Patrol Pilot **Wyatt Staples** flies a **Seagull** fighter with the Ninth Patrol Squadron on the Tessick-Varn Frontier, with wingman **Harren** and Squadron Commander **Lt Edren Caldwell** on comms. Pirates are stripping the **Tessick-3** relay. The player downs three pirate fighters (Harren takes one; the last one runs), then disables the fleeing cargo shuttle's **engines**, not its hull, because 11 kidnapped workers are aboard. Adapted from *Academy Days* Episode 6; spec in `docs/prologue-tessick3-spec.md`. It ends on the posting notice that sends Wyatt to a compost hauler, which leads into Chapter 1. The Prologue card also offers **free flight** (F on the splash): the patrol never ends, buoys respawn, and Enter starts the real mission. It also offers **landing practice** (L on the splash): fly through three approach rings, cross the Kessler's stern door below 350 m/s (`CAPTURE_MAX` in kessler.ts), and the mag-clamp field brakes you onto the cradle. Come in too fast and you overshoot out of the bow, which fails the drill. You can also land in free flight, and Enter catapults you out through the bow. The Kessler's hull is solid in every frontier mode.
 2. **Chapter 1: Lingering Systems.** Warrant Officer Wyatt Staples captains the *Space Refuse Collector MK-IV*, a garbage hauler. After a short practice period, the **Royal Yacht** *Royal Favor* (Cmdr Redford Kalon) jumps in pursued by a **Black Ship** corvette flying House Cayston colours. The player shoots down missiles and drones to keep the yacht alive, and cripples the corvette by launching their bio-waste cargo container at it and detonating it inside the blast radius (2 hits).
+
+3. **Cruise** (C on the splash; not a story mission, not in `MISSION_ORDER`). A screensaver ride: Harren then Wyatt catapult off the Kessler, the autopilot flies a ~6–7 minute loop out through an endless asteroid belt (`belt.ts`) and back into the bay, they rest ~16 s on cradles 1 and 2, and go again, forever. Mid-lap there's a ~45 km **joyride**: Wyatt opens her up (1.5 km/s, two boosts to 2.05), throws an aileron roll and slaloms round "gate" rocks planted on the path, with Harren chasing. Harren (`missions/cruise-harren.ts`) flies kinematically along the same lap: formation off the right wing, behind Wyatt in the slalom, ahead of him to land first. Phase `"cruise"`, no player controls, no score, **no pointer lock and no pause on blur** (so it can run on a second display; the cursor hides when idle). `cinematic.ts` films it with three views: 1 behind (chase), 2 cinematic (cuts between tracking, wide two-ship, orbit, flyby, behind-a-rock, over-Harren's-shoulder in the joyride, and Kessler set-ups: stern approach, hangar, deck, bow launch), 3 cockpit. V cycles; the choice is saved as `tbs-cruise-view`. The HUD is reduced to comms and a title card, with letterbox bars in the cinematic view. Lines: `cruise_*` / `pro_deck_*` in `docs/voice-lines.md`.
+
+**Cockpit view** (V in any mission, `tbs-view` in localStorage; `cockpit.ts`): the camera sits at the pilot's eye and a small cockpit scene (canopy frame, dash, three canvas screens) is drawn over the world after a depth clear. In cockpit view the dash screens replace the HUD's bottom bars and scanner (`body.cockpit`).
 
 This is a planned serialised story. Lore, names and tone (gritty/blue-collar sci-fi, slightly tongue-in-cheek) should stay consistent across missions.
 
@@ -38,6 +42,11 @@ src/player.ts           Ship switching (MK-IV / Seagull), flight model, guns + a
 src/missiles.ts         The Seagull's 4 wing missiles: seeker lock (nose-on for 1 s), launch from the wing rails, homing flight, callouts
 src/kessler.ts          The Kessler, a small carrier with a through-bay: model, solid hull/bay collisions, approach rings, mag-clamp arrestor, catapult
 src/missions/landing.ts Prologue landing practice: start, guide prompt, deck report / scoring (uses kessler.ts)
+src/missions/cruise.ts  The Cruise: lap paths (ellipse + climb + weave + joyride slalom, straight ends through the bay), autopilot, launch/land/rest cycle, lines
+src/missions/cruise-harren.ts  Harren's Seagull on the Cruise: parked / launching / formation / chase / landing on cradle 1
+src/belt.ts             The Cruise's endless asteroid belt: rocks wrap around a box that follows the ship, clear corridor along the path
+src/cinematic.ts        The Cruise's camera director (cinematic / cockpit / chase views, shot picking, cuts, letterbox)
+src/cockpit.ts          Cockpit view: pilot-eye offsets, cockpit overlay scene + composer passes, live dash screens
 src/enemies.ts          Chapter 1 ships: yacht flight path, corvette AI, drones, missiles, damage functions
 src/frontier.ts         Prologue ships: Tessick-3 relay, Harren (wingman AI), pirate fighters, cargo shuttle (engine/hull zones), buoys
 src/cargo.ts            The cargo-container mine: launch, homing, point-defence, detonation
@@ -53,7 +62,7 @@ src/backdrop.ts         Sky shader, stars, gas giant, sun + lens flare, environm
 src/world-frontier.ts   Tessick-Varn look: brown dwarf, mining outposts T-7/T-9, the carrier Kessler (built lazily)
 src/models.ts           Chapter 1 models (MK-IV, yacht, corvette, drone, missile, container, drum, beacon) + canvas hull textures
 src/models-frontier.ts  Prologue models (Seagull, pirate fighter, cargo shuttle, Tessick-3 relay, nav buoy)
-src/renderer.ts         Renderer, two scenes (backdrop + main), cameras, bloom composer
+src/renderer.ts         Renderer, two scenes (backdrop + main), cameras, bloom composer (cockpit.ts inserts its passes after the main scene)
 src/fx/                 particles.ts (pooled GPU points), effects.ts (explosions, shockwaves, shake, warp), textures.ts
 index.html              HUD/UI markup + all CSS (single file)
 docs/                   Author-requested docs: prologue-tessick3-spec.md, voice-lines.md (every comms line + recording file names)
@@ -97,11 +106,13 @@ npm run preview
   - X / C / right-click: the ship's **special**. On the MK-IV that's cargo launch, then detonate; on the Seagull it's match speed with the locked target, press again to stop.
   - F / middle-click: fire a missile. Seagull only, with 4 on the wing rails, rearmed when the distress call comes in and reloaded in free flight. Hold the nose on a pirate or buoy for `TUNING.missiles.lockTime` to lock. The seeker never locks the shuttle (people aboard). The MK-IV has no missiles (`SHIPS.mk4.missiles = 0`).
   - Q/E: dodge roll. Tab/T: cycle target.
-  - P/Esc: pause. H: help. M: mute.
+  - P/Esc: pause. H: help. M: mute (saved as `tbs-muted`). Speaker icons on the title screen and at the end of the HUD's instrument row show the state (red with a line through it when muted) and toggle it on click. M on the title screen mutes rather than starting a mission.
   - R: restart (when paused or after the mission). N: next mission (on the results screen). Enter: skip practice.
-  - On the splash, 1/2 pick a mission, F starts Prologue free flight, and any other key starts the suggested one.
+  - V: cockpit / chase view (in the Cruise: behind → cinematic → cockpit). 1 / 2 / 3 pick behind / cinematic (Cruise only) / cockpit directly.
+  - On the splash, 1/2 pick a mission, F starts Prologue free flight, L landing practice, C the Cruise, and any other key starts the suggested one.
 - **Touch:**
-  - Floating stick on the left half; FIRE / CARGO-or-MATCH / BOOST / ROLL buttons, plus MSL on the Seagull; automatic throttle.
+  - Floating stick on the left half; FIRE / CARGO-or-MATCH / BOOST / ROLL buttons, plus MSL on the Seagull; VIEW under the pause button.
+  - Throttle is automatic (eased off on a Kessler approach) until the player first presses ▲ / ▼; after that it works like W / S (`input.touchThrottle`) and the THROTTLE readout appears.
   - The special button shows its own state: CARGO / reload countdown / BLOW!, or MATCH / MATCH ✓.
   - Tapping start requests fullscreen and a landscape lock where the browser allows it (Android; not iPhone Safari).
 - **Legend:** the desktop `#controls` legend stays on screen for the whole mission.

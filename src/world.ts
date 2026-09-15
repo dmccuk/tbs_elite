@@ -136,7 +136,7 @@ function createDebrisField() {
 
 export interface Rock { pos: THREE.Vector3; radius: number; }
 
-function rockGeometry(seed: number): THREE.BufferGeometry {
+export function rockGeometry(seed: number): THREE.BufferGeometry {
   const geo = new THREE.IcosahedronGeometry(1, 2);
   const p = geo.attributes.position;
   const v = new THREE.Vector3();
@@ -269,6 +269,8 @@ export interface World {
   setTheme(theme: WorldTheme): void;
   /** Radar landmarks for the active theme. */
   landmarks: Landmark[];
+  /** Show or hide the asteroid ring around the combat area (the Cruise brings its own belt). */
+  setAsteroidsVisible(visible: boolean): void;
   update(dt: number, elapsed: number, playerVel: THREE.Vector3): void;
 }
 
@@ -365,6 +367,9 @@ export function createWorld(): World {
         world.landmarks = lingeringLandmarks;
         occluder = lingeringOccluder;
       }
+    },
+    setAsteroidsVisible(visible) {
+      asteroids.group.visible = visible;
     },
     update(dt, elapsed, playerVel) {
       time.value = elapsed;
