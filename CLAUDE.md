@@ -6,6 +6,7 @@ Guidance for Claude (and other contributors) working in this repo.
 
 A narrative **browser space-combat game** from **Vox9 Studios** (the author's audiobook platform and game studio), built with Three.js + TypeScript + Vite, with two story missions and a screensaver ride picked from the title screen (story order, nothing locked):
 
+0. **Academy Days: GV-K707d** (first in story order; new players are still pointed at the Prologue, which teaches the controls). From *Academy Days*, Part 3: second-year novice Wyatt Staples, a commoner, is sent by Instructor **Beaumont-Hale** into the graded combat simulation nobody beats: four **Drazzan** fighters (faster and more agile than a Seagull) in open space, no cover, a coilgun with a limited magazine (260 rounds), aim assist cut to 6°, slow shield regen. The sim's Seagull special is **go cold** (X): engines off, coasting, the Drazzan lose track of you, then the manoeuvring thrusters kick you sideways. The first Drazzan badly damaged after the first kill has its sensor array shot out, limps off to repair and comes back last. **It can't be won:** the last Drazzan can't die (hp clamps at 1), and when it's damaged and on Wyatt's nose the power goes out — red strobe, klaxon, static, the evacuation call — and the result is **SIMULATION VOID** (counts as completed; unofficial score and grade). Shot down, or out of rounds for 15 s ("the proctor's discretion"), fails. Phase use: practice = countdown, ambush = the silence, combat = the fight (`missions/academy.ts`, `drazzan.ts`, `models-drazzan.ts`, theme `"sim"` in world.ts).
 1. **Prologue.** Before Wyatt piloted the waste hauler, Patrol Pilot **Wyatt Staples** flies a **Seagull** fighter with the Ninth Patrol Squadron on the Tessick-Varn Frontier, with wingman **Harren** and Squadron Commander **Lt Edren Caldwell** on comms. Pirates are stripping the **Tessick-3** relay. The player downs three pirate fighters (Harren takes one; the last one runs), then disables the fleeing cargo shuttle's **engines**, not its hull, because 11 kidnapped workers are aboard. Adapted from *Academy Days* Episode 6; spec in `docs/prologue-tessick3-spec.md`. It ends on the posting notice that sends Wyatt to a compost hauler, which leads into Chapter 1. The Prologue card also offers **free flight** (F on the splash): the patrol never ends, buoys respawn, and Enter starts the real mission. It also offers **landing practice** (L on the splash): fly through three approach rings, cross the Kessler's stern door below 350 m/s (`CAPTURE_MAX` in kessler.ts), and the mag-clamp field brakes you onto the cradle. Come in too fast and you overshoot out of the bow, which fails the drill. You can also land in free flight, and Enter catapults you out through the bow. The Kessler's hull is solid in every frontier mode.
 2. **Chapter 1: Lingering Systems.** Warrant Officer Wyatt Staples captains the *Space Refuse Collector MK-IV*, a garbage hauler. After a short practice period, the **Royal Yacht** *Royal Favor* (Cmdr Redford Kalon) jumps in pursued by a **Black Ship** corvette flying House Cayston colours. The player shoots down missiles and drones to keep the yacht alive, and cripples the corvette by launching their bio-waste cargo container at it and detonating it inside the blast radius (2 hits).
 
@@ -42,6 +43,9 @@ src/player.ts           Ship switching (MK-IV / Seagull), flight model, guns + a
 src/missiles.ts         The Seagull's 4 wing missiles: seeker lock (nose-on for 1 s), launch from the wing rails, homing flight, callouts
 src/kessler.ts          The Kessler, a small carrier with a through-bay: model, solid hull/bay collisions, approach rings, mag-clamp arrestor, catapult
 src/missions/landing.ts Prologue landing practice: start, guide prompt, deck report / scoring (uses kessler.ts)
+src/missions/academy.ts Academy Days (GV-K707d): countdown, silence, contacts, the power cut and its timeline, void / terminated results
+src/drazzan.ts          The Drazzan squadron: spawn from four vectors, pack AI (stalk / attack runs / pincers / break / blind / final), jinking, damage
+src/models-drazzan.ts   The Drazzan fighter model (blade wings, crimson edges, sensor "eye", violet thrusters)
 src/missions/cruise.ts  The Cruise: lap paths (ellipse + climb + weave + joyride slalom, straight ends through the bay), autopilot, launch/land/rest cycle, lines
 src/missions/cruise-harren.ts  Harren's Seagull on the Cruise: parked / launching / formation / chase / landing on cradle 1
 src/belt.ts             The Cruise's endless asteroid belt: rocks wrap around a box that follows the ship, clear corridor along the path
@@ -131,12 +135,13 @@ npm run preview
   - Those old baselines: an idle player loses in ~2 minutes; a near-perfect bot wins in ~50 s of combat with the yacht at ~85% (grade A).
   - Chapter 1's main levers: `mine.reloadSeconds`, `corvette.mineHitsToCripple`, missile damage and `mine.pdKillTime` (how long the corvette's point-defence needs to shoot a container down, which forces the player to detonate rather than ram).
   - Prologue levers: `TUNING.prologue.fighter.*` (hp, burst size/damage), `shuttle.jumpSeconds`, `shuttle.engineHp` / `hullHp`, `shuttle.engineAssistDeg`, and the Seagull's stats in `SHIPS.seagull`.
+  - Academy levers: `TUNING.academy.drazzan.*` (hp, jink / jinkCommitted, attackGap, burst, boltDamage, fireRange), `SHIPS.academy` (ammo, shieldRegen, aimAssistDeg) and `TUNING.academy.cold`. Baselines (Sept 2026): an idle player dies in ~20 s; a tracking bot at 80% stick with a small aim wobble reaches the power cut in ~25–40 s, using ~80 rounds. Real players should take 1.5–3 minutes.
 
 ## What not to do without asking
 
 - Don't add new top-level `*.md` docs, screenshots, or design treatises unless the user asks. This file is the canonical doc.
 - Don't introduce new runtime dependencies without a discussion of bundle-size impact.
-- Don't rename the lore (Wyatt Staples, Redford Kalon, House Cayston, *Royal Favor*, Lingering Systems, Harren, Edren Caldwell, the Kessler, Tessick-Varn, Seagull). These will carry into future chapters.
+- Don't rename the lore (Wyatt Staples, Redford Kalon, House Cayston, *Royal Favor*, Lingering Systems, Harren, Edren Caldwell, the Kessler, Tessick-Varn, Seagull, Beaumont-Hale, Petra Dainton, the Drazzan, GV-K707d). These will carry into future chapters.
 - Don't change `vite.config.ts` base path without verifying the GitHub Pages deploy still resolves `/tbs_elite.mp3` etc.
 - Don't push to `main` casually — it deploys straight to the live site.
 

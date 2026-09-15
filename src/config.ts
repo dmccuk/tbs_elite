@@ -137,11 +137,46 @@ export const TUNING = {
     },
     relayDamage: 0.6,       // integrity % per pirate bolt that hits the relay
   },
+
+  // Academy Days: simulation GV-K707d, four Drazzan fighters (missions/academy.ts, drazzan.ts).
+  academy: {
+    countdown: 10,          // "the scenario will commence in ten seconds"
+    silence: 9.5,           // …then nothing on the scope for this long (fits the two recorded lines)
+    contactRange: 6,        // km: where the four contacts appear
+    drazzan: {
+      hp: 30,               // 15 coilgun hits
+      speed: 1.3,           // faster than a Seagull at full throttle (1.1)…
+      attackSpeed: 1.55,    // …and on an attack run
+      turnRate: 2.7,        // rad/s: turns that would tear a Seagull apart
+      jink: 0.42,           // km/s of sideways jinking while manoeuvring (hard to hit)…
+      jinkCommitted: 0.15,  // …and while committed to an attack run (the window to shoot)
+      fireRange: 3.0,       // they open fire "prematurely"
+      burstShots: 5,
+      burstGap: 0.09,
+      burstCooldown: 1.0,
+      spread: 0.012,        // accurate
+      coldSpread: 0.12,     // while the player's engines are cold they're guessing
+      boltSpeed: 3.2,
+      boltDamage: 7,
+      passRange: 0.28,      // km: break off the run inside this
+      attackGap: 2.4,       // seconds between attack runs across the squadron (shrinks as they lose ships)
+      crippleAt: 0.5,       // the first one knocked below this share of hp loses its sensor array
+      repairSeconds: 45,    // a blinded fighter rejoins after this long even if others are still up
+    },
+    cold: {
+      maxSeconds: 2.2,      // engines off, coasting on momentum
+      cooldown: 6,
+      kick: 1.6,            // km/s sideways from the manoeuvring thrusters
+    },
+    cutAimDeg: 7,           // the last Drazzan, damaged and this close to the nose…
+    cutHold: 0.35,          // …for this long, and the lights go out
+    discretion: 15,         // seconds out of rounds before the proctor calls it
+  },
 };
 
 // --- Ships ---------------------------------------------------------------------
 
-export type ShipId = "mk4" | "seagull";
+export type ShipId = "mk4" | "seagull" | "academy";
 
 export interface ShipStats {
   label: string;
@@ -161,8 +196,14 @@ export interface ShipStats {
   boltWidth: number;
   flashColor: number;
   gunSound: "laser" | "coilgun";
-  special: "cargo" | "match"; // what X / right-click / the touch button does
+  special: "cargo" | "match" | "cold"; // what X / right-click / the touch button does
   missiles: number;           // wing missiles carried (F / middle-click / MSL)
+  /** Coilgun rounds carried (unlimited when absent). */
+  ammo?: number;
+  /** Shield points recharged per second (TUNING.player.shieldRegenRate when absent). */
+  shieldRegen?: number;
+  /** Aim-assist cone in degrees (TUNING.player.aimAssistDeg when absent). */
+  aimAssistDeg?: number;
 }
 
 export const SHIPS: Record<ShipId, ShipStats> = {
@@ -181,6 +222,16 @@ export const SHIPS: Record<ShipId, ShipStats> = {
     gunCooldown: 0.13, gunDamage: 2, bulletSpeed: 8, bulletLife: 0.62,
     boltColor: 0xffbb66, boltLength: 0.075, boltWidth: 0.005, flashColor: 0xffcc88, gunSound: "coilgun",
     special: "match", missiles: 4,
+  },
+  // The Academy's simulated Seagull-class (Academy Days): standard novice fit — lighter
+  // shields, no missiles, a coilgun with a limited magazine, and "go cold" as its special.
+  academy: {
+    label: "SEAGULL (SIM)", maxSpeed: 1.1, boostSpeed: 2.1, accel: 1.5, yawRate: 2.0, pitchRate: 1.7,
+    hull: 100, shield: 110,
+    gunCooldown: 0.13, gunDamage: 2, bulletSpeed: 8, bulletLife: 0.62,
+    boltColor: 0xffbb66, boltLength: 0.075, boltWidth: 0.005, flashColor: 0xffcc88, gunSound: "coilgun",
+    special: "cold", missiles: 0, ammo: 260, shieldRegen: 8, // "recharging slowly"
+    aimAssistDeg: 6,        // standard Academy fit: every shot has to count
   },
 };
 
@@ -203,6 +254,15 @@ export const SCORE = {
     relayPoint: 10,       // per % relay integrity
     playerHullPoint: 10,
     parTime: 150,
+  },
+  academy: {
+    kill: 800,
+    cripple: 300,
+    parTime: 180,           // seconds of engagement before the time bonus runs out
+    timeBonusPerSecond: 8,
+    shieldPoint: 4,         // per % shield left at the end
+    hullPoint: 6,           // per % hull left
+    roundsPoint: 2,         // per round left in the magazine
   },
 };
 

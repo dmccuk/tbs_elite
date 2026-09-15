@@ -5,6 +5,7 @@ import { segmentHitsSphere, type Bolt } from "./weapons";
 import { damageDrone, damageDrum, damageYacht, destroyMissile } from "./enemies";
 import { RELAY_RADIUS, damageFighter, damageRelay, damageShuttleEngines, damageShuttleHull, shuttleHullCenter } from "./frontier";
 import { damagePlayer, playerDodging } from "./player";
+import { damageDrazzan } from "./drazzan";
 
 // Decides what each bolt hit this frame.
 
@@ -30,7 +31,8 @@ export function boltHit(b: Bolt): boolean {
   if (b.owner === "player") {
     for (const f of G.fighters) {
       if (f.alive && segmentHitsSphere(b.prev, b.pos, f.obj.position, f.radius + 0.008)) {
-        damageFighter(f, b.damage, b.pos, true);
+        if (f.alien) damageDrazzan(f, b.damage, b.pos);
+        else damageFighter(f, b.damage, b.pos, true);
         registerHit();
         return true;
       }

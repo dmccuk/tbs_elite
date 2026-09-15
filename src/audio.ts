@@ -16,7 +16,7 @@ const VOICE_VOLUME = 1.6;   // voices sit clearly above guns, engines and music
 const SFX_DUCKED = 0.55;    // the sfx bus drops to this share while someone talks
 
 /** How a recorded line is processed, by who is speaking and from where. */
-export type VoiceFx = "radio" | "radioFar" | "interference" | "pirate" | "computer" | "cockpit";
+export type VoiceFx = "radio" | "radioFar" | "interference" | "pirate" | "computer" | "cockpit" | "pa";
 
 interface FxSpec {
   hp: number;        // band-pass: high-pass Hz…
@@ -26,6 +26,8 @@ interface FxSpec {
   dropouts: number;  // chance per 0.1 s of the signal cutting out
   comb: boolean;     // short metallic comb filter (the ship computers)
   squelch: boolean;  // radio clicks at the start and end
+  /** A long echo [delay s, feedback] (the station PA in a big hard room). */
+  echo?: [number, number];
 }
 
 const VOICE_FX: Record<VoiceFx, FxSpec> = {
@@ -35,6 +37,7 @@ const VOICE_FX: Record<VoiceFx, FxSpec> = {
   pirate:       { hp: 550, lp: 2300, drive: 4.0, static: 0.05,  dropouts: 0.08, comb: false, squelch: true },  // cheap, dirty pirate kit
   computer:     { hp: 180, lp: 6500, drive: 1.2, static: 0,     dropouts: 0,    comb: true,  squelch: false }, // ship computer
   cockpit:      { hp: 90,  lp: 9000, drive: 1.0, static: 0,     dropouts: 0,    comb: false, squelch: false }, // Staples in his own cockpit
+  pa:           { hp: 400, lp: 3800, drive: 1.6, static: 0,     dropouts: 0,    comb: false, squelch: false, echo: [0.16, 0.38] }, // station tannoy
 };
 
 interface VoiceLine { el: HTMLAudioElement; mod: GainNode; spec: FxSpec; missing: boolean; }
@@ -53,6 +56,7 @@ class AudioSystem {
   private staticNode: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
   private engine: { gain: GainNode; filter: BiquadFilterNode; osc: OscillatorNode; hiss: GainNode; hissFilter: BiquadFilterNode } | null = null;
   private lastLaser = 0;
+  private musicCut = false;
   muted = false;
 
   constructor() {
@@ -275,6 +279,40 @@ class AudioSystem {
     this.tone("square", 660, 660, 0.12, 0.06, 0.15);
   }
 
+  /** The station-wide emergency klaxon: one whoop (call it every ~1.1 s). */
+  klaxon() {
+    this.tone("sawtooth", 440, 780, 0.55, 0.16);
+    this.tone("square", 220, 390, 0.55, 0.05);
+  }
+
+  /** Every display in the chamber dying at once. */
+  powerDown() {
+    this.tone("sine", 520, 38, 0.9, 0.35);
+    this.tone("triangle", 180, 30, 1.1, 0.25, 0.05);
+    this.noiseBurst(0.7, 0.25, "lowpass", 900, 120, 1);
+  }
+
+  /** The simulation dissolving into static. */
+  simStatic() {
+    this.noiseBurst(1.3, 0.3, "bandpass", 3200, 900, 0.6);
+  }
+
+  /** Engines cut to nothing (going cold). */
+  engineCut() {
+    this.tone("sine", 240, 60, 0.35, 0.18);
+  }
+
+  /** An empty magazine: the trigger just clicks. */
+  dryFire() {
+    this.tone("square", 2400, 1800, 0.02, 0.05);
+  }
+
+  /** Kill the music outright (the klaxon) or bring it back. */
+  cutMusic(cut: boolean) {
+    this.musicCut = cut;
+    this.duck(this.current !== null);
+  }
+
   beep(high = false) {
     this.tone("sine", high ? 1320 : 990, high ? 1320 : 990, 0.08, 0.08);
   }
@@ -310,6 +348,7 @@ class AudioSystem {
       this.current = null;
     }
     this.stopStatic();
+    this.musicCut = false; // a fresh mission gets its music back
     this.duck(false);
   }
 
@@ -379,6 +418,15 @@ class AudioSystem {
         delay.connect(feedback).connect(delay);
         delay.connect(mod);
       }
+      if (spec.echo) {
+        const delay = ctx.createDelay(1);
+        delay.delayTime.value = spec.echo[0];
+        const feedback = ctx.createGain();
+        feedback.gain.value = spec.echo[1];
+        shaper.connect(delay);
+        delay.connect(feedback).connect(delay);
+        delay.connect(mod);
+      }
       mod.connect(this.voiceBus);
     } catch { /* play unprocessed */ }
     el.addEventListener("ended", () => this.finish(line));
@@ -395,7 +443,7 @@ class AudioSystem {
     const ctx = this.ctx;
     if (!ctx) return;
     const t = ctx.currentTime;
-    this.musicGain.gain.setTargetAtTime(on ? MUSIC_DUCKED : MUSIC_VOLUME, t, on ? 0.15 : 0.4);
+    this.musicGain.gain.setTargetAtTime(this.musicCut ? 0 : on ? MUSIC_DUCKED : MUSIC_VOLUME, t, this.musicCut ? 0.05 : on ? 0.15 : 0.4);
     this.sfx.gain.setTargetAtTime(on ? SFX_VOLUME * SFX_DUCKED : SFX_VOLUME, t, on ? 0.15 : 0.4);
   }
 

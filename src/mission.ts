@@ -15,6 +15,7 @@ import { isCompleted, readBest, talk, type Mission } from "./missions/common";
 import { chapter1 } from "./missions/chapter1";
 import { prologue } from "./missions/prologue";
 import { cruise } from "./missions/cruise";
+import { academy } from "./missions/academy";
 import { resetDirector } from "./cinematic";
 
 // Runs whichever mission is active. Each mission script lives in src/missions/
@@ -22,9 +23,11 @@ import { resetDirector } from "./cinematic";
 // starting, restarting and switching missions, plus the bits every mission
 // shares (hull alarms, the special button, target locking).
 
-export const MISSIONS: Record<MissionId, Mission> = { prologue, chapter1, cruise };
-/** Story order: the prologue comes before Chapter 1. (The Cruise isn't a story mission.) */
-export const MISSION_ORDER: MissionId[] = ["prologue", "chapter1"];
+export const MISSIONS: Record<MissionId, Mission> = { academy, prologue, chapter1, cruise };
+/** Story order: the Academy, then the Prologue, then Chapter 1. (The Cruise isn't a story mission.) */
+export const MISSION_ORDER: MissionId[] = ["academy", "prologue", "chapter1"];
+/** Which to point new players at first: the Prologue teaches the controls; the Academy sim is brutal. */
+const SUGGEST_ORDER: MissionId[] = ["prologue", "chapter1", "academy"];
 
 const LAST_KEY = "tbs-last-mission";
 
@@ -89,7 +92,7 @@ export function startMission(id: MissionId, short = false, variant: Variant = "m
   G.world.setTheme(m.theme);
   resetPlayer(G.player, m.start.pos, m.start.yaw);
   rearmMissiles();
-  setMissionHud({ id, statusHtml: m.statusHtml, briefingHtml: m.briefingHtml(), special: SHIPS[m.ship].special, missiles: SHIPS[m.ship].missiles });
+  setMissionHud({ id, statusHtml: m.statusHtml, briefingHtml: m.briefingHtml(), special: SHIPS[m.ship].special, missiles: SHIPS[m.ship].missiles, ammo: SHIPS[m.ship].ammo });
   if (MISSION_ORDER.includes(id)) {
     try { localStorage.setItem(LAST_KEY, id); } catch { /* ignore */ }
   }
@@ -114,7 +117,7 @@ export function returnToSplash() {
 
 /** Which mission the splash should offer first: the first one not yet finished, else the last played. */
 export function suggestedMission(): MissionId {
-  const unfinished = MISSION_ORDER.find((id) => !missionCompleted(id));
+  const unfinished = SUGGEST_ORDER.find((id) => !missionCompleted(id));
   if (unfinished) return unfinished;
   try {
     const last = localStorage.getItem(LAST_KEY) as MissionId | null;
@@ -142,7 +145,8 @@ export function updateMission(dt: number) {
   if (p.alive && p.hp < p.maxHp * 0.3 && controlsActive()) {
     if (!hullWarned) {
       hullWarned = true;
-      talk(m.computer, "Hull integrity critical. Recommend not dying.", `${m.id === "prologue" ? "pro" : "c1"}_computer_hull_critical`);
+      if (m.id === "academy") talk(m.computer, "Hull integrity critical.", "aca_sim_hull_critical");
+      else talk(m.computer, "Hull integrity critical. Recommend not dying.", `${m.id === "prologue" ? "pro" : "c1"}_computer_hull_critical`);
     }
     if (G.time - lastHullAlarm > 2.5) {
       lastHullAlarm = G.time;

@@ -270,7 +270,7 @@ function updateFighters(dt: number) {
   const p = G.player;
   const combat = G.phase === "combat";
   G.fighters.forEach((f, i) => {
-    if (!f.alive) return;
+    if (!f.alive || f.alien) return; // the Academy sim's Drazzan fly themselves (drazzan.ts)
     const pos = f.obj.position;
     const desired = _v;
     let speed = F.speed;

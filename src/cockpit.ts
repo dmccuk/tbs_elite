@@ -40,6 +40,13 @@ let sweep = 0;
 
 export const cockpitView = () => view;
 
+/** Every display dead (the Academy sim's power cut). */
+let screensDead = false;
+export function setScreensDead(dead: boolean) {
+  screensDead = dead;
+  screenTimer = 0;
+}
+
 export function toggleView(): View {
   return setView(view === "chase" ? "cockpit" : "chase");
 }
@@ -141,6 +148,10 @@ function drawScreens() {
   const p = G.player;
   const [scanner, flight, weapons] = screens;
   const W = 256, H = 160;
+  if (screensDead) {
+    for (const s of screens) { s.ctx.fillStyle = "#000"; s.ctx.fillRect(0, 0, W, H); s.tex.needsUpdate = true; }
+    return;
+  }
   {
     // Scanner: sweep, range rings and blips relative to the nose (8 km range).
     const c = scanner.ctx;
@@ -190,7 +201,16 @@ function drawScreens() {
     c.fillStyle = "#020806"; c.fillRect(0, 0, W, H);
     c.textAlign = "center";
     const max = SHIPS[G.shipId].missiles;
-    if (max > 0) {
+    if (SHIPS[G.shipId].special === "cold") {
+      // The Academy sim: the magazine, and the go-cold state.
+      c.fillStyle = "#ffcc88"; c.font = "13px monospace"; c.fillText("COILGUN ROUNDS", 128, 24);
+      c.font = "bold 44px monospace";
+      c.fillStyle = p.ammo <= 0 ? "#ff3344" : p.ammo <= 40 ? "#ffaa00" : "#e2e6ea";
+      c.fillText(String(p.ammo), 128, 72);
+      c.font = "bold 18px monospace";
+      c.fillStyle = p.cold > 0 ? "#88ccff" : p.coldCooldown > 0 ? "#44665a" : "#66ff99";
+      c.fillText(p.cold > 0 ? `COLD ${p.cold.toFixed(1)}s` : p.coldCooldown > 0 ? `THRUSTERS ${Math.ceil(p.coldCooldown)}s` : "COLD READY", 128, 124);
+    } else if (max > 0) {
       c.fillStyle = "#ffcc88"; c.font = "13px monospace"; c.fillText("MISSILES", 128, 20);
       for (let i = 0; i < max; i++) {
         const x = 128 - (max * 34) / 2 + i * 34 + 8;

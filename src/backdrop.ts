@@ -34,6 +34,8 @@ export interface SkyColors {
   /** Wide and tight glow around the sun direction. */
   sunHalo: RGB;
   sunCore: RGB;
+  /** Keep the nebula to one patch of sky: [direction x, y, z, tightness]. Omit for all-sky. */
+  focus?: [number, number, number, number];
 }
 
 /** Sun sprite colours as [hex, intensity multiplier]. */
@@ -97,6 +99,7 @@ export function createSky(colors: SkyColors) {
     uBase: v3(), uWisp: v3(), uCloud: v3(), uBandDust: v3(), uBandGlow: v3(), uSunHalo: v3(), uSunCore: v3(),
     uRanges: { value: new THREE.Vector4() },
     uLanes: { value: 0 },
+    uFocus: { value: new THREE.Vector4(0, 0, -1, 0) },
   };
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
@@ -120,6 +123,7 @@ export function createSky(colors: SkyColors) {
       uniform vec3 uSunCore;
       uniform vec4 uRanges; // wisp lo/hi, cloud lo/hi
       uniform float uLanes;
+      uniform vec4 uFocus;  // xyz direction, w tightness (0 = nebula all over the sky)
       varying vec3 vDir;
       float hash(vec3 p) {
         p = fract(p * 0.3183099 + 0.1);
@@ -153,9 +157,11 @@ export function createSky(colors: SkyColors) {
         // Warp the nebula for wispy, flowing shapes.
         float warp = fbm(d * 3.0 + n2 * 1.5);
 
+        // Optionally gather the nebula into one patch of sky (exp of a value <= 0: safe everywhere).
+        float focus = uFocus.w > 0.0 ? exp((dot(d, normalize(uFocus.xyz)) - 1.0) * uFocus.w) : 1.0;
         vec3 col = uBase;
-        col += uWisp * smoothstep(uRanges.x, uRanges.y, warp) * 0.55;
-        col += uCloud * smoothstep(uRanges.z, uRanges.w, n1) * 0.6;
+        col += uWisp * smoothstep(uRanges.x, uRanges.y, warp) * 0.55 * focus;
+        col += uCloud * smoothstep(uRanges.z, uRanges.w, n1) * 0.6 * focus;
         col += uBandDust * band * smoothstep(0.35, 0.8, n3) * 0.35;
         col += band * uBandGlow * (0.6 + n2);
         // Dark dust lanes cut through the band.
@@ -181,6 +187,8 @@ export function createSky(colors: SkyColors) {
     uniforms.uSunCore.value.fromArray(c.sunCore);
     uniforms.uRanges.value.set(c.wispRange[0], c.wispRange[1], c.cloudRange[0], c.cloudRange[1]);
     uniforms.uLanes.value = c.lanes;
+    if (c.focus) uniforms.uFocus.value.fromArray(c.focus);
+    else uniforms.uFocus.value.w = 0;
   };
   setColors(colors);
   return { mesh, setColors };

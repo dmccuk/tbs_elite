@@ -17,6 +17,32 @@ Every line of radio chatter in the game, grouped by mission and in the order you
 - **computer**: a flat synthetic filter.
 - **pirate**: a heavier, dirtier radio.
 
+## Academy Days: GV-K707d
+
+The Academy's simulation chamber. Instructor Beaumont-Hale is the proctor (clipped, bored authority with something like anticipation underneath). The simulation computer calls the fight. The station PA makes the evacuation call when the power goes. Wyatt's lines are his thoughts, quiet and dry.
+
+| # | File | Speaker | Line | When | Treatment |
+|---|---|---|---|---|---|
+| 1 | `aca_proctor_briefing.mp3` | Beaumont-Hale | Novice Staples, the scenario will commence in ten seconds. You are facing a standard Drazzan patrol squadron. Engage and survive as long as you are able. The simulation will terminate upon your destruction or at the proctor's discretion. | The mission starts | radio |
+| 2 | `aca_sim_reset.mp3` | Simulation | Scenario reset. GV-K707d. | Retrying instead of 1 | computer |
+| 3 | `aca_sim_commence.mp3` | Simulation | Scenario GV-K707d. Commencing. | The countdown reaches zero | computer |
+| 4 | `aca_staples_nothing.mp3` | Staples | Nothing on the scope. That's how they want it. | The silence before the contacts | cockpit |
+| 5 | `aca_sim_contacts.mp3` | Simulation | Contacts. Four. Multiple vectors. | The Drazzan appear | computer |
+| 6 | `aca_staples_premature.mp3` | Staples | Premature. Exactly what I'd do. | The first Drazzan opens fire | cockpit |
+| 7 | `aca_staples_first_blood.mp3` | Staples | First blood. Three to go. | First kill | cockpit |
+| 8 | `aca_sim_kill.mp3` | Simulation | Kill confirmed. | Later kills | computer |
+| 9 | `aca_sim_crippled.mp3` | Simulation | Hostile sensor array disabled. | One is crippled | computer |
+| 10 | `aca_sim_cold.mp3` | Simulation | Engines cold. | The first time you go cold | computer |
+| 11 | `aca_sim_ammo_low.mp3` | Simulation | Ammunition low. | 40 rounds left | computer |
+| 12 | `aca_sim_empty.mp3` | Simulation | Magazine empty. | Out of rounds | computer |
+| 13 | `aca_sim_shields.mp3` | Simulation | Shields critical. | Shields under 15% | computer |
+| 14 | `aca_sim_hull_critical.mp3` | Simulation | Hull integrity critical. | Hull under 30% | computer |
+| 15 | `aca_staples_one_left.mp3` | Staples | Only one of them left. | The crippled one comes back, last | cockpit |
+| 16 | `aca_pa_evacuate.mp3` | Station PA | All novices, vacate simulation chambers immediately. Emergency protocols in effect. This is not a drill. | The power cut | pa (echoey tannoy) |
+| 17 | `aca_staples_had_him.mp3` | Staples | I had him. | In the dark, after the announcement | cockpit |
+| 18 | `aca_proctor_expected.mp3` | Beaumont-Hale | Simulation terminated. As expected. Dismissed, Novice. | You're shot down | radio |
+| 19 | `aca_proctor_discretion.mp3` | Beaumont-Hale | That will do. Scenario terminated at the proctor's discretion. | Out of rounds for 15 s | radio |
+
 ## Prologue: Tessick-3
 
 | # | File | Speaker | Line | When | Treatment |
@@ -146,4 +172,5 @@ Wyatt and Harren fly a loop out of the Kessler and back, with a joyride in the m
 - **Prologue:** 27 lines. Harren 12, Seagull computer 6, Staples 4, Caldwell 2, Tessick-3 control 1, pirate 1, shuttle pilot 1.
 - **Chapter 1:** 26 lines, plus 2 optional. MK-IV computer 13, Kalon 7, Staples 3, Hostile 3.
 - **Cruise:** 14 new lines. Staples 9, Harren 4, Seagull computer 1 (plus the Kessler deck lines).
+- **Academy Days:** 19 lines. Simulation computer 11, Staples 5, Beaumont-Hale 3, station PA 1.
 - **Voices needed:** Staples, Harren, Caldwell, Kalon, two ship computers (one voice with different filters works), a pirate or hostile voice (can double as the shuttle pilot), and Tessick-3 control.

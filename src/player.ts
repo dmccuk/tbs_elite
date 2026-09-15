@@ -34,7 +34,8 @@ export function shipStats(): ShipStats {
 }
 
 function modelFor(id: ShipId): ShipModel {
-  return (models[id] ??= id === "seagull" ? createSeagull() : createPlayerShip());
+  // The Academy's simulated Seagull wears plain training grey.
+  return (models[id] ??= id === "seagull" ? createSeagull() : id === "academy" ? createSeagull(0x9aa4ae) : createPlayerShip());
 }
 
 export function createPlayer(): Player {
@@ -68,6 +69,9 @@ export function createPlayer(): Player {
     containers: TUNING.mine.rackSize,
     reloadTimer: 0,
     missiles: S.missiles,
+    ammo: S.ammo ?? Infinity,
+    cold: 0,
+    coldCooldown: 0,
     captured: false,
     forward: new THREE.Vector3(0, 0, -1),
   };
@@ -108,6 +112,8 @@ export function resetPlayer(p: Player, pos = new THREE.Vector3(), yaw = 0) {
   p.containers = TUNING.mine.rackSize;
   p.reloadTimer = 0;
   p.missiles = S.missiles;
+  p.ammo = S.ammo ?? Infinity;
+  p.cold = p.coldCooldown = 0;
   p.captured = false;
   p.model.root.visible = true;
   setCargoVisible(true);
@@ -191,7 +197,7 @@ function killPlayer() {
 
 // --- Aim assist -------------------------------------------------------------
 
-const ASSIST_COS = Math.cos(THREE.MathUtils.degToRad(P.aimAssistDeg));
+const assistDeg = () => S.aimAssistDeg ?? P.aimAssistDeg;
 const ENGINE_ASSIST_COS = Math.cos(THREE.MathUtils.degToRad(TUNING.prologue.shuttle.engineAssistDeg));
 const _candidates: Entity[] = [];
 
@@ -212,6 +218,7 @@ function updateAimAssist(p: Player) {
   const range = S.bulletSpeed * S.bulletLife;
   let best: Entity | null = null;
   let bestScore = 0;
+  const ASSIST_COS = Math.cos(THREE.MathUtils.degToRad(assistDeg()));
   for (const e of aimCandidates()) {
     _v.subVectors(e.obj.position, p.obj.position);
     const dist = _v.length();
@@ -239,12 +246,20 @@ function updateAimAssist(p: Player) {
 
 function fireGuns(p: Player) {
   p.gunCooldown = S.gunCooldown;
+  if (p.ammo <= 0) {
+    // Dry: the trigger clicks, nothing comes out.
+    p.gunCooldown = 0.35;
+    audio.dryFire();
+    return;
+  }
+  p.ammo--;
+  if (p.ammo === 0) emit({ type: "outOfRounds" });
   const gun = p.model.guns[p.gunSide % p.model.guns.length];
   p.gunSide = 1 - p.gunSide;
   gun.getWorldPosition(_muzzle);
   _v.subVectors(G.aimPoint, _muzzle).normalize();
   // Never bend a shot more than the assist cone allows.
-  if (_v.dot(p.forward) < Math.cos(THREE.MathUtils.degToRad(P.aimAssistDeg + 1))) _v.copy(p.forward);
+  if (_v.dot(p.forward) < Math.cos(THREE.MathUtils.degToRad(assistDeg() + 1))) _v.copy(p.forward);
   _v2.copy(_v).multiplyScalar(S.bulletSpeed).addScaledVector(p.forward, p.speed);
   bolts.fire(_muzzle, _v2, "player", S.gunDamage, S.bulletLife, S.boltColor, S.boltLength, S.boltWidth);
   G.fx.flash(_muzzle, 0.028, S.flashColor, 0.07, 1.4);
@@ -298,8 +313,15 @@ export function updatePlayer(dt: number, controls: boolean) {
   }
   p.throttle = clamp(p.throttle, 0, 1);
 
+  // Going cold (the Academy sim): coasting with the engines off until the thrusters kick.
+  p.coldCooldown = Math.max(0, p.coldCooldown - dt);
+  if (p.cold > 0) {
+    p.cold -= dt;
+    if (p.cold <= 0 || !controls) thrusterKick(p);
+  }
+
   // Boost with a small latch so it doesn't flicker at an empty tank.
-  const wantBoost = controls && input.boost;
+  const wantBoost = controls && input.boost && p.cold <= 0;
   if (wantBoost && !p.boosting && p.boostEnergy > 20) {
     p.boosting = true;
     audio.dodge();
@@ -330,7 +352,8 @@ export function updatePlayer(dt: number, controls: boolean) {
     }
   }
   const accel = p.boosting ? S.accel * 2 : S.accel;
-  if (p.speed < targetSpeed) p.speed = Math.min(targetSpeed, p.speed + accel * dt);
+  if (p.cold > 0) { /* engines off: coasting on momentum */ }
+  else if (p.speed < targetSpeed) p.speed = Math.min(targetSpeed, p.speed + accel * dt);
   else p.speed = Math.max(targetSpeed, p.speed - accel * dt);
 
   // Dodge roll
@@ -362,10 +385,11 @@ export function updatePlayer(dt: number, controls: boolean) {
   p.model.body.rotation.z = p.bank - p.dodgeDir * rollEase * Math.PI * 2;
   p.model.body.rotation.x = p.pitchVel * 0.08;
 
-  engineFx(p);
+  if (p.cold > 0) for (const g of p.model.glows) g.scale.setScalar(0.003); // dark engines, no exhaust
+  else engineFx(p);
 
   // Shields recharge after a quiet spell.
-  if (G.time - p.lastHitTime > P.shieldRegenDelay) p.shield = Math.min(p.maxShield, p.shield + P.shieldRegenRate * dt);
+  if (G.time - p.lastHitTime > P.shieldRegenDelay) p.shield = Math.min(p.maxShield, p.shield + (S.shieldRegen ?? P.shieldRegenRate) * dt);
 
   // Container rack: the compactor slowly squeezes out replacements.
   if (S.special === "cargo" && p.containers < TUNING.mine.rackSize) {
@@ -385,6 +409,43 @@ export function updatePlayer(dt: number, controls: boolean) {
   if (controls && input.fire && p.gunCooldown <= 0) fireGuns(p);
 
   collide(p, dt);
+}
+
+/**
+ * The Academy sim's special (X): cut the engines and coast on momentum, running
+ * cold so the Drazzan lose track of you; after a couple of seconds (or on a
+ * second press) the manoeuvring thrusters slam you sideways. Returns what happened.
+ */
+export function toggleCold(): "cold" | "kick" | "recharging" {
+  const p = G.player;
+  if (p.cold > 0) {
+    thrusterKick(p);
+    return "kick";
+  }
+  if (p.coldCooldown > 0) return "recharging";
+  p.cold = TUNING.academy.cold.maxSeconds;
+  p.boosting = false;
+  audio.engineCut();
+  emit({ type: "wentCold" });
+  return "cold";
+}
+
+/** Out of the cold coast: a hard sideways burst from the manoeuvring thrusters (toward the stick, else either way). */
+function thrusterKick(p: Player) {
+  const C = TUNING.academy.cold;
+  p.cold = 0;
+  p.coldCooldown = C.cooldown;
+  _right.set(1, 0, 0).applyQuaternion(p.obj.quaternion);
+  _v2.set(0, 1, 0).applyQuaternion(p.obj.quaternion);
+  let sx = input.steerX, sy = input.steerY;
+  if (Math.abs(sx) + Math.abs(sy) < 0.25) { sx = Math.random() < 0.5 ? -1 : 1; sy = 0; }
+  _v.copy(_right).multiplyScalar(sx).addScaledVector(_v2, sy).normalize();
+  p.strafe.addScaledVector(_v, C.kick);
+  p.dodgeDir = sx < 0 ? -1 : 1;
+  p.dodgeTime = 0.35; // a flick of a roll, and a moment nothing can touch you
+  audio.dodge();
+  G.fx.shake(0.2);
+  for (const e of p.model.engines) G.fx.flash(e.getWorldPosition(_muzzle), 0.04, 0x88ccff, 0.2);
 }
 
 /** Engine glow and exhaust trail, scaled with thrust. */

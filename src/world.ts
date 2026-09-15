@@ -18,7 +18,35 @@ import { FRONTIER_LOOK, createFrontier, type Frontier } from "./world-frontier";
 
 export { SUN_DIR } from "./backdrop";
 
-export type WorldTheme = "lingering" | "frontier";
+export type WorldTheme = "lingering" | "frontier" | "sim";
+
+/**
+ * The Academy's Simulation Chamber 3 (GV-K707d): "an open sector of space, no
+ * asteroid field this time, no debris to hide behind. Just empty black in every
+ * direction, punctuated by the faint glow of a distant nebula on the starboard
+ * horizon." Stars cold and distant; no planet, no props, no rocks.
+ */
+const SIM_LOOK: ThemeLook = {
+  sky: {
+    base: [0.001, 0.0015, 0.004],
+    wisp: [0.16, 0.08, 0.3],
+    wispRange: [0.4, 0.85],
+    cloud: [0.05, 0.14, 0.26],
+    cloudRange: [0.45, 0.9],
+    bandDust: [0.05, 0.04, 0.05],
+    bandGlow: [0.008, 0.009, 0.014],
+    lanes: 0.4,
+    sunHalo: [0.25, 0.32, 0.5],
+    sunCore: [0.5, 0.56, 0.7],
+    focus: [1, 0.04, -0.3, 5],  // starboard of the start heading
+  },
+  sun: { core: [0xdfe8ff, 1.1], halo: [0x7090ff, 0.08], burst: [0xd0dcff, 0.3] }, // a cold, distant star
+  env: { low: [0.01, 0.01, 0.02], high: [0.05, 0.06, 0.1], tint: [0.06, 0.05, 0.12], sun: [0.85, 0.9, 1.0] },
+  sunLight: [0xe4ecff, 2.3],
+  backSun: [0xe4ecff, 2.2],
+  hemi: [0x303a58, 0x06070c, 0.55],
+  rockColor: 0x6b7480,
+};
 
 export interface Landmark { obj: THREE.Object3D; label: string; color: string; }
 
@@ -320,6 +348,7 @@ export function createWorld(): World {
   scene.add(dust.lines);
 
   let frontier: Frontier | null = null;
+  let simEnv: THREE.Texture | null = null;
   let occluder = lingeringOccluder;
 
   const applyLook = (look: ThemeLook) => {
@@ -344,9 +373,18 @@ export function createWorld(): World {
     theme: "lingering",
     landmarks: lingeringLandmarks,
     setTheme(theme) {
+      asteroids.group.visible = theme !== "sim"; // (a mission may hide them too: the Cruise brings its own)
       if (theme === world.theme) return;
       world.theme = theme;
-      if (theme === "frontier") {
+      if (theme === "sim") {
+        // Nothing out here but the dark: no props, no planet, no landmarks.
+        if (frontier) frontier.back.visible = frontier.props.visible = false;
+        gasGiant.visible = lingeringProps.visible = false;
+        applyLook(SIM_LOOK);
+        scene.environment = (simEnv ??= createEnvironment(SIM_LOOK.env));
+        world.landmarks = [];
+        occluder = { center: gasGiant.position, radius: 0 };
+      } else if (theme === "frontier") {
         if (!frontier) {
           frontier = createFrontier();
           backScene.add(frontier.back);
@@ -378,7 +416,7 @@ export function createWorld(): World {
         stationBeta.rotateX(dt * 0.03);
         derelict.rotation.x += dt * 0.02;
         derelict.rotation.y += dt * 0.03;
-      } else if (frontier) {
+      } else if (world.theme === "frontier" && frontier) {
         frontier.update(dt, elapsed);
       }
       asteroids.update(dt);

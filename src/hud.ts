@@ -4,6 +4,7 @@ import { isTouch } from "./renderer";
 import { drawRadar } from "./radar";
 import { clearOverlay, drawOverlay, initOverlay } from "./overlay";
 import { input } from "./input";
+import { drazzanSquad } from "./drazzan";
 
 // Heads-up display. DOM panels are updated only when their values change;
 // everything that tracks 3D positions is drawn on the overlay canvas (overlay.ts).
@@ -96,6 +97,8 @@ export interface Results {
   newBest: boolean;
   /** Offer a button straight into the next mission. */
   next: { id: MissionId; label: string } | null;
+  /** Replaces "[ MISSION COMPLETE ]" / "[ MISSION FAILED ]" (the Academy sim is voided, not completed). */
+  status?: string;
 }
 
 let resultsShown: Results | null = null;
@@ -116,7 +119,7 @@ export function showResults(r: Results) {
   setText("results-total", r.total.toLocaleString());
   setText("results-grade", r.grade);
   setText("results-rating", r.rating);
-  setText("results-status", r.success ? "[ MISSION COMPLETE ]" : "[ MISSION FAILED ]");
+  setText("results-status", r.status ?? (r.success ? "[ MISSION COMPLETE ]" : "[ MISSION FAILED ]"));
   setText("results-best", r.newBest ? "★ NEW BEST SCORE ★" : r.best > 0 ? `Best: ${r.best.toLocaleString()}` : "");
   setText("btn-retry", r.success ? (isTouch ? "PLAY AGAIN" : "[R] PLAY AGAIN") : (isTouch ? "RETRY MISSION" : "[R] RETRY MISSION"));
   setStyle("btn-next", "display", r.next ? "" : "none");
@@ -125,17 +128,20 @@ export function showResults(r: Results) {
 }
 
 /** Per-mission HUD text: status panel, help briefing and what the special button is called. */
-export function setMissionHud(m: { id: MissionId; statusHtml: string; briefingHtml: string; special: ShipStats["special"]; missiles: number }) {
+export function setMissionHud(m: { id: MissionId; statusHtml: string; briefingHtml: string; special: ShipStats["special"]; missiles: number; ammo?: number }) {
   document.body.dataset.mission = m.id;
   document.body.dataset.special = m.special;
   document.body.dataset.missiles = String(m.missiles);
+  document.body.dataset.ammo = m.ammo ? "1" : "0";
   setHtml("status-panel", m.statusHtml);
   setHtml("help-briefing", m.briefingHtml);
-  setText("legend-special", m.special === "cargo" ? "launch / detonate cargo" : "match speed");
-  setText("help-special", m.special === "cargo" ? "Launch cargo, press again to detonate" : "Match speed with your target (press again to stop)");
-  setText("help-special-touch", m.special === "cargo" ? "Launch the container, tap again to detonate" : "Match speed with your target");
-  setText("help-special-touch-key", m.special === "cargo" ? "CARGO" : "MATCH");
-  setText("btn-cargo", m.special === "cargo" ? "CARGO" : "MATCH");
+  const pick = <T,>(cargo: T, match: T, cold: T) => (m.special === "cargo" ? cargo : m.special === "cold" ? cold : match);
+  setText("legend-special", pick("launch / detonate cargo", "match speed", "go cold (engines off, then thruster kick)"));
+  setText("help-special", pick("Launch cargo, press again to detonate", "Match speed with your target (press again to stop)",
+    "Go cold: cut the engines and coast so the Drazzan lose you, then the thrusters kick you sideways (press again to kick early)"));
+  setText("help-special-touch", pick("Launch the container, tap again to detonate", "Match speed with your target", "Cut the engines and coast, then kick sideways"));
+  setText("help-special-touch-key", pick("CARGO", "MATCH", "COLD"));
+  setText("btn-cargo", pick("CARGO", "MATCH", "COLD"));
 }
 
 export function hideResults() {
@@ -192,7 +198,8 @@ export function updateHud(realDt: number) {
   setClass("practice-timer", "visible", practice && !G.freeFlight);
   if (practice) {
     const t = Math.max(0, Math.ceil(G.practiceLeft));
-    setText("practice-timer", G.firstRun ? `SYSTEM QUIET  ·  ${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}` : `${G.missionId === "prologue" ? "DISTRESS CALL" : "AMBUSH"} IN ${t}`);
+    if (G.missionId === "academy") setText("practice-timer", t > TUNING.academy.countdown ? "PROCTOR ON COMMS · STAND BY" : `SCENARIO COMMENCES IN ${t}`);
+    else setText("practice-timer", G.firstRun ? `SYSTEM QUIET  ·  ${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}` : `${G.missionId === "prologue" ? "DISTRESS CALL" : "AMBUSH"} IN ${t}`);
   }
 
   // Player bars
@@ -202,9 +209,15 @@ export function updateHud(realDt: number) {
   setClass("hull-fill", "critical", p.hp < p.maxHp * 0.3);
 
   if (G.shipId === "mk4") updateCargoBox();
+  else if (G.shipId === "academy") updateColdBox();
   else updateMatchBox();
   updateMissileBox();
+  if (Number.isFinite(p.ammo)) {
+    setText("ammo-value", String(p.ammo));
+    setClass("ammo-box", "low", p.ammo <= 40);
+  }
   if (G.missionId === "prologue") updatePrologueStatus();
+  else if (G.missionId === "academy") updateAcademyStatus();
   else updateChapter1Status();
 
   updateComms();
@@ -311,6 +324,21 @@ function updateMissileBox() {
   }
 }
 
+/** The Academy sim's special: going cold, then the thruster kick's recharge. */
+function updateColdBox() {
+  const p = G.player;
+  setHtml("cargo-pips", "");
+  const ready = p.cold <= 0 && p.coldCooldown <= 0;
+  const label = p.cold > 0 ? `COLD ${p.cold.toFixed(1)}s` : p.coldCooldown > 0 ? `THRUSTERS ${Math.ceil(p.coldCooldown)}s` : isTouch ? "COLD" : "[X] GO COLD";
+  setText("cargo-label", label);
+  setClass("cargo-label", "armed", p.cold > 0);
+  if (isTouch) {
+    setText("btn-cargo", p.cold > 0 ? "KICK" : p.coldCooldown > 0 ? `${Math.ceil(p.coldCooldown)}s` : "COLD");
+    setClass("btn-cargo", "armed", p.cold > 0);
+    setClass("btn-cargo", "empty", !ready && p.cold <= 0);
+  }
+}
+
 function updateMatchBox() {
   const p = G.player;
   setHtml("cargo-pips", "");
@@ -342,6 +370,20 @@ function updateChapter1Status() {
   for (let i = 0; i < TUNING.corvette.mineHitsToCripple; i++) cp += `<span class="cpip${i < hitsLeft ? " on" : ""}"></span>`;
   setHtml("corvette-pips", cp);
   setText("corvette-state", !c ? "GONE" : c.crippled ? "CRIPPLED" : c.enraged ? "DAMAGED" : "ARMOURED");
+}
+
+/** The Academy sim: one pip per Drazzan (solid = flying, cracked = sensors out, hollow = killed) and the engagement clock. */
+function updateAcademyStatus() {
+  const show = G.phase === "combat";
+  setClass("mission-status", "visible", show);
+  if (!show) return;
+  let pips = "";
+  for (const f of drazzanSquad()) {
+    pips += `<span class="cpip${f.alive ? (f.alien?.crippled ? " on cracked" : " on") : ""}"></span>`;
+  }
+  setHtml("drazzan-pips", pips);
+  const t = G.combatTime;
+  setText("engage-clock", `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, "0")}`);
 }
 
 function updatePrologueStatus() {

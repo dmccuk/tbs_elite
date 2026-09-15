@@ -445,6 +445,42 @@
       body.touch[data-phase="combat"] #objective-hint { display: none; }
       body.touch .title-screen { touch-action: pan-y; }
 
+      /* ---------- Academy Days (GV-K707d) ---------- */
+      body:not([data-mission="academy"]) .aca-only { display: none !important; }
+      #drazzan-block { color: #ff5555; text-shadow: 0 0 8px rgba(255, 60, 60, 0.7); }
+      .cpip.cracked { background: repeating-linear-gradient(45deg, #ff5555 0 2px, rgba(0, 0, 0, 0.6) 2px 4px); }
+      #clock-block { color: var(--warn); }
+      #engage-clock { font-family: 'Orbitron', sans-serif; font-size: 12px; font-weight: 700; min-width: 64px; letter-spacing: 1px; }
+      #ammo-box { display: none; text-align: center; min-width: 72px; color: #ffcc88; }
+      body[data-ammo="1"] #ammo-box { display: block; }
+      #ammo-value { font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 700; line-height: 1.1; }
+      #ammo-box .lbl { font-size: 9px; letter-spacing: 1px; font-family: 'Orbitron', sans-serif; opacity: 0.85; }
+      #ammo-box.low { color: var(--danger); animation: blink 0.8s infinite; }
+      /* Boot-up: stars first, then the void fills in. */
+      #sim-boot {
+        position: fixed; inset: 0; z-index: 150; display: none; align-items: center; justify-content: center; pointer-events: none;
+        background: #000; color: var(--hud-dim); font-size: 13px; letter-spacing: 3px; text-shadow: var(--glow);
+      }
+      body.sim-boot #sim-boot { display: flex; animation: simBoot 3s ease-in forwards; }
+      #sim-boot span { animation: blink 0.5s infinite; }
+      @keyframes simBoot { 0%, 40% { opacity: 1; } 100% { opacity: 0; } }
+      /* The simulation dissolving: grey static over the frozen frame. */
+      #sim-static { position: fixed; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; z-index: 151; opacity: 0; pointer-events: none; }
+      /* The power cut: displays dead, emergency lights strobing red, the evacuation call. */
+      #sim-alert { position: fixed; inset: 0; z-index: 152; display: none; pointer-events: none; }
+      #sim-alert::before { content: ""; position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 0.35s; }
+      #sim-alert::after { content: ""; position: absolute; inset: 0; background: #ff1a1a; opacity: 0; animation: redStrobe 1.1s infinite; }
+      @keyframes redStrobe { 0%, 100% { opacity: 0.04; } 45% { opacity: 0.34; } }
+      body.sim-alert #sim-alert { display: block; }
+      body.sim-black #sim-alert::before { opacity: 1; }
+      #sim-alert-text {
+        position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%); width: min(900px, 88vw); z-index: 1;
+        text-align: center; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: clamp(15px, 2.3vw, 27px); line-height: 1.5;
+        letter-spacing: 3px; color: #ff4a4a; text-shadow: 0 0 18px rgba(255, 0, 0, 0.85);
+      }
+      body.sim-dead #hud, body.sim-dead #overlay-canvas, body.sim-dead #touch-controls { visibility: hidden; }
+      @media (prefers-reduced-motion: reduce) { #sim-alert::after { animation: none; opacity: 0.2; } }
+
       /* Cockpit view (V): the dash screens show the bars and scanner. */
       body.cockpit #player-bars, body.cockpit #radar-wrap { display: none; }
 
@@ -538,11 +574,19 @@
         </div>
 
         <ol class="manifest">
+          <li class="mission-card" data-mission="academy">
+            <div class="m-head"><h2 class="m-title">Academy Days: GV-K707d</h2><span class="m-tag" id="badge-academy"></span></div>
+            <p class="m-log">Second year at the Academy. An instructor with a grudge sends the commoner novice into the simulation nobody beats: four Drazzan fighters, no cover, and not many rounds.</p>
+            <div class="m-actions">
+              <button class="m-play">Play <kbd class="desktop-only">1</kbd></button>
+              <span class="m-best" id="best-academy"></span>
+            </div>
+          </li>
           <li class="mission-card" data-mission="prologue">
             <div class="m-head"><h2 class="m-title">Prologue</h2><span class="m-tag" id="badge-prologue"></span></div>
             <p class="m-log">Before the waste hauler, Wyatt Staples flew patrol on the Tessick-Varn Frontier. Pirates have hit the Tessick-3 relay, and they've taken people.</p>
             <div class="m-actions">
-              <button class="m-play">Play <kbd class="desktop-only">1</kbd></button>
+              <button class="m-play">Play <kbd class="desktop-only">2</kbd></button>
               <button class="m-alt" data-variant="free">Free flight <kbd class="desktop-only">F</kbd></button>
               <button class="m-alt" data-variant="landing">Landing practice <kbd class="desktop-only">L</kbd></button>
               <span class="m-best" id="best-prologue"></span>
@@ -552,7 +596,7 @@
             <div class="m-head"><h2 class="m-title">Chapter 1: Lingering Systems</h2><span class="m-tag" id="badge-chapter1"></span></div>
             <p class="m-log">Now a Warrant Officer hauling bio-waste, Wyatt finds a royal yacht running from a House Cayston warship. His guns can't scratch it. His cargo might.</p>
             <div class="m-actions">
-              <button class="m-play">Play <kbd class="desktop-only">2</kbd></button>
+              <button class="m-play">Play <kbd class="desktop-only">3</kbd></button>
               <span class="m-best" id="best-chapter1"></span>
             </div>
           </li>
@@ -586,6 +630,10 @@
     <div id="vignette"></div>
     <div id="letterbox"></div>
     <div id="cut-fade"></div>
+    <!-- The Academy sim: booting up, dissolving into static, and the power cut. -->
+    <div id="sim-boot"><span>SIMULATION CHAMBER 3 · GV-K707d · INITIALISING</span></div>
+    <canvas id="sim-static" width="256" height="144"></canvas>
+    <div id="sim-alert"><div id="sim-alert-text"></div></div>
     <div id="damage-vignette"></div>
     <div id="lowhull-vignette"></div>
 
@@ -623,6 +671,14 @@
         <div class="ms-block pro-only" id="pirates-block">
           <span class="ms-label">PIRATES</span>
           <span id="pirate-pips"></span>
+        </div>
+        <div class="ms-block aca-only" id="drazzan-block">
+          <span class="ms-label">DRAZZAN</span>
+          <span id="drazzan-pips"></span>
+        </div>
+        <div class="ms-block aca-only" id="clock-block">
+          <span class="ms-label">ENGAGEMENT</span>
+          <span id="engage-clock">0:00.0</span>
         </div>
         <div class="ms-block pro-only hidden" id="shuttle-block">
           <span class="ms-label">ENGINES</span>
@@ -680,6 +736,7 @@
         <div class="pbar" id="boost-bar"><div class="lbl">BOOST</div><div class="bar"><div class="fill" id="boost-fill"></div></div></div>
         <div id="cargo-box"><div id="cargo-pips"></div><div id="cargo-label">CARGO READY</div></div>
         <div id="missile-box"><div id="missile-pips"></div><div id="missile-label">MISSILES</div></div>
+        <div id="ammo-box"><div id="ammo-value">0</div><div class="lbl">ROUNDS</div></div>
       </div>
 
       <div id="radar-wrap">

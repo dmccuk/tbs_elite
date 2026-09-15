@@ -86,7 +86,11 @@ export function drawRadar() {
   if (G.corvette?.alive) blip(G.corvette.obj.position, "#ff2222", "HST", 4);
   if (G.relay) blip(G.relay.obj.position, "#c8c8c8", "T-3", 3.5);
   if (G.wingman) blip(G.wingman.obj.position, COLORS.ally, "HRN", 2.5);
-  for (const f of G.fighters) if (f.alive) blip(f.obj.position, COLORS.hostile, f.state === "flee" ? "RUN" : "PIR", 2.5);
+  for (const f of G.fighters) {
+    if (!f.alive) continue;
+    const tag = f.alien ? (f.alien.crippled ? "DRZ?" : "DRZ") : f.state === "flee" ? "RUN" : "PIR";
+    blip(f.obj.position, COLORS.hostile, tag, 2.5);
+  }
   if (G.shuttle?.alive) blip(G.shuttle.obj.position, "#ffffff", "SHT", 3.5);
   if (G.mine) blip(G.mine.obj.position, COLORS.cargo, "CRG", 2.5);
   if (G.beacon) blip(G.beacon.position, COLORS.rendezvous, "RDV", 3.5);

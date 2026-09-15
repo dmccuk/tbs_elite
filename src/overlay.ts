@@ -195,6 +195,12 @@ export function drawOverlay(realDt: number) {
   if (G.wingman) drawEntity(G.wingman, COLORS.ally, "HARREN", { minR: 10, dist: false, arrow: G.target === G.wingman, arrowSize: 10 });
   for (const f of G.fighters) {
     if (!f.alive) continue;
+    if (f.alien) {
+      // The Drazzan come from everywhere: every one gets an off-screen arrow.
+      const name = f.alien.crippled ? (f.alien.mode === "blind" ? "SENSORS DOWN" : "DAMAGED") : null;
+      drawEntity(f, COLORS.hostile, name, { minR: 12, health: true, arrow: true, arrowSize: G.target === f ? 13 : 10 });
+      continue;
+    }
     const runner = f.state === "flee";
     drawEntity(f, COLORS.hostile, runner ? "RUNNER" : null, { minR: 12, health: true, arrow: runner || G.target === f, arrowSize: runner ? 14 : 11 });
   }

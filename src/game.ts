@@ -9,7 +9,7 @@ import type { ShipId } from "./config";
 // the data they all read and write, so there are no circular imports.
 
 /** Playable missions (story order is MISSION_ORDER in mission.ts; "cruise" is the screensaver ride). */
-export type MissionId = "prologue" | "chapter1" | "cruise";
+export type MissionId = "academy" | "prologue" | "chapter1" | "cruise";
 
 /**
  * Mission phases (a finite state machine), shared by every mission. Legal transitions:
@@ -26,6 +26,9 @@ export type MissionId = "prologue" | "chapter1" | "cruise";
  * Prologue: practice = patrol with Harren; ambush = distress call + burn to
  *   Tessick-3; combat has sub-steps in G.step ("dogfight" → "runner" → "pursuit");
  *   losses: shuttle destroyed or jumps away; victory = shuttle surrenders.
+ * Academy (GV-K707d): practice = the 10 s countdown; ambush = the silence before the
+ *   contacts appear; combat = four Drazzan; the lights going out ends it as complete
+ *   (the simulation is voided), being shot down or running dry as failed.
  * Cruise: splash ──Cruise──▶ cruise, which never ends (MISSION SELECT leaves it).
  *   No player controls: the autopilot flies laps out of and back into the Kessler.
  *
@@ -75,6 +78,11 @@ export interface Player extends Entity {
   containers: number;
   reloadTimer: number;    // counts down while the compactor makes a container
   missiles: number;       // wing missiles left (Seagull)
+  /** Coilgun rounds left (Infinity on ships without a magazine). */
+  ammo: number;
+  /** "Go cold" (the Academy sim's special): seconds of engines-off coasting left, and the recharge. */
+  cold: number;
+  coldCooldown: number;
   /** The Kessler's arrestor field is flying the ship (kessler.ts), not the player. */
   captured: boolean;
   forward: THREE.Vector3;
@@ -141,6 +149,21 @@ export interface Fighter extends Entity {
   orbit: number;          // angle around the relay while strafing it
   smokeTimer: number;
   fleeTime: number;
+  /** Set on the Academy sim's Drazzan fighters, which drazzan.ts flies (the pirate AI leaves them alone). */
+  alien?: DrazzanBrain;
+}
+
+/** A Drazzan fighter's own state (see drazzan.ts). */
+export interface DrazzanBrain {
+  mode: "converge" | "stalk" | "attack" | "break" | "blind" | "final";
+  modeTime: number;
+  /** Where it hangs around the player between runs (player-relative direction). */
+  station: THREE.Vector3;
+  crippled: boolean;
+  /** 0-1 while it shimmers into existence. */
+  appear: number;
+  /** Hits taken during the current attack run (enough of them and it breaks off). */
+  runHits: number;
 }
 
 export interface Wingman extends Entity {
@@ -233,7 +256,12 @@ export type GameEvent =
   | { type: "dockOvershoot" }
   | { type: "dockScrape" }
   | { type: "dockLaunched" }
-  | { type: "dockWaveOff" };
+  | { type: "dockWaveOff" }
+  | { type: "drazzanKilled"; left: number }
+  | { type: "drazzanCrippled" }
+  | { type: "drazzanFiring" }
+  | { type: "wentCold" }
+  | { type: "outOfRounds" };
 
 export const G = {
   missionId: "prologue" as MissionId,

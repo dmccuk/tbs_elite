@@ -8,6 +8,7 @@ import { bolts } from "./weapons";
 import { createPlayer, resetPlayer, setPlayerShip, shipStats, updateCamera, updatePlayer } from "./player";
 import { updateEnemies } from "./enemies";
 import { updateFrontier } from "./frontier";
+import { updateDrazzan } from "./drazzan";
 import { updateMissiles } from "./missiles";
 import { updateKessler } from "./kessler";
 import { updateMine } from "./cargo";
@@ -70,7 +71,7 @@ function refreshSplash() {
     document.querySelector(`.mission-card[data-mission="${id}"]`)?.classList.toggle("suggested", id === suggested);
   }
   const name = document.getElementById("start-name");
-  if (name) name.textContent = suggested === "prologue" ? "the Prologue" : "Chapter 1";
+  if (name) name.textContent = suggested === "prologue" ? "the Prologue" : suggested === "academy" ? "Academy Days" : "Chapter 1";
   previewMission(suggested);
 }
 refreshSplash();
@@ -89,6 +90,7 @@ function missionFromEvent(e: Event): { id: MissionId; variant: Variant } {
     if (e.code === "KeyC") return { id: "cruise", variant: "mission" };
     if (e.code === "Digit1" || e.code === "Numpad1") return { id: MISSION_ORDER[0], variant: "mission" };
     if (e.code === "Digit2" || e.code === "Numpad2") return { id: MISSION_ORDER[1], variant: "mission" };
+    if (e.code === "Digit3" || e.code === "Numpad3") return { id: MISSION_ORDER[2], variant: "mission" };
   }
   return { id: suggestedMission(), variant: "mission" };
 }
@@ -323,6 +325,7 @@ function simulate(realDt: number): number {
   updateMissiles(dt, controlsActive() && !G.player.captured);
   updateEnemies(dt);
   updateFrontier(dt);
+  updateDrazzan(dt);
   updateMine(dt);
   bolts.update(dt, boltHit);
   G.fx.update(dt, camera, projectionScale());
