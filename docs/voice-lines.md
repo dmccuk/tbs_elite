@@ -67,6 +67,20 @@ These are voice-only callouts, with no comms text; the HUD shows the lock. Keep 
 | 35 | `pro_computer_no_lock_hostages.mp3` | Negative. A missile would breach that hull. There are people aboard. | You try to lock the shuttle |
 | 36 | `pro_computer_missiles_reloaded.mp3` | Rails reloaded. Four missiles. | Free flight reloads your missiles |
 
+### Kessler flight deck (Prologue landing practice and free-flight landings)
+
+The Kessler's deck officer: a dry, unimpressed voice. Treatment: radio.
+
+| # | File | Line | When |
+|---|---|---|---|
+| 37 | `pro_deck_cleared.mp3` | Seagull, Kessler deck. You're cleared to land. Bay's hot, mind the paint. | Landing practice starts |
+| 38 | `pro_deck_too_fast.mp3` | Too fast, Seagull! Bleed it off or wave off! | Closing on the stern door above 350 m/s |
+| 39 | `pro_deck_captured.mp3` | Mag-clamp field has you. Hands off the stick. | The arrestor field catches you |
+| 40 | `pro_deck_landed.mp3` | Clamps engaged. Welcome home, Staples. | You land on the cradle |
+| 41 | `pro_deck_overshoot.mp3` | …and straight out the front door. Somebody fetch a mop. | Too fast: you fly out of the bow |
+| 42 | `pro_deck_scrape.mp3` | That's coming out of your pay. | You scrape the bay walls |
+| 43 | `pro_deck_launch.mp3` | Catapult's charged. Go. | Launching after a free-flight landing |
+
 ## Chapter 1: Lingering Systems
 
 **Already recorded (Redford, in `public/`):** `voice_redford_alert.mp3` (the ambush), `voice_redford_failed.mp3` (first missed container), `voice_redford_damaged.mp3` (corvette crippled), `voice_redford_complete.mp3` (victory).

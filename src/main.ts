@@ -9,11 +9,12 @@ import { createPlayer, resetPlayer, setPlayerShip, shipStats, updateCamera, upda
 import { updateEnemies } from "./enemies";
 import { updateFrontier } from "./frontier";
 import { updateMissiles } from "./missiles";
+import { updateKessler } from "./kessler";
 import { updateMine } from "./cargo";
 import { boltHit } from "./combat";
 import {
   MISSIONS, MISSION_ORDER, controlsActive, desiredTimeScale, missionCompleted, restart, returnToSplash,
-  startMission, suggestedMission, updateMission,
+  startMission, suggestedMission, updateMission, type Variant,
 } from "./mission";
 import { readBest } from "./missions/common";
 import { currentResults, initHud, setHelpVisible, setPauseVisible, showCallout, updateHud } from "./hud";
@@ -71,18 +72,20 @@ function refreshSplash() {
 refreshSplash();
 initTip();
 
-/** Which mission a splash click / key picks, and whether it's free flight. */
-function missionFromEvent(e: Event): { id: MissionId; free: boolean } {
+/** Which mission a splash click / key picks, and which way to play it. */
+function missionFromEvent(e: Event): { id: MissionId; variant: Variant } {
   const target = e.target as HTMLElement;
-  if (target?.closest?.("[data-free]")) return { id: "prologue", free: true };
+  const alt = target?.closest?.("[data-variant]") as HTMLElement | null;
+  if (alt) return { id: "prologue", variant: alt.dataset.variant as Variant };
   const card = target?.closest?.("[data-mission]") as HTMLElement | null;
-  if (card?.dataset.mission && card.dataset.mission in MISSIONS) return { id: card.dataset.mission as MissionId, free: false };
+  if (card?.dataset.mission && card.dataset.mission in MISSIONS) return { id: card.dataset.mission as MissionId, variant: "mission" };
   if (e instanceof KeyboardEvent) {
-    if (e.code === "KeyF") return { id: "prologue", free: true };
-    if (e.code === "Digit1" || e.code === "Numpad1") return { id: MISSION_ORDER[0], free: false };
-    if (e.code === "Digit2" || e.code === "Numpad2") return { id: MISSION_ORDER[1], free: false };
+    if (e.code === "KeyF") return { id: "prologue", variant: "free" };
+    if (e.code === "KeyL") return { id: "prologue", variant: "landing" };
+    if (e.code === "Digit1" || e.code === "Numpad1") return { id: MISSION_ORDER[0], variant: "mission" };
+    if (e.code === "Digit2" || e.code === "Numpad2") return { id: MISSION_ORDER[1], variant: "mission" };
   }
-  return { id: suggestedMission(), free: false };
+  return { id: suggestedMission(), variant: "mission" };
 }
 
 /** Keys that move focus around the title screen rather than starting a mission. */
@@ -94,7 +97,7 @@ function dismissSplash(e: Event) {
   if (target?.closest?.("a")) return; // let the support link work
   if (e instanceof KeyboardEvent && NAV_KEYS.has(e.key)) return;
   // Clicks start a mission only from its row or buttons; any other key starts the suggested one.
-  if (e.type === "click" && !target?.closest?.("[data-mission], [data-free]")) return;
+  if (e.type === "click" && !target?.closest?.("[data-mission], [data-variant]")) return;
   splash?.classList.add("hidden");
   renderer.domElement.focus();
   input.clearQueue();
@@ -103,7 +106,7 @@ function dismissSplash(e: Event) {
   input.lockPointer();
   if (isTouch) enterFullscreen();
   const pick = missionFromEvent(e);
-  startMission(pick.id, false, pick.free);
+  startMission(pick.id, false, pick.variant);
 }
 
 // Hovering a card previews its ship and star system (desktop).
@@ -256,7 +259,8 @@ function simulate(realDt: number): number {
   runScheduled();
   updateMission(dt);
   updatePlayer(dt, controlsActive());
-  updateMissiles(dt, controlsActive());
+  updateKessler(dt);
+  updateMissiles(dt, controlsActive() && !G.player.captured);
   updateEnemies(dt);
   updateFrontier(dt);
   updateMine(dt);

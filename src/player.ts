@@ -67,6 +67,7 @@ export function createPlayer(): Player {
     containers: TUNING.mine.rackSize,
     reloadTimer: 0,
     missiles: S.missiles,
+    captured: false,
     forward: new THREE.Vector3(0, 0, -1),
   };
   return p;
@@ -106,6 +107,7 @@ export function resetPlayer(p: Player, pos = new THREE.Vector3(), yaw = 0) {
   p.containers = TUNING.mine.rackSize;
   p.reloadTimer = 0;
   p.missiles = S.missiles;
+  p.captured = false;
   p.model.root.visible = true;
   setCargoVisible(true);
   applyOrientation(p);
@@ -121,6 +123,18 @@ export function teleportPlayer(pos: THREE.Vector3, yaw: number) {
   p.strafe.set(0, 0, 0);
   applyOrientation(p);
   camQuat.copy(p.obj.quaternion);
+}
+
+/** Place and orient the ship directly (the Kessler's arrestor field and catapult use this). */
+export function setPlayerPose(pos: THREE.Vector3, yaw: number, pitch: number) {
+  const p = G.player;
+  p.obj.position.copy(pos);
+  p.yaw = p.aimYaw = yaw;
+  p.pitch = p.aimPitch = pitch;
+  p.yawVel = p.pitchVel = 0;
+  p.bank = 0;
+  p.model.body.rotation.set(0, 0, 0);
+  applyOrientation(p);
 }
 
 export function setCargoVisible(visible: boolean) {
@@ -249,6 +263,14 @@ export function updatePlayer(dt: number, controls: boolean) {
     return;
   }
 
+  if (p.captured) {
+    // The Kessler's arrestor field has the ship (kessler.ts moves it).
+    p.boosting = false;
+    p.matchSpeed = false;
+    for (const g of p.model.glows) g.scale.setScalar(0.008);
+    return;
+  }
+
   // Steering. In mouse-aim mode the ship chases the aim circle, which the mouse
   // pushes around; keys, the touch stick and joystick-mode mouse steer directly.
   const aiming = controls && input.mouseAim && !input.keySteering;
@@ -267,7 +289,7 @@ export function updatePlayer(dt: number, controls: boolean) {
     if (input.throttleDown) p.throttle -= P.throttleRate * dt;
     if (input.throttleUp || input.throttleDown) p.matchSpeed = false; // manual throttle takes over
   } else if (controls) {
-    p.throttle = 0.7;
+    p.throttle = G.touchThrottle;
   } else {
     p.throttle = lerp(p.throttle, 0.25, damp(1, dt)); // coast while the results are up
   }
@@ -409,6 +431,7 @@ const camQuat = new THREE.Quaternion();
 const _offset = new THREE.Vector3();
 const _shake = new THREE.Vector3();
 let fov = BASE_FOV;
+let bayBlend = 0;
 
 export function updateCamera(dt: number, realDt: number) {
   const p = G.player;
@@ -416,8 +439,11 @@ export function updateCamera(dt: number, realDt: number) {
   // ship swings visibly across the screen.
   if (p.alive) camQuat.slerp(p.obj.quaternion, damp(6.5, dt));
   const speedFactor = clamp(p.speed / S.maxSpeed, 0, 2);
-  const pull = p.alive ? 0.2 + speedFactor * 0.012 + (p.boosting ? 0.03 : 0) : 0.6;
-  _offset.set(0, 0.045, pull).applyQuaternion(camQuat);
+  // Inside the Kessler's bay the camera tucks in close so it stays in the tunnel.
+  const inBay = G.dock.inTunnel || p.captured;
+  bayBlend = lerp(bayBlend, inBay ? 1 : 0, damp(4, realDt));
+  const pull = p.alive ? lerp(0.2 + speedFactor * 0.012 + (p.boosting ? 0.03 : 0), 0.085, bayBlend) : 0.6;
+  _offset.set(0, lerp(0.045, 0.016, bayBlend), pull).applyQuaternion(camQuat);
   camera.position.copy(p.obj.position).add(_offset);
   camera.quaternion.copy(camQuat);
   if (dt > 0) camera.position.add(G.fx.shakeOffset(_shake).applyQuaternion(camQuat)); // frozen while paused

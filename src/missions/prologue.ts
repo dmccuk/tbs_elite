@@ -6,6 +6,8 @@ import { input } from "../input";
 import { isTouch, scene } from "../renderer";
 import { shipStats, teleportPlayer } from "../player";
 import { rearmMissiles } from "../missiles";
+import { launchFromKessler } from "../kessler";
+import { DECK, beginLandingDrill, completeDrill, drillResults, landingGuide } from "./landing";
 import {
   RELAY_POS, harrenKill, placeWingman, spawnBuoys, spawnFighters, spawnRelay,
   spawnShuttleDocked, spawnWingman, undockShuttle,
@@ -67,9 +69,11 @@ const TUTORIAL: TutorialStep[] = [
 let firstEvents = new Set<string>();
 let harrenScheduled = false;
 let reloadPending = false;
+let lastDeckScrape = -99;
 let hullWarn = 1;
 
 function beginPractice(short: boolean) {
+  if (G.landingDrill) { beginLandingDrill(); return; }
   setPhase("practice");
   resetTutorial(short, TUTORIAL.length);
   G.step = "";
@@ -114,9 +118,13 @@ function updatePractice(dt: number) {
         audio.voice("pro_computer_missiles_reloaded", COMPUTER.fx);
       });
     }
+    if (G.dock.state === "landed") G.hint = k("Landed on the Kessler · <b>ENTER</b> launches you off the catapult", "Landed on the Kessler · launching shortly");
     if (input.take("skip")) {
-      G.freeFlight = false;
-      beginDistress();
+      if (G.dock.state === "landed") launchFromKessler();
+      else if (G.dock.state === "free") {
+        G.freeFlight = false;
+        beginDistress();
+      }
     }
     return;
   }
@@ -257,6 +265,33 @@ function handleEvents() {
       case "shuttleDisabled":
         beginSurrender();
         break;
+      case "dockWaveOff":
+        talk(DECK, "Too fast, Seagull! Bleed it off or wave off!", "pro_deck_too_fast");
+        break;
+      case "dockCaptured":
+        showCallout("FIELD ENGAGED", "#66bbff", 1.2);
+        talk(DECK, "Mag-clamp field has you. Hands off the stick.", "pro_deck_captured");
+        break;
+      case "dockLanded":
+        showCallout("LANDED", "#66ff66", 2);
+        talk(DECK, "Clamps engaged. Welcome home, Staples.", "pro_deck_landed");
+        if (G.landingDrill) completeDrill();
+        else if (G.freeFlight && isTouch) schedule(3.5, launchFromKessler); // no Enter key on phones
+        break;
+      case "dockOvershoot":
+        showCallout("OVERSHOT!", "#ff5555", 1.6);
+        talk(DECK, "…and straight out the front door. Somebody fetch a mop.", "pro_deck_overshoot");
+        if (G.landingDrill) fail("overshoot");
+        break;
+      case "dockScrape":
+        if (G.time - lastDeckScrape > 6) {
+          lastDeckScrape = G.time;
+          talk(DECK, "That's coming out of your pay.", "pro_deck_scrape");
+        }
+        break;
+      case "dockLaunched":
+        talk(DECK, "Catapult's charged. Go.", "pro_deck_launch");
+        break;
       case "shuttleDestroyed":
         fail("shuttle");
         break;
@@ -330,7 +365,9 @@ function fail(reason: string) {
   G.step = "";
   G.objective = "MISSION FAILED";
   G.hint = "";
-  if (reason === "shuttle") {
+  if (reason === "overshoot") {
+    showBanner("OVERSHOT THE BAY", "#ff4444", 3.5);
+  } else if (reason === "shuttle") {
     showBanner("⚠ SHUTTLE DESTROYED ⚠", "#ff4444", 3.5);
     schedule(1.5, () => talk(HARREN, "…Staples. There were people in there.", "pro_harren_people"));
   } else if (reason === "escaped") {
@@ -346,7 +383,7 @@ function fail(reason: string) {
       scene.remove(f.obj);
     }
   });
-  schedule(4.5, () => showResults(buildResults(false)));
+  schedule(4.5, () => showResults(G.landingDrill ? drillResults(false) : buildResults(false)));
 }
 
 // --- Results --------------------------------------------------------------------
@@ -418,6 +455,8 @@ function updateGuide() {
   G.guide = "";
   G.guideTone = "";
   const p = G.player;
+  const landing = G.landingDrill || (G.freeFlight && (G.dock.approach || G.dock.state !== "free"));
+  if (landing && p.alive && G.phase !== "complete" && G.phase !== "failed") { landingGuide(); return; }
   if (G.phase === "rendezvous") {
     G.guide = "Fly into the green beacon next to the shuttle";
     G.guideTone = "info";
@@ -484,6 +523,7 @@ export const prologue: Mission = {
     firstEvents = new Set();
     harrenScheduled = false;
     reloadPending = false;
+    lastDeckScrape = -99;
     hullWarn = 1;
   },
 
@@ -535,6 +575,7 @@ export const prologue: Mission = {
   },
 
   defaultTarget(): Entity | null {
+    if (G.landingDrill) return G.bay;
     if (G.phase === "practice") return G.wingman;
     if (G.phase !== "combat") return null;
     if (G.step === "pursuit") return G.shuttle?.engines.alive ? G.shuttle.engines : null;

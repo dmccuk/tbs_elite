@@ -184,6 +184,12 @@ export function drawOverlay(realDt: number) {
   let corvetteScreen: Screen | null = null;
   if (c?.alive) corvetteScreen = drawEntity(c, COLORS.hostile, c.crippled ? "CRIPPLED" : "HOSTILE CORVETTE", { minR: 22, arrow: true, arrowSize: 15 });
 
+  // The Kessler's hangar bay, when landings are possible.
+  if (G.bay && (G.freeFlight || G.landingDrill) && G.dock.state === "free") {
+    const tooFast = G.dock.approach && p.speed > 0.35;
+    drawEntity(G.bay, tooFast ? "#ff5555" : "#44ff88", "KESSLER BAY", { minR: 14, arrow: G.landingDrill, arrowSize: 14 });
+  }
+
   // Prologue: the relay, Harren, the pirates and the shuttle (hull + engine block).
   if (G.relay && G.phase !== "complete" && G.phase !== "failed") drawEntity(G.relay, "#c8c8c8", "TESSICK-3", { minR: 20 });
   if (G.wingman) drawEntity(G.wingman, COLORS.ally, "HARREN", { minR: 10, dist: false, arrow: G.target === G.wingman, arrowSize: 10 });

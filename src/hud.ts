@@ -111,7 +111,7 @@ export function showResults(r: Results) {
   setHtml("results-header", r.header);
   setHtml("results-body", r.body);
   const rows = r.rows.map(([a, b]) => `<div class="row"><span>${a}</span><span>${b}</span></div>`).join("");
-  setHtml("results-rows", rows + `<div class="row dim"><span>Gun accuracy</span><span>${r.accuracy}%</span></div>`);
+  setHtml("results-rows", rows + (r.accuracy >= 0 ? `<div class="row dim"><span>Gun accuracy</span><span>${r.accuracy}%</span></div>` : ""));
   setText("results-total", r.total.toLocaleString());
   setText("results-grade", r.grade);
   setText("results-rating", r.rating);
@@ -212,6 +212,7 @@ export function updateHud(realDt: number) {
       : t.kind === "yacht" ? `Hull: ${pct(t)}`
       : t.kind === "engines" ? `Engines: ${pct(t)} · Hull: ${G.shuttle ? pct(G.shuttle) : "—"}`
       : t.kind === "wingman" ? "Pilot Third Class Harren"
+      : t.kind === "bay" ? `Land under 350 m/s · you: ${Math.round(p.speed * 1000)} m/s`
       : `Hull: ${Math.max(0, t.hp)}/${t.maxHp}`;
     setText("target-extra", extra);
   }

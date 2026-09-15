@@ -2,11 +2,12 @@ import * as THREE from "three";
 import { bandTexture, type BandPalette, type ThemeLook } from "./backdrop";
 import { glowSprite, panelTextures } from "./models";
 import type { Landmark } from "./world";
+import { createKesslerCarrier } from "./kessler";
 
 // The Tessick-Varn Frontier (the Prologue). Built lazily by world.ts the
 // first time the "frontier" theme is selected: a dim brown dwarf in backScene,
-// two distant mining outposts and the carrier Kessler holding station near the
-// patrol start. The Tessick-3 relay itself is a gameplay object (not here).
+// two distant mining outposts, and the carrier Kessler (built in kessler.ts)
+// holding station near the patrol start. The Tessick-3 relay itself is a gameplay object (not here).
 
 /** Colder, sparser, lonelier than the Lingering Systems. */
 export const FRONTIER_LOOK: ThemeLook = {
@@ -228,91 +229,6 @@ function createOutpost(m: Mats, seed: number): Outpost {
 }
 
 // ---------------------------------------------------------------------------
-// The Kessler: a squat, functional patrol corvette (~0.35 km, faces -Z) that
-// carries the Seagulls. Open hangar at the rear/underside, nav lights.
-
-function createKessler(m: Mats) {
-  const g = new THREE.Group();
-  const strobes: THREE.Sprite[] = [];
-
-  // Hull: tapered nose, main block, wide hangar module at the stern.
-  const noseGeo = new THREE.CylinderGeometry(0.028, 0.05, 0.065, 4, 1);
-  noseGeo.rotateY(Math.PI / 4);
-  noseGeo.rotateX(-Math.PI / 2);
-  noseGeo.scale(1.4, 1, 1);
-  const nose = new THREE.Mesh(noseGeo, m.hull);
-  nose.position.set(0, 0, -0.1425);
-  g.add(nose);
-  g.add(box(0.1, 0.07, 0.18, m.hull, 0, 0, -0.02));
-  g.add(box(0.14, 0.062, 0.105, m.hull, 0, -0.006, 0.1225));
-  g.add(box(0.07, 0.012, 0.2, m.plate, 0, 0.041, -0.01)); // dorsal spine
-  g.add(box(0.12, 0.012, 0.14, m.plate, 0, -0.041, -0.03)); // keel plate
-
-  // Bridge with a lit window band.
-  g.add(box(0.046, 0.028, 0.05, m.plate, 0, 0.049, -0.07));
-  g.add(box(0.04, 0.006, 0.002, m.bridge, 0, 0.053, -0.0955));
-
-  // Dorsal point-defence turret and sensor mast.
-  g.add(box(0.022, 0.012, 0.022, m.plate, 0, 0.053, 0.03));
-  g.add(beam(new THREE.Vector3(0, 0.058, 0.03), new THREE.Vector3(0, 0.058, 0.0), 0.004, m.plate));
-  g.add(beam(new THREE.Vector3(0.018, 0.047, 0.06), new THREE.Vector3(0.018, 0.1, 0.06), 0.003, m.plate));
-
-  // Radiator fins along the flanks.
-  for (const side of [-1, 1]) {
-    for (let i = 0; i < 3; i++) {
-      g.add(box(0.014, 0.004, 0.03, m.plate, side * 0.057, 0.012 - i * 0.012, -0.05));
-    }
-  }
-
-  // Engine nacelles on stubby pylons, idling blue.
-  for (const side of [-1, 1]) {
-    g.add(box(0.03, 0.012, 0.05, m.plate, side * 0.06, 0.012, 0.1));
-    const nac = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.026, 0.12, 12), m.plate);
-    nac.rotation.x = Math.PI / 2;
-    nac.position.set(side * 0.078, 0.012, 0.1);
-    g.add(nac);
-    const ring = new THREE.Mesh(new THREE.CircleGeometry(0.018, 12), m.nozzle);
-    ring.position.set(side * 0.078, 0.012, 0.1605);
-    g.add(ring);
-    const glow = glowSprite(0x66aaff, 0.06, 1.6);
-    glow.position.set(side * 0.078, 0.012, 0.172);
-    g.add(glow);
-  }
-
-  // Hangar: a dark recess with a warm interior glow, open astern and below.
-  g.add(box(0.096, 0.04, 0.004, m.bayDark, 0, -0.018, 0.174));
-  const mouth = new THREE.Mesh(new THREE.PlaneGeometry(0.086, 0.032), m.bayGlow);
-  mouth.position.set(0, -0.018, 0.1765);
-  g.add(mouth);
-  const belly = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.06), m.bayGlow);
-  belly.rotation.x = Math.PI / 2;
-  belly.position.set(0, -0.0375, 0.135);
-  g.add(belly);
-  const bayLight = glowSprite(0xffcc88, 0.1, 1.4);
-  bayLight.position.set(0, -0.03, 0.17);
-  g.add(bayLight);
-  const bayFlood = glowSprite(0xffcc88, 0.05, 2);
-  bayFlood.position.set(0, -0.05, 0.13);
-  g.add(bayFlood);
-
-  // Nav lights: red to port (-X), green to starboard, white strobes.
-  const port = glowSprite(0xff2020, 0.022, 3);
-  port.position.set(-0.104, 0.012, 0.07);
-  const starboard = glowSprite(0x20ff60, 0.022, 3);
-  starboard.position.set(0.104, 0.012, 0.07);
-  g.add(port, starboard);
-  for (const [x, y, z] of [[0.018, 0.102, 0.06], [0, 0.03, 0.176], [0, 0.0, -0.176]] as const) {
-    const s = glowSprite(0xffffff, 0.03, 3);
-    s.position.set(x, y, z);
-    g.add(s);
-    strobes.push(s);
-  }
-
-  g.position.set(3.5, 1.2, 31);
-  return { root: g, strobes };
-}
-
-// ---------------------------------------------------------------------------
 
 export interface Frontier {
   /** Brown dwarf — add to backScene. */
@@ -340,7 +256,7 @@ export function createFrontier(): Frontier {
   t9.root.position.set(60, -10, -55);
   t9.root.rotation.set(-0.1, 2.6, 0.1);
   t9.root.scale.setScalar(1.0);
-  const kessler = createKessler(mats);
+  const kessler = createKesslerCarrier(); // landable: see kessler.ts
   props.add(t7.root, t9.root, kessler.root);
 
   const beacons = [...t7.beacons, ...t9.beacons];

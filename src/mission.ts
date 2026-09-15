@@ -8,6 +8,7 @@ import { clearEnemies } from "./enemies";
 import { clearFrontier } from "./frontier";
 import { clearMine } from "./cargo";
 import { clearPlayerMissiles, rearmMissiles } from "./missiles";
+import { resetDock } from "./kessler";
 import { bolts } from "./weapons";
 import { hideBanners, hideResults, setMissionHud } from "./hud";
 import { isCompleted, readBest, talk, type Mission } from "./missions/common";
@@ -36,6 +37,7 @@ function clearAll() {
   clearFrontier();
   clearMine();
   clearPlayerMissiles();
+  resetDock();
   bolts.clear();
   G.fx.clear();
   if (G.beacon) scene.remove(G.beacon);
@@ -64,15 +66,20 @@ function clearAll() {
   for (const m of Object.values(MISSIONS)) m.reset();
 }
 
+/** How to play the Prologue: the mission, free flight, or carrier landing practice. */
+export type Variant = "mission" | "free" | "landing";
+
 /**
- * Start (or restart) a mission. `short` skips the tutorial and shortens practice;
- * `free` starts the Prologue as free flight (fly around; Enter starts the mission).
+ * Start (or restart) a mission. `short` skips the tutorial and shortens practice.
+ * Prologue variants: "free" (fly around; Enter starts the mission) and "landing"
+ * (land in the Kessler's hangar bay).
  */
-export function startMission(id: MissionId, short = false, free = false) {
+export function startMission(id: MissionId, short = false, variant: Variant = "mission") {
   audio.unlock();
   clearAll();
   G.missionId = id;
-  G.freeFlight = free && id === "prologue";
+  G.freeFlight = variant === "free" && id === "prologue";
+  G.landingDrill = variant === "landing" && id === "prologue";
   const m = MISSIONS[id];
   setPlayerShip(m.ship);
   G.world.setTheme(m.theme);
@@ -84,7 +91,7 @@ export function startMission(id: MissionId, short = false, free = false) {
 }
 
 export function restart() {
-  startMission(G.missionId, true, G.freeFlight);
+  startMission(G.missionId, true, G.freeFlight ? "free" : G.landingDrill ? "landing" : "mission");
 }
 
 /** The mission after the current one, if there is one. */

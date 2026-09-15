@@ -33,7 +33,7 @@ export type Phase = "splash" | "practice" | "ambush" | "combat" | "victory" | "r
 
 export type EntityKind =
   | "player" | "yacht" | "corvette" | "drone" | "missile" | "drum"
-  | "fighter" | "wingman" | "shuttle" | "engines" | "relay";
+  | "fighter" | "wingman" | "shuttle" | "engines" | "relay" | "bay";
 
 export interface Entity {
   kind: EntityKind;
@@ -73,6 +73,8 @@ export interface Player extends Entity {
   containers: number;
   reloadTimer: number;    // counts down while the compactor makes a container
   missiles: number;       // wing missiles left (Seagull)
+  /** The Kessler's arrestor field is flying the ship (kessler.ts), not the player. */
+  captured: boolean;
   forward: THREE.Vector3;
 }
 
@@ -223,7 +225,13 @@ export type GameEvent =
   | { type: "shuttleEnginesHit"; hp: number }
   | { type: "shuttleDisabled" }
   | { type: "shuttleDestroyed" }
-  | { type: "shuttleJumped" };
+  | { type: "shuttleJumped" }
+  | { type: "dockCaptured"; speed: number }
+  | { type: "dockLanded" }
+  | { type: "dockOvershoot" }
+  | { type: "dockScrape" }
+  | { type: "dockLaunched" }
+  | { type: "dockWaveOff" };
 
 export const G = {
   missionId: "prologue" as MissionId,
@@ -233,6 +241,10 @@ export const G = {
   step: "",
   /** Prologue free flight: the patrol never ends until the player presses Enter. */
   freeFlight: false,
+  /** Prologue landing practice: fly into the Kessler's hangar bay. */
+  landingDrill: false,
+  /** Cruise throttle for touch players (who have no W/S); eased off on a carrier approach. */
+  touchThrottle: 0.7,
   paused: false,
   helpOpen: false,
   /** Seconds of simulated time since the page loaded (stops while paused). */
@@ -266,6 +278,19 @@ export const G = {
   shuttle: null as Shuttle | null,
   /** Tessick-3 relay (prologue): hp is its integrity in %. */
   relay: null as Entity | null,
+  /** The Kessler's hangar-bay entrance, for brackets, targeting and the guide (frontier only). */
+  bay: null as Entity | null,
+  /** Carrier landing state (kessler.ts). */
+  dock: {
+    state: "free" as "free" | "captured" | "landed" | "launching",
+    entrySpeed: 0,      // km/s as the ship crossed the stern door
+    entryOffset: 0,     // km off the bay centreline at entry
+    scrapes: 0,
+    rings: 0,           // approach rings flown through
+    overshoot: false,   // came in too fast; the field let go
+    inTunnel: false,    // inside the bay (the camera tucks in closer)
+    approach: false,    // lined up behind the stern, within the approach zone
+  },
   mine: null as Mine | null,
   playerMissiles: [] as PlayerMissile[],
   /** Missile seeker: what it's locking, how far along (0–1), and whether it's locked. */
