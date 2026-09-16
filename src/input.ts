@@ -29,20 +29,21 @@ import { isTouch } from "./renderer";
 
 export type Action =
   | "cargo" | "dodgeLeft" | "dodgeRight" | "target" | "pause"
-  | "help" | "restart" | "skip" | "mute" | "next" | "missile" | "view" | "view1" | "view2" | "view3";
+  | "help" | "restart" | "skip" | "mute" | "next" | "missile" | "view" | "view1" | "view2" | "view3" | "use";
 
-const KEY_ACTIONS: Record<string, Action> = {
+// A key can queue more than one action: E is a dodge in flight and "use" on foot.
+const KEY_ACTIONS: Record<string, Action | Action[]> = {
   KeyX: "cargo",
   KeyC: "cargo",
   KeyQ: "dodgeLeft",
-  KeyE: "dodgeRight",
+  KeyE: ["dodgeRight", "use"],
   Tab: "target",
   KeyT: "target",
   KeyP: "pause",
   Escape: "pause",
   KeyH: "help",
   KeyR: "restart",
-  Enter: "skip",
+  Enter: ["skip", "use"],
   KeyM: "mute",
   KeyN: "next",
   KeyF: "missile",
@@ -74,6 +75,9 @@ class Input {
   throttleDown = false;
   boost = false;
   fire = false;
+  /** On foot (interior/): -1..1 strafe and forward, straight off the keys and the touch stick. */
+  walkX = 0;
+  walkY = 0;
 
   /** Cursor position in CSS pixels, and whether it is currently steering. */
   mouseX = window.innerWidth / 2;
@@ -145,7 +149,7 @@ class Input {
       if (e.repeat) return;
       this.keys.add(e.code);
       const action = KEY_ACTIONS[e.code];
-      if (action) this.queue.add(action);
+      if (action) for (const a of Array.isArray(action) ? action : [action]) this.queue.add(a);
       if (e.code.startsWith("Arrow") || e.code === "KeyA" || e.code === "KeyD") {
         this.mouseSteering = false;
         this.usedKeyboardSteer = true;
@@ -267,6 +271,22 @@ class Input {
     }
     this.steerX = clamp(sx, -1, 1);
     this.steerY = clamp(sy, -1, 1);
+
+    // Walking is keys-only (plus the touch stick), so mouse steering can never
+    // drag you sideways while you look around.
+    let wx = 0;
+    let wy = 0;
+    if (k.has("KeyA") || k.has("ArrowLeft")) wx -= 1;
+    if (k.has("KeyD") || k.has("ArrowRight")) wx += 1;
+    if (k.has("KeyW") || k.has("ArrowUp")) wy += 1;
+    if (k.has("KeyS") || k.has("ArrowDown")) wy -= 1;
+    if (this.stick.active) {
+      const r = 55;
+      wx += clamp((this.stick.x - this.stick.baseX) / r, -1, 1);
+      wy += clamp(-(this.stick.y - this.stick.baseY) / r, -1, 1);
+    }
+    this.walkX = clamp(wx, -1, 1);
+    this.walkY = clamp(wy, -1, 1);
   }
 
   /** Wires up the on-screen touch controls (floating stick + buttons). */

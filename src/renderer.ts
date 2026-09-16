@@ -55,11 +55,21 @@ export class ClearDepthPass extends Pass {
   }
 }
 
-composer.addPass(new RenderPass(backScene, backCamera));
-composer.addPass(new ClearDepthPass());
+const backPass = new RenderPass(backScene, backCamera);
+const clearPass = new ClearDepthPass();
 const mainPass = new RenderPass(scene, camera);
 mainPass.clear = false;
+composer.addPass(backPass);
+composer.addPass(clearPass);
 composer.addPass(mainPass);
+
+/**
+ * Walking around inside a ship (interior/) renders its own scene instead of the
+ * sky and the world: the interior passes go in after these, and these switch off.
+ */
+export function setWorldPassesEnabled(on: boolean) {
+  backPass.enabled = clearPass.enabled = mainPass.enabled = on;
+}
 
 // Some GPUs occasionally produce a NaN or infinite pixel (pow() of a tiny negative
 // number, a half-float overflow…). Bloom's blur smears a single bad pixel into

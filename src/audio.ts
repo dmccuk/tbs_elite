@@ -302,6 +302,12 @@ class AudioSystem {
     this.tone("sine", 240, 60, 0.35, 0.18);
   }
 
+  /** A boot on deck plating. */
+  footstep() {
+    this.noiseBurst(0.09, 0.05, "bandpass", 260, 140, 1.2);
+    this.tone("sine", 90, 60, 0.07, 0.03);
+  }
+
   /** An empty magazine: the trigger just clicks. */
   dryFire() {
     this.tone("square", 2400, 1800, 0.02, 0.05);

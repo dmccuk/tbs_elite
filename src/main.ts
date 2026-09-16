@@ -23,6 +23,7 @@ import { input } from "./input";
 import { forceCockpit, initCockpit, setView, toggleView, updateCockpit } from "./cockpit";
 import { cruiseCameraVelocity, currentShot, cycleCruiseView, setCruiseView, updateCruiseCamera } from "./cinematic";
 import { harrenShip } from "./missions/cruise-harren";
+import { enterDeck, exitInterior, initInteriorUI, interiorActive, interiorEscape, setLaunchHandler, updateInterior, walkTo, deckDebug, walkProbe, interiorTick } from "./interior/interior";
 import { initTip } from "./tip";
 import { audio } from "./audio";
 
@@ -98,18 +99,36 @@ function missionFromEvent(e: Event): { id: MissionId; variant: Variant } {
 /** Keys that move focus around the title screen rather than starting a mission. */
 const NAV_KEYS = new Set(["Tab", "Shift", "Control", "Alt", "Meta", "CapsLock"]);
 
+/** The title screen's "walk the deck" row (and K) puts you aboard the Kessler on foot. */
+function walkAboard() {
+  splash?.classList.add("hidden");
+  renderer.domElement.focus();
+  input.clearQueue();
+  input.lostFocus = false;
+  audio.unlock();
+  input.lockPointer();
+  returnToSplash();      // clear any mission state; the deck is its own thing
+  enterDeck();
+}
+
 function dismissSplash(e: Event) {
-  if (G.phase !== "splash") return;
+  // On foot the phase is still "splash", but the splash is long gone: without
+  // this, the first key you press aboard would start a mission behind the deck.
+  if (G.phase !== "splash" || interiorActive()) return;
   const target = e.target as HTMLElement;
   if (target?.closest?.("a")) return; // let the support link work
   if (e instanceof KeyboardEvent && (NAV_KEYS.has(e.key) || e.code === "KeyM")) return; // M mutes, it doesn't start a mission
   // Clicks start a mission only from its row or buttons; any other key starts the suggested one.
-  if (e.type === "click" && !target?.closest?.("[data-mission], [data-variant]")) return;
+  if (e.type === "click" && !(e.target as HTMLElement)?.closest?.("[data-mission], [data-variant]")) return;
   splash?.classList.add("hidden");
   renderer.domElement.focus();
   input.clearQueue();
   input.mouseSteering = false; // don't steer toward wherever the start click happened
   input.lostFocus = false;     // an alt-tab while on the splash shouldn't pause the new game
+  if (target?.closest?.('[data-mission="deck"]') || (e instanceof KeyboardEvent && e.code === "KeyK")) {
+    walkAboard();
+    return;
+  }
   const pick = missionFromEvent(e);
   if (pick.id !== "cruise") input.lockPointer(); // the Cruise leaves the mouse free
   if (isTouch) enterFullscreen();
@@ -119,6 +138,7 @@ function dismissSplash(e: Event) {
 // Hovering a card previews its ship and star system (desktop).
 for (const card of Array.from(document.querySelectorAll<HTMLElement>(".mission-card"))) {
   const id = card.dataset.mission as MissionId;
+  if (!(id in MISSIONS)) continue;   // the "walk the deck" row isn't a mission
   card.addEventListener("mouseenter", () => previewMission(id));
   card.addEventListener("focusin", () => previewMission(id));
 }
@@ -126,6 +146,7 @@ for (const card of Array.from(document.querySelectorAll<HTMLElement>(".mission-c
 /** Back to the mission select without reloading the page. */
 function openMissionSelect() {
   setHelp(false);
+  if (interiorActive()) exitInterior();
   G.paused = false;
   audio.setPaused(false);
   setPauseVisible(false);
@@ -158,11 +179,14 @@ splash?.addEventListener("click", dismissSplash);
 // --- Pause, help, mute, restart ---------------------------------------------------
 
 function setPaused(v: boolean) {
-  if (G.phase === "splash") return;
+  // On foot the phase is still "splash", but the pause menu is exactly what Esc
+  // should bring up — it's the only way back to the mission list from the deck.
+  if (G.phase === "splash" && !interiorActive()) return;
   G.paused = v;
   audio.setPaused(v);
   setPauseVisible(v && !G.helpOpen);
   if (v) input.unlockPointer();
+  else if (interiorActive()) { if (!isTouch) input.lockPointer(); }
   else if (wantsMouse()) input.lockPointer();
 }
 
@@ -186,6 +210,17 @@ const wantsMouse = () => !over() && G.phase !== "cruise";
 
 function handleGlobalActions() {
   if (input.take("mute")) toggleSound(true);
+  if (interiorActive()) {
+    input.lostFocus = false;   // losing focus on foot doesn't pause anything
+    if (input.take("help")) setHelp(!G.helpOpen);
+    if (input.take("pause")) {
+      if (G.helpOpen) setHelp(false);
+      // Esc closes the flight-ops menu first, then opens (or closes) the pause menu.
+      else if (interiorEscape() === "leave") setPaused(!G.paused);
+    }
+    if (G.paused) input.clearQueue();
+    return;
+  }
   if (G.phase === "splash") { input.clearQueue(); return; }
 
   if (input.lostFocus) {
@@ -252,6 +287,13 @@ for (const el of Array.from(document.querySelectorAll<HTMLElement>(".sound-toggl
   });
 }
 showSoundState(audio.muted);
+initInteriorUI();
+// Launching from the deck's flight ops console.
+setLaunchHandler((id, variant) => {
+  exitInterior();
+  input.lockPointer();
+  startMission(id, false, variant);
+});
 
 function showSteeringMode() {
   const aim = input.steering === "aim";
@@ -267,6 +309,14 @@ click("btn-steering", () => { input.toggleSteering(); showSteeringMode(); });
 // Browsers need a gesture before audio; any tap/click also unlocks it, and a
 // click on the game view recaptures the mouse if it was released.
 window.addEventListener("pointerdown", (e) => {
+  // On foot, a click always takes the mouse back (the browser drops pointer lock
+  // on Esc or alt-tab, and only a fresh gesture can ask for it again).
+  if (interiorActive()) {
+    audio.unlock();
+    input.lostFocus = false;
+    if (!(e.target as HTMLElement)?.closest?.("button, .modal")) input.lockPointer();
+    return;
+  }
   if (G.phase === "splash" || G.paused) return;
   audio.unlock();
   if (e.target === renderer.domElement && wantsMouse()) input.lockPointer();
@@ -340,6 +390,12 @@ function frame() {
   input.update();
   handleGlobalActions();
 
+  if (interiorActive()) {
+    if (!G.paused) updateInterior(realDt);
+    renderFrame();
+    input.clearQueue();
+    return;
+  }
   // Camera first, so the world (lens flare) and HUD use this frame's view.
   if (G.phase === "splash") {
     splashCamera(realDt);
@@ -372,7 +428,7 @@ frame();
 if (import.meta.env.DEV) {
   (window as unknown as { __game: unknown }).__game = {
     G, input, audio, renderer, startMission, scene, backScene, camera, backCamera, composer, updateCamera, syncBackCamera,
-    placeCamera, updateCockpit, cycleCruiseView, toggleView, currentShot, harrenShip,
+    placeCamera, updateCockpit, cycleCruiseView, toggleView, currentShot, harrenShip, walkTo, enterDeck, deckDebug, walkProbe, interiorTick,
     tick(seconds: number, beforeStep?: () => void) {
       for (let t = 0; t < seconds; t += 1 / 60) {
         input.update();

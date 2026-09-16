@@ -445,6 +445,43 @@
       body.touch[data-phase="combat"] #objective-hint { display: none; }
       body.touch .title-screen { touch-action: pan-y; }
 
+      /* ---------- On foot inside the Kessler ---------- */
+      #interior-ui { display: none; }
+      body.walking #interior-ui { display: block; }
+      body.walking { cursor: none; }
+      body.walking #hud, body.walking #overlay-canvas, body.walking #scanlines { display: none !important; }
+      #interior-reticle {
+        position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; z-index: 12;
+        border: 1px solid rgba(255, 255, 255, 0.75); border-radius: 50%; pointer-events: none;
+      }
+      #interior-prompt {
+        position: fixed; left: 50%; top: 56%; transform: translateX(-50%); z-index: 12; pointer-events: none;
+        padding: 6px 14px; border: 1px solid rgba(0, 255, 136, 0.5); background: rgba(0, 12, 8, 0.7);
+        font-family: 'Share Tech Mono', monospace; font-size: 15px; color: #d8fff0; opacity: 0; transition: opacity 0.15s;
+      }
+      #interior-prompt.visible { opacity: 1; }
+      #interior-prompt b { color: var(--warn); }
+      #interior-say {
+        position: fixed; left: 50%; bottom: calc(76px + var(--safe-b)); transform: translateX(-50%); z-index: 12;
+        max-width: min(720px, 86vw); text-align: center; font-family: 'Share Tech Mono', monospace; font-size: 15px;
+        color: #cfe8dd; text-shadow: 0 2px 10px #000; opacity: 0; transition: opacity 0.4s; pointer-events: none;
+      }
+      #interior-say.visible { opacity: 1; }
+      #interior-keys {
+        position: fixed; left: 50%; bottom: calc(22px + var(--safe-b)); transform: translateX(-50%); z-index: 12;
+        font-family: 'Share Tech Mono', monospace; font-size: 12px; color: rgba(200, 220, 212, 0.5); pointer-events: none;
+      }
+      #interior-keys kbd { border: 1px solid currentColor; border-radius: 3px; padding: 0 4px; }
+      #flight-menu { z-index: 330; }
+      #flight-menu .btn { width: min(360px, 80vw); }
+      /* On foot the pause menu is the way out: nothing to restart, no steering mode,
+         and the help menu shows walking keys instead of flight ones. */
+      .walk-only { display: none; }
+      body.walking #btn-restart,
+      body.walking #pause-overlay .btn-row.desktop-only,
+      body.walking #help-menu .help-section:not(.walk-only) { display: none; }
+      body.walking .walk-only { display: block; }
+
       /* ---------- Academy Days (GV-K707d) ---------- */
       body:not([data-mission="academy"]) .aca-only { display: none !important; }
       #drazzan-block { color: #ff5555; text-shadow: 0 0 8px rgba(255, 60, 60, 0.7); }
@@ -600,6 +637,10 @@
               <span class="m-best" id="best-chapter1"></span>
             </div>
           </li>
+          <li class="mission-card" data-mission="deck">
+            <div class="m-head"><h2 class="m-title">Aboard the Kessler</h2><span class="m-tag on">New</span><button class="m-alt">Walk the deck <kbd class="desktop-only">K</kbd></button></div>
+            <p class="m-log">Step onto the hangar deck: the Seagulls on their cradles, the crew's clutter, and the flight ops console you launch from. Bridge, mess and quarters to come.</p>
+          </li>
           <li class="mission-card" data-mission="cruise">
             <div class="m-head"><h2 class="m-title">Cruise</h2><button class="m-alt">Watch <kbd class="desktop-only">C</kbd></button></div>
             <p class="m-log">No pirates, no paperwork. The Seagull launches off the Kessler, loops out through the asteroid belt and comes home, then goes round again.</p>
@@ -620,6 +661,25 @@
           </div>
         </footer>
       </main>
+    </div>
+
+    <!-- Walking around inside the Kessler (interior/). -->
+    <div id="interior-ui">
+      <div id="interior-reticle"></div>
+      <div id="interior-prompt"></div>
+      <div id="interior-say"></div>
+      <div id="interior-keys" class="desktop-only"><kbd>W A S D</kbd> walk · <kbd>Shift</kbd> run · <kbd>Mouse</kbd> look · <kbd>E</kbd> use · <kbd>Esc</kbd> menu</div>
+      <div id="flight-menu" class="modal">
+        <h2>═══ FLIGHT OPS ═══</h2>
+        <div class="help-text" style="text-align:center;margin-bottom:14px">Cradle 2 · Seagull ready · Deck clear for launch</div>
+        <div class="btn-row" style="flex-direction:column;display:flex;align-items:center;gap:6px">
+          <button class="btn" data-flight="cruise:mission">PATROL LOOP (THE CRUISE)</button>
+          <button class="btn ghost" data-flight="prologue:landing">LANDING PRACTICE</button>
+          <button class="btn ghost" data-flight="prologue:free">FREE FLIGHT</button>
+          <button class="btn ghost" data-flight="prologue:mission">PROLOGUE: TESSICK-3</button>
+          <button class="btn ghost" data-flight="close:">STEP BACK</button>
+        </div>
+      </div>
     </div>
 
     <div id="rotate-hint" onclick="this.classList.add('dismissed')">
@@ -804,6 +864,14 @@
         <div class="help-row"><span class="help-key">P / Esc</span><span class="help-desc">Pause</span></div>
         <div class="help-row"><span class="help-key">M</span><span class="help-desc">Mute sound</span></div>
         <div class="help-row"><span class="help-key">R</span><span class="help-desc">Restart (when paused or after the mission)</span></div>
+      </div>
+      <div class="help-section walk-only">
+        <h3>On foot</h3>
+        <div class="help-row"><span class="help-key">W A S D</span><span class="help-desc">Walk (on a phone, the stick on the left)</span></div>
+        <div class="help-row"><span class="help-key">Shift</span><span class="help-desc">Run</span></div>
+        <div class="help-row"><span class="help-key">Mouse</span><span class="help-desc">Look around — click the view to take the mouse back if it's let go</span></div>
+        <div class="help-row"><span class="help-key">E / Enter</span><span class="help-desc">Use whatever you're looking at: a ship, a console, a door</span></div>
+        <div class="help-row"><span class="help-key">P / Esc</span><span class="help-desc">Pause — MISSIONS there leaves the ship for the title screen</span></div>
       </div>
       <div class="help-section touch-only">
         <h3>Touch controls</h3>
