@@ -8,6 +8,7 @@ import {
   createSky, createStars, createGasGiant, createSun, createEnvironment,
 } from "./backdrop";
 import { FRONTIER_LOOK, createFrontier, type Frontier } from "./world-frontier";
+import { createIndustrialStation, createRingStation } from "./models-stations";
 
 // The playable space around the combat area: lighting, landmarks, asteroid
 // belt and the drifting dust that sells the sense of speed. The far backdrop
@@ -53,60 +54,25 @@ export interface Landmark { obj: THREE.Object3D; label: string; color: string; }
 // ---------------------------------------------------------------------------
 // Landmarks from the original Lingering Systems map.
 
-function createStationAlpha() {
-  const g = new THREE.Group();
-  const sc = 3;
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(sc * 0.7, sc * 0.12, 24, 96),
-    new THREE.MeshStandardMaterial({ color: 0x9aaad8, roughness: 0.35, metalness: 0.8, emissive: 0x112244, emissiveIntensity: 0.4 })
-  );
-  ring.rotation.x = Math.PI / 2;
-  g.add(ring);
-  const hub = new THREE.Mesh(
-    new THREE.CylinderGeometry(sc * 0.15, sc * 0.15, sc * 0.9, 32),
-    new THREE.MeshStandardMaterial({ color: 0x7788aa, roughness: 0.4, metalness: 0.7 })
-  );
-  g.add(hub);
-  for (let i = 0; i < 4; i++) {
-    const spoke = new THREE.Mesh(
-      new THREE.CylinderGeometry(sc * 0.03, sc * 0.03, sc * 1.4, 8),
-      new THREE.MeshStandardMaterial({ color: 0x667799, roughness: 0.5, metalness: 0.7 })
-    );
-    spoke.rotation.z = Math.PI / 2;
-    spoke.rotation.y = (i / 4) * Math.PI;
-    g.add(spoke);
-  }
-  for (let i = 0; i < 16; i++) {
-    const a = (i / 16) * Math.PI * 2;
-    const light = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture, color: new THREE.Color(i % 2 ? 0x0088ff : 0x00ff88).multiplyScalar(3), blending: THREE.AdditiveBlending, depthWrite: false }));
-    light.scale.setScalar(sc * 0.12);
-    light.position.set(Math.cos(a) * sc * 0.7, 0, Math.sin(a) * sc * 0.7);
-    g.add(light);
-  }
-  g.position.set(-38, 7, -58);
-  g.rotation.set(0.4, 0, 0.25);
-  return g;
+/** Halvern Ring: the system's port, out past the belt. */
+function placeRingStation() {
+  const s = createRingStation();
+  s.root.position.set(-11, 3, -12);   // ~16 km out: past the fight, inside the belt
+  s.root.rotation.set(0.12, 0.5, 0.1);
+  s.root.scale.setScalar(1.45);       // ~4.9 km across
+  return s;
 }
 
-function createStationBeta() {
-  const g = new THREE.Group();
-  const sc = 5;
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(sc * 1.1, sc * 0.22, 32, 96),
-    new THREE.MeshStandardMaterial({ color: 0xaa8866, roughness: 0.35, metalness: 0.85, emissive: 0x443322, emissiveIntensity: 0.4 })
-  );
-  ring.rotation.x = Math.PI / 2;
-  g.add(ring);
-  const hub = new THREE.Mesh(
-    new THREE.CylinderGeometry(sc * 0.3, sc * 0.3, sc * 1.5, 48),
-    new THREE.MeshStandardMaterial({ color: 0x998877, roughness: 0.4, metalness: 0.8 })
-  );
-  hub.rotation.z = Math.PI / 2;
-  g.add(hub);
-  g.position.set(78, -12, 46);
-  g.rotation.set(0.2, 0.8, 0);
-  return g;
+/** Cawley Yards: the refinery and repair dock on the far side. */
+function placeYards() {
+  const y = createIndustrialStation();
+  y.position.set(15, -4, 12);         // ~20 km the other way
+  y.rotation.set(0.05, -0.8, -0.08);
+  y.scale.setScalar(1.35);            // ~5 km long
+  return y;
 }
+
+
 
 function createDerelict() {
   const g = new THREE.Group();
@@ -327,15 +293,15 @@ export function createWorld(): World {
   const hemi = new THREE.HemisphereLight(LINGERING_LOOK.hemi[0], LINGERING_LOOK.hemi[1], LINGERING_LOOK.hemi[2]);
   scene.add(hemi);
 
-  const stationAlpha = createStationAlpha();
-  const stationBeta = createStationBeta();
+  const halvern = placeRingStation();
+  const yards = placeYards();
   const derelict = createDerelict();
   const lingeringProps = new THREE.Group();
-  lingeringProps.add(stationAlpha, stationBeta, derelict, createDebrisField());
+  lingeringProps.add(halvern.root, yards, derelict, createDebrisField());
   scene.add(lingeringProps);
   const lingeringLandmarks: Landmark[] = [
-    { obj: stationAlpha, label: "ST1", color: "#ff6600" },
-    { obj: stationBeta, label: "ST2", color: "#ff8800" },
+    { obj: halvern.root, label: "HLV", color: "#ff8800" },
+    { obj: yards, label: "YRD", color: "#ff6600" },
     { obj: derelict, label: "DRL", color: "#888888" },
   ];
   const lingeringOccluder = { center: gasGiant.position, radius: PLANET_RADIUS };
@@ -412,8 +378,8 @@ export function createWorld(): World {
     update(dt, elapsed, playerVel) {
       time.value = elapsed;
       if (world.theme === "lingering") {
-        stationAlpha.rotateY(dt * 0.05);
-        stationBeta.rotateX(dt * 0.03);
+        halvern.ring.rotation.y += dt * 0.035;   // the habitat ring spins for gravity
+        yards.rotation.y += dt * 0.004;
         derelict.rotation.x += dt * 0.02;
         derelict.rotation.y += dt * 0.03;
       } else if (world.theme === "frontier" && frontier) {
