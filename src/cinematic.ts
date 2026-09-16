@@ -123,7 +123,7 @@ function situation(): Kind | null {
   if (d.state === "captured") return "hangar";
   if (d.state === "landed") return shot.kind === "deck" || (shot.kind === "hangar" && shot.t > 8) ? "deck" : "hangar";
   if (d.state === "launching") return "bow";
-  if (shot.kind === "bow" && p.z > BAY_LINE.bowZ - 1.4) return "bow";
+  if (shot.kind === "bow" && p.z > BAY_LINE.bowZ - 3.6) return "bow"; // hold while she clears the bow
   const behind = p.z - BAY_LINE.sternZ;
   if (G.autopilot && behind > 0 && behind < 1.5 && Math.abs(p.x - BAY_LINE.centre.x) < 0.3) return "stern";
   return null;
@@ -190,7 +190,7 @@ function cut(kind: Kind) {
     case "stern": kessler(-0.28, 0.1, 0.42, shot.pos); break;   // off the port quarter, behind the stern door
     case "hangar": kessler(0.06, 0.012, -0.2, shot.pos); break;   // inside, by the bow door, looking aft over Harren's cradle
     case "deck": kessler(-0.056, -0.036, -0.058, shot.pos); break; // low beside the cradle
-    case "bow": kessler(0.2, 0.06, -0.55, shot.pos); break;       // out ahead of the bow door, to starboard
+    case "bow": kessler(0.5, 0.14, -2.6, shot.pos); break;        // out ahead of the bow: she flies the length of the shot
     case "chase": snapChaseCamera(); break;
     default: break;
   }

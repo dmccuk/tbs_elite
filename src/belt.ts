@@ -33,7 +33,7 @@ interface FieldSpec {
 
 /** Clearance from the flight path to a rock's surface (km). Cameras stay closer than this. */
 export const CORRIDOR = 0.22;
-const KESSLER_CLEAR = 4;
+const KESSLER_CLEAR = 5.5; // she's nearly 2 km long: keep the rocks well off her
 
 const NEAR: FieldSpec = {
   perVariant: 150,

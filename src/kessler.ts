@@ -19,10 +19,15 @@ import { damagePlayer, setPlayerPose } from "./player";
 
 export const KESSLER_POS = new THREE.Vector3(3.5, 1.2, 31);
 
-/** Bay tunnel (local km): open at both ends. */
-const BAY = { x: 0.085, yTop: 0.03, yBot: -0.06, zBow: -0.27, zStern: 0.24 };
+/**
+ * Bay tunnel (local km): open at both ends and running the whole length of the
+ * ship, so landings stop on the cradles just inside the stern door and the
+ * catapult gets the full length of the hull as its run.
+ */
+const BAY = { x: 0.085, yTop: 0.03, yBot: -0.06, zBow: -1.45, zStern: 0.24 };
 const BAY_Y = (BAY.yTop + BAY.yBot) / 2;
-const HULL = { x: 0.15, yTop: 0.085, yBot: -0.08 };
+/** The core spine around the tunnel (modules and pods bolt on outside it). */
+const HULL = { x: 0.2, yTop: 0.11, yBot: -0.12 };
 /** Rough half-extents of a Seagull, for the tight fit inside the bay. */
 const SHIP = { x: 0.023, y: 0.01 };
 const CRADLE = new THREE.Vector3(0, BAY.yBot + 0.012, 0.0);
@@ -42,14 +47,17 @@ const box3 = (x0: number, y0: number, z0: number, x1: number, y1: number, z1: nu
 
 /** Solid parts of the ship for collisions (local), leaving the tunnel clear. */
 const SOLIDS: Box[] = [
-  box3(-HULL.x, BAY.yTop, BAY.zBow, HULL.x, HULL.yTop, BAY.zStern),        // upper hull
-  box3(-HULL.x, HULL.yBot, BAY.zBow, HULL.x, BAY.yBot, BAY.zStern),        // keel
+  box3(-HULL.x, BAY.yTop, BAY.zBow, HULL.x, HULL.yTop, BAY.zStern),        // hull above the tunnel
+  box3(-HULL.x, HULL.yBot, BAY.zBow, HULL.x, BAY.yBot, BAY.zStern),        // keel below it
   box3(-HULL.x, BAY.yBot, BAY.zBow, -BAY.x, BAY.yTop, BAY.zStern),         // port bay wall
   box3(BAY.x, BAY.yBot, BAY.zBow, HULL.x, BAY.yTop, BAY.zStern),           // starboard bay wall
-  box3(-0.1, 0.0, -0.37, 0.1, HULL.yTop, BAY.zBow),                         // nose, above the bow door
-  box3(-0.235, -0.04, 0.05, -0.15, 0.04, 0.26),                            // port engine
-  box3(0.15, -0.04, 0.05, 0.235, 0.04, 0.26),                              // starboard engine
-  box3(0.06, HULL.yTop, -0.02, 0.12, 0.14, 0.09),                          // bridge island
+  box3(-0.13, 0.0, BAY.zBow - 0.13, 0.13, 0.1, BAY.zBow),                  // bow cap, above the bow door
+  box3(-0.36, -0.07, 0.02, -0.2, 0.07, 0.38),                              // port engine cluster
+  box3(0.2, -0.07, 0.02, 0.36, 0.07, 0.38),                                // starboard engine cluster
+  box3(-0.18, HULL.yTop, -0.06, 0.18, 0.2, 0.2),                           // aft superstructure
+  box3(0.03, 0.2, 0.0, 0.17, 0.33, 0.14),                                  // bridge tower
+  box3(-0.32, -0.05, -1.05, -0.2, 0.07, -0.5),                             // port module pods
+  box3(0.2, -0.05, -1.05, 0.32, 0.07, -0.5),                               // starboard module pods
 ];
 
 // --- Model -------------------------------------------------------------------------
@@ -64,6 +72,10 @@ function canvasTex(w: number, h: number, draw: (c: CanvasRenderingContext2D) => 
   return t;
 }
 
+/** The landing deck by the stern door: cradles 1 and 2, centreline, chevrons at the door. */
+const DECK_LEN = 0.7;                    // km of deck the cradle markings cover
+const DECK_Z0 = BAY.zStern - DECK_LEN;   // forward end of the marked deck
+
 function deckTexture() {
   return canvasTex(256, 768, (x) => {
     x.fillStyle = "#2b2e33"; x.fillRect(0, 0, 256, 768);
@@ -74,17 +86,35 @@ function deckTexture() {
     x.fillStyle = "#e8b21c";
     for (let y = 8; y < 768; y += 40) x.fillRect(124, y, 8, 22);
     x.lineWidth = 6; x.strokeStyle = "#e8b21c";
-    const cradleY = (z: number) => ((z - BAY.zBow) / (BAY.zStern - BAY.zBow)) * 768;
-    for (const z of [CRADLE.z, CRADLE_2_Z]) x.strokeRect(70, cradleY(z) - 60, 116, 120);
+    const cradleY = (z: number) => ((z - DECK_Z0) / DECK_LEN) * 768;
+    for (const z of [CRADLE.z, CRADLE_2_Z]) x.strokeRect(70, cradleY(z) - 44, 116, 88);
     x.fillStyle = "#e8b21c"; x.font = "bold 34px sans-serif"; x.textAlign = "center";
     x.fillText("2", 128, cradleY(CRADLE.z) + 12);
     x.fillText("1", 128, cradleY(CRADLE_2_Z) + 12);
-    // Hazard chevrons at both doors.
-    for (const y0 of [0, 732]) for (let i = -2; i < 12; i++) {
+    // Hazard chevrons at the stern door.
+    for (let i = -2; i < 12; i++) {
       x.fillStyle = i % 2 ? "#e8b21c" : "#15130c";
-      x.beginPath(); x.moveTo(i * 24, y0); x.lineTo(i * 24 + 24, y0); x.lineTo(i * 24 + 60, y0 + 36); x.lineTo(i * 24 + 36, y0 + 36); x.fill();
+      x.beginPath(); x.moveTo(i * 24, 732); x.lineTo(i * 24 + 24, 732); x.lineTo(i * 24 + 60, 768); x.lineTo(i * 24 + 36, 768); x.fill();
     }
   });
+}
+
+/** Plain plated floor for the long run of tunnel forward of the deck (tiles along its length). */
+function tunnelFloorTexture(repeat: number) {
+  const t = canvasTex(128, 128, (x) => {
+    x.fillStyle = "#2a2d32"; x.fillRect(0, 0, 128, 128);
+    x.strokeStyle = "rgba(0,0,0,0.5)"; x.lineWidth = 2;
+    x.strokeRect(1, 1, 126, 126);
+    x.strokeRect(32, 0, 64, 128);
+    x.fillStyle = "rgba(232,178,28,0.75)";
+    x.fillRect(60, 10, 8, 44);
+    x.fillRect(60, 74, 8, 44);
+    x.fillStyle = "rgba(255,255,255,0.05)";
+    for (let i = 0; i < 40; i++) x.fillRect(Math.random() * 128, Math.random() * 128, 3, 2);
+  });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(1, repeat);
+  return t;
 }
 
 function nameTexture() {
@@ -96,6 +126,21 @@ function nameTexture() {
     x.fillText("KESSLER", 24, 60);
     x.font = "600 30px sans-serif";
     x.fillText("NINTH PATROL SQUADRON", 560, 64);
+  });
+}
+
+/** Big weathered hull number on the bow flanks. */
+function numberTexture() {
+  return canvasTex(256, 256, (x) => {
+    x.clearRect(0, 0, 256, 256);
+    x.fillStyle = "rgba(228,232,238,0.8)";
+    x.font = "900 190px 'Big Shoulders Stencil Display', Impact, sans-serif";
+    x.textAlign = "center";
+    x.textBaseline = "middle";
+    x.fillText("09", 128, 140);
+    // Scratched and worn through in places.
+    x.globalCompositeOperation = "destination-out";
+    for (let i = 0; i < 90; i++) x.fillRect(Math.random() * 256, Math.random() * 256, Math.random() * 30, Math.random() * 5);
   });
 }
 
@@ -126,7 +171,7 @@ let carrier: Carrier | null = null;
 export function createKesslerCarrier(): Carrier {
   if (carrier) return carrier;
   const g = new THREE.Group();
-  const hullTex = panelTextures({ base: "#5c6572", seam: "rgba(10,12,16,0.85)", variance: 0.2, grime: 0.9, windows: "#d8ecff", windowDensity: 0.05, repeat: [3, 1] });
+  const hullTex = panelTextures({ base: "#68707d", seam: "rgba(10,12,16,0.85)", variance: 0.24, grime: 1.1, windows: "#ffcf8a", windowDensity: 0.07, repeat: [3, 1] });
   const hull = new THREE.MeshStandardMaterial({ map: hullTex.map, emissiveMap: hullTex.emissiveMap, emissive: 0xffffff, emissiveIntensity: 1, roughness: 0.55, metalness: 0.75 });
   const plate = new THREE.MeshStandardMaterial({ color: 0x3d434d, roughness: 0.5, metalness: 0.8 });
   const bayWall = new THREE.MeshStandardMaterial({ color: 0x2a2d33, roughness: 0.7, metalness: 0.6 });
@@ -134,7 +179,8 @@ export function createKesslerCarrier(): Carrier {
   const hazard = new THREE.MeshStandardMaterial({ map: hazardTexture(), roughness: 0.6, metalness: 0.3, emissive: 0x2a1c00, emissiveIntensity: 0.6 });
   const lightStrip = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xfff0d0).multiplyScalar(1.1) });
   const lining = new THREE.MeshStandardMaterial({ color: 0x23262b, roughness: 0.85, metalness: 0.4 });
-  const windowBand = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xbfe0ff).multiplyScalar(1.7) });
+  const windowBand = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xffc878).multiplyScalar(1.5) }); // warm, lived-in
+  const bridgeGlass = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xbfe0ff).multiplyScalar(1.7) });
   const nozzle = new THREE.MeshBasicMaterial({ color: new THREE.Color(0x5aa0ff).multiplyScalar(1.4) });
 
   const add = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number) => {
@@ -149,55 +195,154 @@ export function createKesslerCarrier(): Carrier {
     return add(new THREE.BoxGeometry(s.x, s.y, s.z), mat, c.x, c.y, c.z);
   };
 
-  // Hull around the tunnel.
-  for (let i = 0; i < 4; i++) slab(SOLIDS[i], hull);
-  // Tapered nose above the bow door.
-  const nose = new THREE.CylinderGeometry(0.05, 0.11, 0.1, 4, 1);
-  nose.rotateY(Math.PI / 4); nose.rotateX(-Math.PI / 2); nose.scale(1.35, 0.55, 1);
-  add(nose, hull, 0, 0.045, -0.32);
-  // Chines, dorsal spine and a keel plate.
-  for (const side of [-1, 1]) add(new THREE.BoxGeometry(0.012, 0.03, 0.46), plate, side * 0.155, 0.02, -0.02);
-  add(new THREE.BoxGeometry(0.08, 0.014, 0.42), plate, -0.02, HULL.yTop + 0.007, -0.03);
-  add(new THREE.BoxGeometry(0.2, 0.01, 0.4), plate, 0, HULL.yBot - 0.005, 0);
-  // Bridge island to starboard, with a lit window band.
-  slab(SOLIDS[7], plate);
-  add(new THREE.BoxGeometry(0.062, 0.008, 0.002), windowBand, 0.09, 0.125, -0.021);
-  add(new THREE.BoxGeometry(0.004, 0.08, 0.004), plate, 0.1, 0.18, 0.05);
-  // Point-defence turrets.
-  for (const z of [-0.18, 0.16]) add(new THREE.CylinderGeometry(0.014, 0.018, 0.014, 10), plate, -0.05, HULL.yTop + 0.012, z);
-  // Engines flanking the stern door.
-  for (const side of [-1, 1]) {
-    const e = new THREE.CylinderGeometry(0.04, 0.046, 0.21, 16);
-    e.rotateX(Math.PI / 2);
-    add(e, plate, side * 0.192, 0, 0.155);
-    add(new THREE.CircleGeometry(0.034, 16), nozzle, side * 0.192, 0, 0.261);
-    const glow = glowSprite(0x66aaff, 0.11, 1.6);
-    glow.position.set(side * 0.192, 0, 0.275);
-    g.add(glow);
-    add(new THREE.BoxGeometry(0.03, 0.02, 0.12), plate, side * 0.165, 0, 0.14);
+  // --- Hull: a long industrial spine with cargo-style modules stacked along it ---
+  for (let i = 0; i < 4; i++) slab(SOLIDS[i], hull);   // the structure around the tunnel
+
+  // Deterministic "randomness", so she looks the same every time she's built.
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const between = (a: number, b: number) => a + (b - a) * rnd();
+  const box = (w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number) =>
+    add(new THREE.BoxGeometry(w, h, d), mat, x, y, z);
+
+  // Modules bolted along the spine, with exposed trusses in the gaps between them.
+  const modules: [number, number][] = [];
+  let z = BAY.zBow + 0.04;
+  while (z < BAY.zStern - 0.34) {
+    const len = Math.min(between(0.17, 0.27), BAY.zStern - 0.34 - z);
+    if (len < 0.08) break;
+    modules.push([z, z + len]);
+    z += len + between(0.025, 0.05);
   }
-  // Name stencil on both flanks.
-  const nameMat = new THREE.MeshBasicMaterial({ map: nameTexture(), transparent: true, depthWrite: false });
+  modules.forEach(([z0, z1], i) => {
+    const mid = (z0 + z1) / 2;
+    const len = z1 - z0;
+    // Deck-house block on top.
+    const topH = between(0.03, 0.075);
+    const topW = between(0.1, 0.17);
+    box(topW * 2, topH, len, hull, between(-0.02, 0.02), HULL.yTop + topH / 2, mid);
+    box(topW * 1.4, 0.006, len * 0.9, plate, 0, HULL.yTop + topH, mid);
+    // Containers along the flanks.
+    for (const side of [-1, 1]) {
+      const w = between(0.03, 0.1);
+      box(w, between(0.08, 0.13), len * between(0.7, 0.95), hull, side * (HULL.x + w / 2), between(-0.03, 0.02), mid);
+      // Lit window rows down the flank, and another under the deck-house overhang.
+      box(0.002, 0.004, len * 0.6, windowBand, side * (HULL.x + w + 0.001), between(0.0, 0.03), mid);
+      box(0.002, 0.003, len * 0.4, windowBand, side * (HULL.x + w + 0.001), between(-0.04, -0.02), mid + len * 0.15);
+      box(0.004, 0.005, len * 0.5, windowBand, side * (topW - 0.004), HULL.yTop + topH * 0.55, mid);
+    }
+    // Pods under the keel on some modules.
+    if (i % 2 === 0) {
+      const h = between(0.03, 0.06);
+      box(between(0.1, 0.18), h, len * 0.7, hull, between(-0.03, 0.03), HULL.yBot - h / 2, mid);
+    }
+    // Greebles: vents, tanks and crates on the deck-house.
+    for (let k = 0; k < 3; k++) {
+      const s = between(0.012, 0.03);
+      box(s, s * between(0.5, 1.4), s * between(1, 2.4), plate, between(-topW * 0.8, topW * 0.8), HULL.yTop + topH + s * 0.4, mid + between(-len * 0.4, len * 0.4));
+    }
+    // Trusses in the gap forward of this module.
+    if (i < modules.length - 1) {
+      const gap = modules[i + 1][0] - z1;
+      for (const side of [-1, 1]) for (const y of [HULL.yTop - 0.01, HULL.yBot + 0.01]) {
+        box(0.01, 0.01, gap, plate, side * (HULL.x - 0.02), y, z1 + gap / 2);
+      }
+      box(0.06, 0.012, gap, plate, 0, HULL.yTop + 0.01, z1 + gap / 2);
+    }
+  });
+
+  // Bow: a blunt industrial wedge over the launch door, with a ram plate and floods.
+  slab(SOLIDS[4], hull);
+  const wedge = new THREE.CylinderGeometry(0.06, 0.12, 0.12, 4, 1);
+  wedge.rotateY(Math.PI / 4); wedge.rotateX(-Math.PI / 2); wedge.scale(1.5, 0.5, 1);
+  add(wedge, hull, 0, 0.055, BAY.zBow - 0.17);
+  box(0.3, 0.02, 0.05, plate, 0, 0.055, BAY.zBow - 0.11);
   for (const side of [-1, 1]) {
-    const n = add(new THREE.PlaneGeometry(0.26, 0.032), nameMat, side * 0.1515, 0.058, -0.06);
-    n.rotation.y = side * Math.PI / 2;
+    box(0.03, 0.09, 0.1, hull, side * 0.155, -0.02, BAY.zBow - 0.06);
+    const flood = glowSprite(0xffd9a0, 0.03, 1.4);
+    flood.position.set(side * 0.1, 0.02, BAY.zBow - 0.13);
+    g.add(flood);
   }
 
-  // Bay interior: deck, ceiling light strips, wall ribs, cradles.
-  const floor = add(new THREE.PlaneGeometry(BAY.x * 2, BAY.zStern - BAY.zBow), deck, 0, BAY.yBot + 0.0006, (BAY.zStern + BAY.zBow) / 2);
-  floor.rotation.x = -Math.PI / 2;
-  // Dark lining over the walls and ceiling (the hull plating is for the outside).
+  // Aft: superstructure, bridge tower and masts (the tall end of the ship).
+  slab(SOLIDS[7], hull);
+  slab(SOLIDS[8], plate);
+  box(0.13, 0.008, 0.002, bridgeGlass, 0.1, 0.3, -0.001);    // bridge windows
+  box(0.002, 0.008, 0.13, bridgeGlass, 0.031, 0.3, 0.07);
+  box(0.26, 0.012, 0.1, plate, 0, 0.2, 0.06);                // superstructure roof
+  for (const [x, h] of [[0.1, 0.16], [0.14, 0.1], [-0.08, 0.12]] as const) {
+    box(0.004, h, 0.004, plate, x, 0.33 + h / 2, 0.07);       // masts
+    const beacon = glowSprite(0xff3322, 0.02, 3);
+    beacon.position.set(x, 0.33 + h, 0.07);
+    g.add(beacon);
+  }
+  // Radiator fins, angled off the aft flanks (thin and dark, not slabs).
+  for (const side of [-1, 1]) for (const zz of [-0.32, -0.16]) {
+    const fin = box(0.0015, 0.05, 0.11, bayWall, side * 0.25, 0.055, zz);
+    fin.rotation.z = side * 0.5;
+    box(0.02, 0.006, 0.11, plate, side * 0.225, 0.035, zz); // its mount
+  }
+  // Point-defence turrets along the spine.
+  for (const zz of [-1.1, -0.6, -0.1, 0.12]) add(new THREE.CylinderGeometry(0.01, 0.014, 0.012, 10), plate, zz > -0.4 ? -0.1 : 0.1, HULL.yTop + 0.01, zz);
+
+  // Engines: two clusters flanking the stern door, four nozzles in all.
+  for (const side of [-1, 1]) {
+    slab(side < 0 ? SOLIDS[5] : SOLIDS[6], hull);
+    for (const dy of [-0.035, 0.035]) {
+      const e = new THREE.CylinderGeometry(0.03, 0.036, 0.1, 14);
+      e.rotateX(Math.PI / 2);
+      add(e, plate, side * 0.28, dy, 0.33);
+      add(new THREE.CircleGeometry(0.027, 14), nozzle, side * 0.28, dy, 0.381);
+      const glow = glowSprite(0x66aaff, 0.1, 1.6);
+      glow.position.set(side * 0.28, dy, 0.395);
+      g.add(glow);
+    }
+    // Pylon joining the cluster to the hull.
+    box(0.09, 0.03, 0.18, plate, side * 0.235, 0, 0.2);
+  }
+  // Side pods amidships (they read as tankage from outside).
+  for (const side of [-1, 1]) {
+    slab(side < 0 ? SOLIDS[9] : SOLIDS[10], hull);
+    const tank = new THREE.CylinderGeometry(0.045, 0.045, 0.4, 12);
+    tank.rotateX(Math.PI / 2);
+    add(tank, plate, side * 0.26, 0.01, -0.78);
+  }
+
+  // Name stencil and hull number on both flanks.
+  const nameMat = new THREE.MeshBasicMaterial({ map: nameTexture(), transparent: true, depthWrite: false });
+  for (const side of [-1, 1]) {
+    const n = add(new THREE.PlaneGeometry(0.62, 0.077), nameMat, side * 0.201, 0.055, -0.42);
+    n.rotation.y = side * Math.PI / 2;
+    const num = add(new THREE.PlaneGeometry(0.12, 0.12), new THREE.MeshBasicMaterial({ map: numberTexture(), transparent: true, depthWrite: false }), side * 0.201, 0.02, -1.15);
+    num.rotation.y = side * Math.PI / 2;
+  }
+
+  // Bay interior: the marked landing deck aft, plain plating up the long tunnel.
   const len = BAY.zStern - BAY.zBow;
   const midZ = (BAY.zStern + BAY.zBow) / 2;
+  const deckMesh = add(new THREE.PlaneGeometry(BAY.x * 2, DECK_LEN), deck, 0, BAY.yBot + 0.0006, DECK_Z0 + DECK_LEN / 2);
+  deckMesh.rotation.x = -Math.PI / 2;
+  const runLen = DECK_Z0 - BAY.zBow;
+  const tunnelFloor = add(
+    new THREE.PlaneGeometry(BAY.x * 2, runLen),
+    new THREE.MeshStandardMaterial({ map: tunnelFloorTexture(Math.round(runLen / 0.09)), roughness: 0.85, metalness: 0.35 }),
+    0, BAY.yBot + 0.0006, BAY.zBow + runLen / 2,
+  );
+  tunnelFloor.rotation.x = -Math.PI / 2;
+  // Dark lining over the walls and ceiling (the hull plating is for the outside).
   for (const side of [-1, 1]) {
     const w = add(new THREE.PlaneGeometry(len, BAY.yTop - BAY.yBot), lining, side * (BAY.x - 0.0008), BAY_Y, midZ);
     w.rotation.y = -side * Math.PI / 2;
   }
   const ceiling = add(new THREE.PlaneGeometry(BAY.x * 2, len), lining, 0, BAY.yTop - 0.0008, midZ);
   ceiling.rotation.x = Math.PI / 2;
-  for (const x of [-0.045, 0.045]) add(new THREE.BoxGeometry(0.003, 0.0015, len - 0.06), lightStrip, x, BAY.yTop - 0.0025, -0.015);
-  for (let z = BAY.zBow + 0.04; z < BAY.zStern; z += 0.06) {
-    for (const side of [-1, 1]) add(new THREE.BoxGeometry(0.004, BAY.yTop - BAY.yBot, 0.008), bayWall, side * (BAY.x - 0.002), BAY_Y, z);
+  // Light strips run the length of the tunnel, in segments with dark gaps.
+  for (let s = BAY.zBow + 0.05; s < BAY.zStern - 0.05; s += 0.34) {
+    const segLen = Math.min(0.28, BAY.zStern - 0.05 - s);
+    for (const x of [-0.045, 0.045]) box(0.003, 0.0015, segLen, lightStrip, x, BAY.yTop - 0.0025, s + segLen / 2);
+  }
+  for (let rib = BAY.zBow + 0.05; rib < BAY.zStern; rib += 0.085) {
+    for (const side of [-1, 1]) box(0.004, BAY.yTop - BAY.yBot, 0.008, bayWall, side * (BAY.x - 0.002), BAY_Y, rib);
   }
   for (const z of [CRADLE.z, CRADLE_2_Z]) {
     for (const side of [-1, 1]) add(new THREE.BoxGeometry(0.005, 0.008, 0.07), plate, side * 0.03, BAY.yBot + 0.004, z);
@@ -218,10 +363,12 @@ export function createKesslerCarrier(): Carrier {
     bar(0.01, BAY.yTop - BAY.yBot, -BAY.x - 0.005, BAY_Y);
     bar(0.01, BAY.yTop - BAY.yBot, BAY.x + 0.005, BAY_Y);
   }
-  // A warm glow just inside the stern door so the opening reads from outside.
-  const bayGlow = glowSprite(0xffcc88, 0.09, 0.7);
-  bayGlow.position.set(0, BAY_Y, BAY.zStern - 0.03);
-  g.add(bayGlow);
+  // A warm glow just inside each door, so the openings read from outside.
+  for (const [zz, size] of [[BAY.zStern - 0.03, 0.09], [BAY.zBow + 0.03, 0.07]] as const) {
+    const bayGlow = glowSprite(0xffcc88, size, 0.7);
+    bayGlow.position.set(0, BAY_Y, zz);
+    g.add(bayGlow);
+  }
 
   // Runway lights along both deck edges, chasing toward the cradle.
   const runway: THREE.Sprite[] = [];
@@ -234,25 +381,32 @@ export function createKesslerCarrier(): Carrier {
     }
   }
 
-  // Nav lights and strobes.
-  const port = glowSprite(0xff2020, 0.03, 3);
-  port.position.set(-0.24, 0.02, 0.1);
-  const stbd = glowSprite(0x20ff60, 0.03, 3);
-  stbd.position.set(0.24, 0.02, 0.1);
+  // Nav lights, running lights down the spine, and strobes.
+  const port = glowSprite(0xff2020, 0.035, 3);
+  port.position.set(-0.33, 0.02, -0.7);
+  const stbd = glowSprite(0x20ff60, 0.035, 3);
+  stbd.position.set(0.33, 0.02, -0.7);
   g.add(port, stbd);
+  for (let zz = BAY.zBow + 0.06; zz < BAY.zStern; zz += 0.16) {
+    for (const side of [-1, 1]) {
+      const l = glowSprite(0xffd9a0, 0.016, 1.2);
+      l.position.set(side * (HULL.x + 0.005), HULL.yTop - 0.01, zz);
+      g.add(l);
+    }
+  }
   const strobes: THREE.Sprite[] = [];
-  for (const [x, y, z] of [[0.1, 0.23, 0.05], [0, HULL.yTop + 0.02, 0.24], [0, 0.06, -0.37]] as const) {
-    const s = glowSprite(0xffffff, 0.04, 3);
-    s.position.set(x, y, z);
+  for (const [x, y, zz] of [[0.1, 0.5, 0.07], [0, HULL.yTop + 0.06, 0.2], [0, 0.07, BAY.zBow - 0.14], [0, HULL.yBot - 0.05, -0.75]] as const) {
+    const s = glowSprite(0xffffff, 0.045, 3);
+    s.position.set(x, y, zz);
     g.add(s);
     strobes.push(s);
   }
 
   // The mag-clamp field: a faint blue glow filling the bay while it holds a ship.
   const field = add(
-    new THREE.BoxGeometry(BAY.x * 2 - 0.004, BAY.yTop - BAY.yBot - 0.004, BAY.zStern - BAY.zBow),
+    new THREE.BoxGeometry(BAY.x * 2 - 0.004, BAY.yTop - BAY.yBot - 0.004, DECK_LEN + 0.3),
     new THREE.MeshBasicMaterial({ color: 0x3aa0ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.BackSide }),
-    0, BAY_Y, (BAY.zStern + BAY.zBow) / 2,
+    0, BAY_Y, DECK_Z0 + (DECK_LEN - 0.3) / 2,
   );
   field.visible = false;
 

@@ -41,7 +41,7 @@ src/missions/chapter1.ts  Chapter 1 script: tutorial, ambush, combat events, car
 src/missions/prologue.ts  Prologue script: patrol tutorial, distress + burn, dogfight → runner → pursuit, surrender, results
 src/player.ts           Ship switching (MK-IV / Seagull), flight model, guns + aim assist, match speed, dodge, shields, collisions, chase camera
 src/missiles.ts         The Seagull's 4 wing missiles: seeker lock (nose-on for 1 s), launch from the wing rails, homing flight, callouts
-src/kessler.ts          The Kessler, a small carrier with a through-bay: model, solid hull/bay collisions, approach rings, mag-clamp arrestor, catapult
+src/kessler.ts          The Kessler: a ~1.9 km industrial carrier (modular spine, aft superstructure) with a hangar tunnel running her whole length — model, solid hull/bay collisions, approach rings, mag-clamp arrestor, catapult
 src/missions/landing.ts Prologue landing practice: start, guide prompt, deck report / scoring (uses kessler.ts)
 src/missions/academy.ts Academy Days (GV-K707d): countdown, silence, contacts, the power cut and its timeline, void / terminated results
 src/drazzan.ts          The Drazzan squadron: spawn from four vectors, pack AI (stalk / attack runs / pincers / break / blind / final), jinking, damage
